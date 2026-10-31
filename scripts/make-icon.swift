@@ -42,8 +42,7 @@ func drawIcon() -> NSImage {
         .draw(fromCenter: NSPoint(x: 300, y: 860), radius: 0, toCenter: NSPoint(x: 300, y: 860), radius: 560, options: [])
     NSGraphicsContext.restoreGraphicsState()
 
-    drawPlatter(center: NSPoint(x: 494, y: 530), radius: 306)
-    drawArm(pivot: NSPoint(x: 800, y: 232), head: NSPoint(x: 590, y: 452))
+    drawDisk(center: NSPoint(x: 500, y: 548), radius: 318, tilt: 0.6, thickness: 40)
 
     // Gloss along the top edge of the icon.
     NSGraphicsContext.saveGraphicsState()
@@ -55,30 +54,56 @@ func drawIcon() -> NSImage {
     return image
 }
 
-/// A hard-disk platter seen from above, with a disk-space ring around its rim.
-func drawPlatter(center c: NSPoint, radius r: CGFloat) {
+/// A hard-disk platter tilted back in perspective, with a raised disk-space ring and a read arm.
+func drawDisk(center c: NSPoint, radius r: CGFloat, tilt: CGFloat, thickness t: CGFloat) {
+    // Maps a point on the flat platter to the tilted view.
+    func project(_ p: NSPoint, lift: CGFloat = 0) -> NSPoint {
+        NSPoint(x: p.x, y: c.y + (p.y - c.y) * tilt + lift)
+    }
+    func ellipse(_ center: NSPoint, _ radius: CGFloat) -> NSBezierPath {
+        NSBezierPath(ovalIn: NSRect(x: center.x - radius, y: center.y - radius * tilt,
+                                    width: radius * 2, height: radius * 2 * tilt))
+    }
     func circle(_ radius: CGFloat) -> NSBezierPath {
         NSBezierPath(ovalIn: NSRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2))
     }
+    /// A short metal cylinder seen from the same angle: side wall from `base` up by `height`.
+    func cylinderSide(_ base: NSPoint, radius: CGFloat, height: CGFloat) -> NSBezierPath {
+        let side = ellipse(base, radius)
+        side.append(NSBezierPath(rect: NSRect(x: base.x - radius, y: base.y, width: radius * 2, height: height)))
+        return side
+    }
+    let metalSide = NSGradient(colors: [color(0x4B5265), color(0xA7AFBF), color(0xF3F5F9), color(0xB9C0CD), color(0x596074)],
+                               atLocations: [0, 0.25, 0.45, 0.7, 1], colorSpace: .sRGB)!
 
-    // Metal disc with a drop shadow.
-    let disc = circle(r)
+    // Platter edge, which also casts the shadow onto the background.
+    let edge = cylinderSide(NSPoint(x: c.x, y: c.y - t), radius: r, height: t)
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
-    shadow.shadowOffset = NSSize(width: 0, height: -16)
-    shadow.shadowBlurRadius = 30
+    shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+    shadow.shadowOffset = NSSize(width: 0, height: -34)
+    shadow.shadowBlurRadius = 40
     shadow.set()
-    color(0xC3CAD7).setFill()
-    disc.fill()
+    color(0x6E7789).setFill()
+    edge.fill()
     NSGraphicsContext.restoreGraphicsState()
+    metalSide.draw(in: edge, angle: 0)
 
+    // Top face, drawn flat and squashed into perspective.
+    NSGraphicsContext.saveGraphicsState()
+    let transform = NSAffineTransform()
+    transform.translateX(by: c.x, yBy: c.y)
+    transform.scaleX(by: 1, yBy: tilt)
+    transform.translateX(by: -c.x, yBy: -c.y)
+    transform.concat()
+
+    let disc = circle(r)
     NSGraphicsContext.saveGraphicsState()
     disc.addClip()
-    NSGradient(colors: [color(0xF4F6FA), color(0xD3D9E3), color(0xA9B1C1)],
-               atLocations: [0, 0.6, 1], colorSpace: .sRGB)!
-        .draw(fromCenter: NSPoint(x: c.x - r * 0.25, y: c.y + r * 0.3), radius: 0, toCenter: c, radius: r, options: [])
-    // Anisotropic sheen: soft light streaks radiating from the centre, as on a polished platter.
+    NSGradient(colors: [color(0xFAFBFD), color(0xD5DBE5), color(0xA2AABB)],
+               atLocations: [0, 0.55, 1], colorSpace: .sRGB)!
+        .draw(fromCenter: NSPoint(x: c.x - r * 0.3, y: c.y + r * 0.45), radius: 0, toCenter: c, radius: r * 1.05, options: [])
+    // Soft light streaks radiating from the centre, as on a polished platter.
     for (angle, white) in [(CGFloat(40), true), (220, true), (130, false), (310, false)] {
         for step in 0..<8 {
             let spread = 30 - CGFloat(step) * 3.5
@@ -86,119 +111,128 @@ func drawPlatter(center c: NSPoint, radius r: CGFloat) {
             wedge.move(to: c)
             wedge.appendArc(withCenter: c, radius: r, startAngle: angle - spread, endAngle: angle + spread)
             wedge.close()
-            (white ? NSColor.white.withAlphaComponent(0.07) : color(0x4A5266, 0.025)).setFill()
+            (white ? NSColor.white.withAlphaComponent(0.08) : color(0x4A5266, 0.03)).setFill()
             wedge.fill()
         }
     }
-    // Concentric tracks.
-    for track in stride(from: CGFloat(96), to: r - 70, by: 9) {
+    for track in stride(from: CGFloat(100), to: r - 76, by: 9) {
         let ring = circle(track)
         NSColor.black.withAlphaComponent(0.035).setStroke()
         ring.lineWidth = 1.5
         ring.stroke()
     }
     NSGraphicsContext.restoreGraphicsState()
-    let rim = circle(r - 3)
-    color(0x7C8599).setStroke()
-    rim.lineWidth = 6
-    rim.stroke()
-    let edge = circle(r - 8)
-    NSColor.white.withAlphaComponent(0.7).setStroke()
-    edge.lineWidth = 2
-    edge.stroke()
+    let lip = circle(r - 2)
+    NSColor.white.withAlphaComponent(0.9).setStroke()
+    lip.lineWidth = 4
+    lip.stroke()
 
-    // Disk-space ring: used space in the category colours, clockwise from the top, then free space.
-    let ringRadius = r - 42
-    let ringWidth: CGFloat = 54
-    let track = NSBezierPath()
-    track.appendArc(withCenter: c, radius: ringRadius, startAngle: 0, endAngle: 360)
-    track.lineWidth = ringWidth
-    color(0x262A40).setStroke()
-    track.stroke()
-
+    // Disk-space ring, raised off the platter: a darker wall first, then the top.
+    let ringRadius = r - 46
+    let ringWidth: CGFloat = 58
+    let wall = 14 / tilt
     let segments: [(CGFloat, UInt32)] = [
         (0.24, 0xFF6B7A), (0.15, 0xFFB547), (0.12, 0x3FD6A6), (0.11, 0x4DB8FF), (0.08, 0xA88BFF),
     ]
+    let used = segments.reduce(0) { $0 + $1.0 }
+    func arc(_ from: CGFloat, _ to: CGFloat, dy: CGFloat = 0, radius: CGFloat? = nil, width: CGFloat = ringWidth) -> NSBezierPath {
+        let path = NSBezierPath()
+        path.appendArc(withCenter: NSPoint(x: c.x, y: c.y + dy), radius: radius ?? ringRadius,
+                       startAngle: from, endAngle: to, clockwise: true)
+        path.lineWidth = width
+        return path
+    }
     let gap: CGFloat = 3
+    for dy in Array(stride(from: -wall, to: 0, by: 2)) + [0] {
+        let top = dy == 0
+        color(top ? 0x2A2E45 : 0x15182A).setStroke()
+        arc(90 - used * 360, 90 - 360, dy: dy).stroke()
+        var angle: CGFloat = 90
+        for (fraction, hex) in segments {
+            let end = angle - fraction * 360
+            (top ? color(hex) : color(hex).blended(withFraction: 0.4, of: .black)!).setStroke()
+            arc(angle - gap / 2, end + gap / 2, dy: dy).stroke()
+            angle = end
+        }
+    }
     var angle: CGFloat = 90
     for (fraction, hex) in segments {
         let end = angle - fraction * 360
-        let arc = NSBezierPath()
-        arc.appendArc(withCenter: c, radius: ringRadius, startAngle: angle - gap / 2, endAngle: end + gap / 2, clockwise: true)
-        arc.lineWidth = ringWidth
-        color(hex).setStroke()
-        arc.stroke()
-        // Brighter outer edge for a glassy look.
-        let shine = NSBezierPath()
-        shine.appendArc(withCenter: c, radius: ringRadius + ringWidth * 0.3, startAngle: angle - gap / 2, endAngle: end + gap / 2, clockwise: true)
-        shine.lineWidth = ringWidth * 0.25
-        lighter(color(hex), 0.35).setStroke()
-        shine.stroke()
+        lighter(color(hex), 0.4).setStroke()
+        arc(angle - gap / 2, end + gap / 2, radius: ringRadius + ringWidth * 0.32, width: ringWidth * 0.22).stroke()
         angle = end
     }
-
-    // The space you get back, at the start of the free arc.
-    let sparkleAngle = (angle - 40) * .pi / 180
-    drawSparkle(center: NSPoint(x: c.x + ringRadius * cos(sparkleAngle), y: c.y + ringRadius * sin(sparkleAngle)), radius: 38)
-
-    // Spindle hub.
-    let hub = circle(78)
-    NSGraphicsContext.saveGraphicsState()
-    let hubShadow = NSShadow()
-    hubShadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
-    hubShadow.shadowOffset = NSSize(width: 0, height: -4)
-    hubShadow.shadowBlurRadius = 10
-    hubShadow.set()
-    color(0xDCE1EA).setFill()
-    hub.fill()
     NSGraphicsContext.restoreGraphicsState()
-    NSGradient(starting: color(0xFFFFFF), ending: color(0xA3ABBB))!.draw(in: hub, angle: -60)
+
+    // The space you get back, in the free part of the ring (drawn upright, not squashed).
+    let sparkleAngle = (90 - used * 360 - 40) * .pi / 180
+    drawSparkle(center: project(NSPoint(x: c.x + ringRadius * cos(sparkleAngle), y: c.y + ringRadius * sin(sparkleAngle))),
+                radius: 40)
+
+    // Raised spindle hub.
+    let hubHeight: CGFloat = 26
+    metalSide.draw(in: cylinderSide(c, radius: 82, height: hubHeight), angle: 0)
+    let hubTop = NSPoint(x: c.x, y: c.y + hubHeight)
+    NSGradient(starting: color(0xFFFFFF), ending: color(0xAEB6C5))!.draw(in: ellipse(hubTop, 82), angle: -70)
     for i in 0..<6 {
         let a = CGFloat(i) * .pi / 3 + .pi / 6
-        let screw = NSRect(x: c.x + 52 * cos(a) - 7, y: c.y + 52 * sin(a) - 7, width: 14, height: 14)
-        NSGradient(starting: color(0x8A93A6), ending: color(0xE9EDF3))!.draw(in: NSBezierPath(ovalIn: screw), angle: 90)
+        let dot = NSPoint(x: hubTop.x + 56 * cos(a), y: hubTop.y + 56 * sin(a) * tilt)
+        NSGradient(starting: color(0x7D869A), ending: color(0xE9EDF3))!
+            .draw(in: NSBezierPath(ovalIn: NSRect(x: dot.x - 8, y: dot.y - 6, width: 16, height: 12)), angle: 90)
     }
-    NSGradient(starting: color(0x3A4054), ending: color(0x1E2233))!.draw(in: circle(24), angle: -90)
-}
+    NSGradient(starting: color(0x3A4054), ending: color(0x14172A))!.draw(in: ellipse(hubTop, 26), angle: -90)
 
-/// The read/write arm, from its pivot to the head resting on the platter.
-func drawArm(pivot: NSPoint, head: NSPoint) {
+    // Read/write arm on a bearing at the bottom right, floating above the platter.
+    let bearing = NSPoint(x: 812, y: 236)
+    let bearingHeight: CGFloat = 56
+    let armLift: CGFloat = 50
+    let pivot = NSPoint(x: bearing.x, y: bearing.y + bearingHeight)
+    let headOnDisk = project(NSPoint(x: c.x + 118, y: c.y - 140))
+    let head = NSPoint(x: headOnDisk.x, y: headOnDisk.y + armLift)
+
+    // Shadow of the arm on the platter.
     NSGraphicsContext.saveGraphicsState()
-    let shadow = NSShadow()
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.4)
-    shadow.shadowOffset = NSSize(width: 6, height: -10)
-    shadow.shadowBlurRadius = 14
-    shadow.set()
-
-    let arm = NSBezierPath()
-    arm.move(to: pivot)
-    arm.line(to: head)
-    arm.lineWidth = 30
-    arm.lineCapStyle = .round
-    color(0xB7BFCD).setStroke()
-    arm.stroke()
-
-    let headRect = NSRect(x: head.x - 24, y: head.y - 24, width: 48, height: 48)
-    color(0xC9D0DC).setFill()
-    NSBezierPath(roundedRect: headRect, xRadius: 12, yRadius: 12).fill()
-
-    let base = NSRect(x: pivot.x - 50, y: pivot.y - 50, width: 100, height: 100)
-    color(0xC9D0DC).setFill()
-    NSBezierPath(ovalIn: base).fill()
+    let armShadow = NSShadow()
+    armShadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+    armShadow.shadowBlurRadius = 14
+    armShadow.shadowOffset = .zero
+    armShadow.set()
+    let shadowPath = NSBezierPath()
+    shadowPath.move(to: NSPoint(x: bearing.x - 10, y: bearing.y + 6))
+    shadowPath.line(to: NSPoint(x: headOnDisk.x + 18, y: headOnDisk.y - 20))
+    shadowPath.lineWidth = 24
+    shadowPath.lineCapStyle = .round
+    NSColor.black.withAlphaComponent(0.22).setStroke()
+    shadowPath.stroke()
     NSGraphicsContext.restoreGraphicsState()
 
-    // Metal finish on top of the shadowed shapes.
-    let highlight = NSBezierPath()
-    highlight.move(to: NSPoint(x: pivot.x - 4, y: pivot.y + 6))
-    highlight.line(to: NSPoint(x: head.x - 4, y: head.y + 6))
-    highlight.lineWidth = 10
-    highlight.lineCapStyle = .round
-    NSColor.white.withAlphaComponent(0.6).setStroke()
-    highlight.stroke()
-    NSGradient(starting: color(0xFFFFFF), ending: color(0x9EA7B8))!
-        .draw(in: NSBezierPath(ovalIn: NSRect(x: pivot.x - 50, y: pivot.y - 50, width: 100, height: 100)), angle: -60)
-    NSGradient(starting: color(0x3A4054), ending: color(0x1E2233))!
-        .draw(in: NSBezierPath(ovalIn: NSRect(x: pivot.x - 18, y: pivot.y - 18, width: 36, height: 36)), angle: -90)
+    // Bearing: a short cylinder.
+    NSGraphicsContext.saveGraphicsState()
+    let bearingShadow = NSShadow()
+    bearingShadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
+    bearingShadow.shadowOffset = NSSize(width: 0, height: -14)
+    bearingShadow.shadowBlurRadius = 18
+    bearingShadow.set()
+    color(0x7D869A).setFill()
+    cylinderSide(bearing, radius: 58, height: bearingHeight).fill()
+    NSGraphicsContext.restoreGraphicsState()
+    metalSide.draw(in: cylinderSide(bearing, radius: 58, height: bearingHeight), angle: 0)
+    NSGradient(starting: color(0xFFFFFF), ending: color(0xA3ABBB))!.draw(in: ellipse(pivot, 58), angle: -70)
+
+    // Arm: a dark underside and a bright top give it a rounded, metal look.
+    for (width, hex, dy) in [(CGFloat(34), UInt32(0x5D6578), CGFloat(-6)), (30, 0xC4CBD8, 0), (12, 0xFFFFFF, 6)] {
+        let arm = NSBezierPath()
+        arm.move(to: NSPoint(x: pivot.x, y: pivot.y + dy))
+        arm.line(to: NSPoint(x: head.x, y: head.y + dy))
+        arm.lineWidth = width
+        arm.lineCapStyle = .round
+        (hex == 0xFFFFFF ? NSColor.white.withAlphaComponent(0.75) : color(hex)).setStroke()
+        arm.stroke()
+    }
+    let headRect = NSRect(x: head.x - 28, y: head.y - 20, width: 56, height: 40)
+    NSGradient(starting: color(0xEEF1F6), ending: color(0x8C95A8))!
+        .draw(in: NSBezierPath(roundedRect: headRect, xRadius: 12, yRadius: 12), angle: -90)
+    NSGradient(starting: color(0x3A4054), ending: color(0x14172A))!.draw(in: ellipse(pivot, 22), angle: -90)
 }
 
 func drawSparkle(center: NSPoint, radius r: CGFloat) {
