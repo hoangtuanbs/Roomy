@@ -63,3 +63,13 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 | `scripts/build-app.sh` | Builds and signs the app bundle. |
 | `scripts/make-icon.swift` | Draws the app icon and writes `Resources/AppIcon.icns`. |
 | `.github/workflows` | Build on every push, and versioned releases. |
+
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+## Author
+
+- hoangtuanbs
+- DanaExperts Co. Ltd.
+- DanaExperts Finland Oy

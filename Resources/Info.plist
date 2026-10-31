@@ -16,6 +16,7 @@
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key><string>Copyright © 2026 hoangtuanbs, DanaExperts Co. Ltd. and DanaExperts Finland Oy. MIT License.</string>
     <key>NSDesktopFolderUsageDescription</key><string>Roomy measures file sizes on your Desktop so you can see what uses space.</string>
     <key>NSDocumentsFolderUsageDescription</key><string>Roomy measures file sizes in Documents so you can see what uses space.</string>
     <key>NSDownloadsFolderUsageDescription</key><string>Roomy measures file sizes in Downloads so you can see what uses space.</string>

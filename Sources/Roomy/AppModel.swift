@@ -101,6 +101,19 @@ final class AppModel {
         }
         // Developer option for the README screenshot: `--snapshot <file.png>` (with --scan) waits for the
         // scan, ticks the two largest items, saves the window as a PNG and quits. Nothing is moved or changed.
+        // `--snapshot-about <file.png>` does the same for the About panel.
+        if let i = args.firstIndex(of: "--snapshot-about"), i + 1 < args.count {
+            let output = (args[i + 1] as NSString).expandingTildeInPath
+            Task {
+                try? await Task.sleep(for: .seconds(1))
+                About.show()
+                try? await Task.sleep(for: .seconds(1))
+                if let panel = NSApplication.shared.windows.first(where: { $0.isVisible && $0 is NSPanel }) {
+                    Self.saveSnapshot(of: panel, to: output)
+                }
+                NSApplication.shared.terminate(nil)
+            }
+        }
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             let output = (args[i + 1] as NSString).expandingTildeInPath
             Task { [weak self] in
@@ -109,14 +122,15 @@ final class AppModel {
                 NSApplication.shared.appearance = NSAppearance(named: .aqua)
                 for node in tree.children(ScanTree.root).prefix(2) { self.toggleBasket(node) }
                 try? await Task.sleep(for: .seconds(2))
-                Self.saveWindowSnapshot(to: output)
+                if let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.contentView != nil }) {
+                    Self.saveSnapshot(of: window, to: output)
+                }
                 NSApplication.shared.terminate(nil)
             }
         }
     }
 
-    private static func saveWindowSnapshot(to path: String) {
-        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+    private static func saveSnapshot(of window: NSWindow, to path: String) {
         let rep: NSBitmapImageRep
         // CGWindowListCreateImage is hidden from Swift in newer SDKs but still works for the app's own window,
         // and unlike cacheDisplay it includes the sidebar and toolbar materials.

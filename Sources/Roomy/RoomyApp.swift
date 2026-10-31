@@ -14,6 +14,9 @@ struct RoomyApp: App {
         }
         .defaultSize(width: 1280, height: 800)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Roomy") { About.show() }
+            }
             CommandGroup(after: .newItem) {
                 Button("Choose Folder…") { model.chooseFolder() }
                     .keyboardShortcut("o")
