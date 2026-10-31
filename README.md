@@ -69,6 +69,16 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 Choose **Help → Email Us…** in the app, or write to [hoangtuanbs@proton.me](mailto:hoangtuanbs@proton.me).
 Bugs and ideas are also welcome as [GitHub issues](https://github.com/hoangtuanbs/Roomy/issues).
 
+## Support the project
+
+Roomy is free. If it helped you, you can donate in Ethereum (also in the app under **Help → Donate…**):
+
+<img src="docs/donate-qr.png" width="180" alt="QR code for the Ethereum donation address">
+
+`0xF8352b493e7750C03bde4bdA94A203B010933735`
+
+Ethereum (ETH) address. Please double-check the address in your wallet before sending.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

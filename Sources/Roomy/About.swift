@@ -93,7 +93,8 @@ enum About {
         text.append(NSAttributedString(string: "github.com/hoangtuanbs/Roomy\n\n", attributes: link))
         // Plain text: a mailto link here would go to the default handler, which may be a browser that ignores it.
         // Help > Email Us… picks a real mail app.
-        text.append(NSAttributedString(string: "Help: \(supportEmail)", attributes: body))
+        text.append(NSAttributedString(string: "Help: \(supportEmail)\n", attributes: body))
+        text.append(NSAttributedString(string: "Donate: Help → Donate…", attributes: body))
         return text
     }
 }

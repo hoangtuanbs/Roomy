@@ -17,10 +17,7 @@ struct RoomyApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("About Roomy") { About.show() }
             }
-            CommandGroup(replacing: .help) {
-                Button("Email Us…") { About.emailSupport() }
-                Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
-            }
+            HelpCommands()
             CommandGroup(after: .newItem) {
                 Button("Choose Folder…") { model.chooseFolder() }
                     .keyboardShortcut("o")
@@ -32,6 +29,24 @@ struct RoomyApp: App {
                 Button("Enclosing Folder") { model.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
             }
+        }
+
+        Window("Donate", id: "donate") {
+            DonateView()
+        }
+        .windowResizability(.contentSize)
+    }
+}
+
+struct HelpCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Email Us…") { About.emailSupport() }
+            Button("Donate…") { openWindow(id: "donate") }
+            Divider()
+            Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
         }
     }
 }

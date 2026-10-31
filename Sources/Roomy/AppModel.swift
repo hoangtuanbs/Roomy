@@ -114,6 +114,19 @@ final class AppModel {
                 NSApplication.shared.terminate(nil)
             }
         }
+        // `--snapshot-donate <file.png>` does the same for the Donate window.
+        if let i = args.firstIndex(of: "--snapshot-donate"), i + 1 < args.count {
+            let output = (args[i + 1] as NSString).expandingTildeInPath
+            Task {
+                try? await Task.sleep(for: .seconds(1))
+                let window = NSWindow(contentViewController: NSHostingController(rootView: DonateView()))
+                window.title = "Donate"
+                window.makeKeyAndOrderFront(nil)
+                try? await Task.sleep(for: .seconds(1))
+                Self.saveSnapshot(of: window, to: output)
+                NSApplication.shared.terminate(nil)
+            }
+        }
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             let output = (args[i + 1] as NSString).expandingTildeInPath
             Task { [weak self] in
