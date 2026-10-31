@@ -4,6 +4,10 @@
 
 A macOS app that shows what is using space on your disk and helps you free it up safely.
 
+![Roomy main view](docs/screenshot.png)
+
+*Folders sorted by size on the left and a treemap of the same folder on the right, with two items ticked for cleanup.*
+
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **Clean up** by ticking items and choosing **Review and Clean…**. Items go to the Trash, so Put Back still works.
@@ -45,6 +49,9 @@ git tag v1.0.0 && git push origin v1.0.0
 ```
 
 Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a version number.
+
+`build/Roomy.app/Contents/MacOS/Roomy --scan <folder>` opens Roomy already scanning a folder. Adding
+`--snapshot <file.png>` saves the window as an image and quits, which is how `docs/screenshot.png` is made.
 
 ## Layout
 

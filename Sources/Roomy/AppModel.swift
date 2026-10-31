@@ -92,6 +92,47 @@ final class AppModel {
         refreshLocations()
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
+
+        // `Roomy --scan <folder>` starts scanning that folder right away.
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--scan"), i + 1 < args.count {
+            showOnboarding = false
+            scan(path: (args[i + 1] as NSString).expandingTildeInPath)
+        }
+        // Developer option for the README screenshot: `--snapshot <file.png>` (with --scan) waits for the
+        // scan, ticks the two largest items, saves the window as a PNG and quits. Nothing is moved or changed.
+        if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
+            let output = (args[i + 1] as NSString).expandingTildeInPath
+            Task { [weak self] in
+                while let self, self.state.isScanning { try? await Task.sleep(for: .milliseconds(200)) }
+                guard let self, let tree = self.tree else { return }
+                NSApplication.shared.appearance = NSAppearance(named: .aqua)
+                for node in tree.children(ScanTree.root).prefix(2) { self.toggleBasket(node) }
+                try? await Task.sleep(for: .seconds(2))
+                Self.saveWindowSnapshot(to: output)
+                NSApplication.shared.terminate(nil)
+            }
+        }
+    }
+
+    private static func saveWindowSnapshot(to path: String) {
+        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+        let rep: NSBitmapImageRep
+        // CGWindowListCreateImage is hidden from Swift in newer SDKs but still works for the app's own window,
+        // and unlike cacheDisplay it includes the sidebar and toolbar materials.
+        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
+        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage"),
+           let image = unsafeBitCast(symbol, to: CreateImage.self)(
+               .null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]
+           )?.takeRetainedValue() {
+            rep = NSBitmapImageRep(cgImage: image)
+        } else {
+            guard let frameView = window.contentView?.superview,
+                  let cached = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return }
+            frameView.cacheDisplay(in: frameView.bounds, to: cached)
+            rep = cached
+        }
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 
     func refreshLocations() {
