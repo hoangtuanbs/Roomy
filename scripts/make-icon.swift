@@ -42,13 +42,8 @@ func drawIcon() -> NSImage {
         .draw(fromCenter: NSPoint(x: 300, y: 860), radius: 0, toCenter: NSPoint(x: 300, y: 860), radius: 560, options: [])
     NSGraphicsContext.restoreGraphicsState()
 
-    // A few treemap tiles above the drive: what fills the disk.
-    let tiles: [(CGFloat, CGFloat, UInt32)] = [(232, 248, 0xFF6B7A), (500, 164, 0xFFB547), (684, 108, 0x3FD6A6)]
-    for (x, width, hex) in tiles {
-        drawTile(NSRect(x: x, y: 640, width: width, height: 150), color(hex), radius: 30)
-    }
-
-    drawHardDisk(in: NSRect(x: 192, y: 262, width: 640, height: 300))
+    drawPlatter(center: NSPoint(x: 494, y: 530), radius: 306)
+    drawArm(pivot: NSPoint(x: 800, y: 232), head: NSPoint(x: 590, y: 452))
 
     // Gloss along the top edge of the icon.
     NSGraphicsContext.saveGraphicsState()
@@ -60,112 +55,150 @@ func drawIcon() -> NSImage {
     return image
 }
 
-func drawTile(_ rect: NSRect, _ base: NSColor, radius: CGFloat) {
-    let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
-    NSGraphicsContext.saveGraphicsState()
-    let shadow = NSShadow()
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
-    shadow.shadowOffset = NSSize(width: 0, height: -5)
-    shadow.shadowBlurRadius = 10
-    shadow.set()
-    base.setFill()
-    path.fill()
-    NSGraphicsContext.restoreGraphicsState()
+/// A hard-disk platter seen from above, with a disk-space ring around its rim.
+func drawPlatter(center c: NSPoint, radius r: CGFloat) {
+    func circle(_ radius: CGFloat) -> NSBezierPath {
+        NSBezierPath(ovalIn: NSRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2))
+    }
 
-    NSGraphicsContext.saveGraphicsState()
-    path.addClip()
-    NSGradient(starting: lighter(base, 0.25), ending: base)!.draw(in: rect, angle: -90)
-    NSGraphicsContext.restoreGraphicsState()
-}
-
-/// A silver drive seen slightly from the front, with a disk-space bar and an activity light.
-func drawHardDisk(in rect: NSRect) {
-    let radius: CGFloat = 54
-    let depth: CGFloat = 30
-
-    // Underside, visible below the front face, with the drop shadow.
-    let under = NSBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: -depth), xRadius: radius, yRadius: radius)
+    // Metal disc with a drop shadow.
+    let disc = circle(r)
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
     shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
     shadow.shadowOffset = NSSize(width: 0, height: -16)
     shadow.shadowBlurRadius = 30
     shadow.set()
-    color(0x6E7789).setFill()
-    under.fill()
-    NSGraphicsContext.restoreGraphicsState()
-    NSGraphicsContext.saveGraphicsState()
-    under.addClip()
-    NSGradient(starting: color(0x8A93A6), ending: color(0x555D6E))!.draw(in: rect.offsetBy(dx: 0, dy: -depth), angle: -90)
+    color(0xC3CAD7).setFill()
+    disc.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    // Brushed aluminium front face.
-    let face = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
     NSGraphicsContext.saveGraphicsState()
-    face.addClip()
-    NSGradient(colors: [color(0xFBFCFE), color(0xE1E6EE), color(0xC3CAD7)],
-               atLocations: [0, 0.5, 1], colorSpace: .sRGB)!.draw(in: rect, angle: -90)
-    for i in stride(from: 0, to: Int(rect.height), by: 5) {
-        NSColor.white.withAlphaComponent(i % 10 == 0 ? 0.07 : 0.03).setFill()
-        NSRect(x: rect.minX, y: rect.minY + CGFloat(i), width: rect.width, height: 2).fill()
+    disc.addClip()
+    NSGradient(colors: [color(0xF4F6FA), color(0xD3D9E3), color(0xA9B1C1)],
+               atLocations: [0, 0.6, 1], colorSpace: .sRGB)!
+        .draw(fromCenter: NSPoint(x: c.x - r * 0.25, y: c.y + r * 0.3), radius: 0, toCenter: c, radius: r, options: [])
+    // Anisotropic sheen: soft light streaks radiating from the centre, as on a polished platter.
+    for (angle, white) in [(CGFloat(40), true), (220, true), (130, false), (310, false)] {
+        for step in 0..<8 {
+            let spread = 30 - CGFloat(step) * 3.5
+            let wedge = NSBezierPath()
+            wedge.move(to: c)
+            wedge.appendArc(withCenter: c, radius: r, startAngle: angle - spread, endAngle: angle + spread)
+            wedge.close()
+            (white ? NSColor.white.withAlphaComponent(0.07) : color(0x4A5266, 0.025)).setFill()
+            wedge.fill()
+        }
+    }
+    // Concentric tracks.
+    for track in stride(from: CGFloat(96), to: r - 70, by: 9) {
+        let ring = circle(track)
+        NSColor.black.withAlphaComponent(0.035).setStroke()
+        ring.lineWidth = 1.5
+        ring.stroke()
     }
     NSGraphicsContext.restoreGraphicsState()
-    let bevel = NSBezierPath(roundedRect: rect.insetBy(dx: 2, dy: 2), xRadius: radius - 2, yRadius: radius - 2)
-    NSColor.white.setStroke()
-    bevel.lineWidth = 4
-    bevel.stroke()
+    let rim = circle(r - 3)
+    color(0x7C8599).setStroke()
+    rim.lineWidth = 6
+    rim.stroke()
+    let edge = circle(r - 8)
+    NSColor.white.withAlphaComponent(0.7).setStroke()
+    edge.lineWidth = 2
+    edge.stroke()
 
-    // Disk-space bar: used space in the category colours, then free space.
-    let bar = NSRect(x: rect.minX + 56, y: rect.midY - 44, width: rect.width - 188, height: 88)
-    let track = NSBezierPath(roundedRect: bar, xRadius: 44, yRadius: 44)
-    NSGraphicsContext.saveGraphicsState()
-    let inset = NSShadow()
-    inset.shadowColor = NSColor.white.withAlphaComponent(0.9)
-    inset.shadowOffset = NSSize(width: 0, height: -3)
-    inset.shadowBlurRadius = 0
-    inset.set()
-    color(0x262A40).setFill()
-    track.fill()
-    NSGraphicsContext.restoreGraphicsState()
+    // Disk-space ring: used space in the category colours, clockwise from the top, then free space.
+    let ringRadius = r - 42
+    let ringWidth: CGFloat = 54
+    let track = NSBezierPath()
+    track.appendArc(withCenter: c, radius: ringRadius, startAngle: 0, endAngle: 360)
+    track.lineWidth = ringWidth
+    color(0x262A40).setStroke()
+    track.stroke()
 
-    NSGraphicsContext.saveGraphicsState()
-    track.addClip()
     let segments: [(CGFloat, UInt32)] = [
-        (0.24, 0xFF6B7A), (0.14, 0xFFB547), (0.12, 0x3FD6A6), (0.11, 0x4DB8FF), (0.09, 0xA88BFF),
+        (0.24, 0xFF6B7A), (0.15, 0xFFB547), (0.12, 0x3FD6A6), (0.11, 0x4DB8FF), (0.08, 0xA88BFF),
     ]
-    var x = bar.minX
+    let gap: CGFloat = 3
+    var angle: CGFloat = 90
     for (fraction, hex) in segments {
-        let segment = NSRect(x: x, y: bar.minY, width: bar.width * fraction, height: bar.height)
-        NSGradient(starting: lighter(color(hex), 0.3), ending: color(hex))!.draw(in: segment, angle: -90)
-        x += segment.width
+        let end = angle - fraction * 360
+        let arc = NSBezierPath()
+        arc.appendArc(withCenter: c, radius: ringRadius, startAngle: angle - gap / 2, endAngle: end + gap / 2, clockwise: true)
+        arc.lineWidth = ringWidth
+        color(hex).setStroke()
+        arc.stroke()
+        // Brighter outer edge for a glassy look.
+        let shine = NSBezierPath()
+        shine.appendArc(withCenter: c, radius: ringRadius + ringWidth * 0.3, startAngle: angle - gap / 2, endAngle: end + gap / 2, clockwise: true)
+        shine.lineWidth = ringWidth * 0.25
+        lighter(color(hex), 0.35).setStroke()
+        shine.stroke()
+        angle = end
     }
-    // Glass highlight on the bar.
-    NSGradient(colors: [NSColor.white.withAlphaComponent(0.35), NSColor.white.withAlphaComponent(0)])!
-        .draw(in: NSRect(x: bar.minX, y: bar.midY, width: bar.width, height: bar.height / 2), angle: -90)
-    NSGraphicsContext.restoreGraphicsState()
 
-    // The space you get back.
-    drawSparkle(center: NSPoint(x: x + 50, y: bar.midY), radius: 34)
+    // The space you get back, at the start of the free arc.
+    let sparkleAngle = (angle - 40) * .pi / 180
+    drawSparkle(center: NSPoint(x: c.x + ringRadius * cos(sparkleAngle), y: c.y + ringRadius * sin(sparkleAngle)), radius: 38)
 
-    // Activity light.
-    let led = NSRect(x: rect.maxX - 98, y: bar.midY - 20, width: 40, height: 40)
+    // Spindle hub.
+    let hub = circle(78)
     NSGraphicsContext.saveGraphicsState()
-    let glow = NSShadow()
-    glow.shadowColor = color(0x3DFF9A, 0.9)
-    glow.shadowBlurRadius = 20
-    glow.set()
-    color(0x2EE88A).setFill()
-    NSBezierPath(ovalIn: led).fill()
+    let hubShadow = NSShadow()
+    hubShadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
+    hubShadow.shadowOffset = NSSize(width: 0, height: -4)
+    hubShadow.shadowBlurRadius = 10
+    hubShadow.set()
+    color(0xDCE1EA).setFill()
+    hub.fill()
     NSGraphicsContext.restoreGraphicsState()
-    NSColor.white.withAlphaComponent(0.75).setFill()
-    NSBezierPath(ovalIn: NSRect(x: led.minX + 10, y: led.midY + 3, width: 13, height: 10)).fill()
-
-    // Screws in the corners of the face.
-    for (sx, sy) in [(rect.minX + 32, rect.maxY - 32), (rect.maxX - 32, rect.maxY - 32),
-                     (rect.minX + 32, rect.minY + 32), (rect.maxX - 32, rect.minY + 32)] {
-        let screw = NSRect(x: sx - 9, y: sy - 9, width: 18, height: 18)
-        NSGradient(starting: color(0x9AA3B4), ending: color(0xF2F4F8))!.draw(in: NSBezierPath(ovalIn: screw), angle: 90)
+    NSGradient(starting: color(0xFFFFFF), ending: color(0xA3ABBB))!.draw(in: hub, angle: -60)
+    for i in 0..<6 {
+        let a = CGFloat(i) * .pi / 3 + .pi / 6
+        let screw = NSRect(x: c.x + 52 * cos(a) - 7, y: c.y + 52 * sin(a) - 7, width: 14, height: 14)
+        NSGradient(starting: color(0x8A93A6), ending: color(0xE9EDF3))!.draw(in: NSBezierPath(ovalIn: screw), angle: 90)
     }
+    NSGradient(starting: color(0x3A4054), ending: color(0x1E2233))!.draw(in: circle(24), angle: -90)
+}
+
+/// The read/write arm, from its pivot to the head resting on the platter.
+func drawArm(pivot: NSPoint, head: NSPoint) {
+    NSGraphicsContext.saveGraphicsState()
+    let shadow = NSShadow()
+    shadow.shadowColor = NSColor.black.withAlphaComponent(0.4)
+    shadow.shadowOffset = NSSize(width: 6, height: -10)
+    shadow.shadowBlurRadius = 14
+    shadow.set()
+
+    let arm = NSBezierPath()
+    arm.move(to: pivot)
+    arm.line(to: head)
+    arm.lineWidth = 30
+    arm.lineCapStyle = .round
+    color(0xB7BFCD).setStroke()
+    arm.stroke()
+
+    let headRect = NSRect(x: head.x - 24, y: head.y - 24, width: 48, height: 48)
+    color(0xC9D0DC).setFill()
+    NSBezierPath(roundedRect: headRect, xRadius: 12, yRadius: 12).fill()
+
+    let base = NSRect(x: pivot.x - 50, y: pivot.y - 50, width: 100, height: 100)
+    color(0xC9D0DC).setFill()
+    NSBezierPath(ovalIn: base).fill()
+    NSGraphicsContext.restoreGraphicsState()
+
+    // Metal finish on top of the shadowed shapes.
+    let highlight = NSBezierPath()
+    highlight.move(to: NSPoint(x: pivot.x - 4, y: pivot.y + 6))
+    highlight.line(to: NSPoint(x: head.x - 4, y: head.y + 6))
+    highlight.lineWidth = 10
+    highlight.lineCapStyle = .round
+    NSColor.white.withAlphaComponent(0.6).setStroke()
+    highlight.stroke()
+    NSGradient(starting: color(0xFFFFFF), ending: color(0x9EA7B8))!
+        .draw(in: NSBezierPath(ovalIn: NSRect(x: pivot.x - 50, y: pivot.y - 50, width: 100, height: 100)), angle: -60)
+    NSGradient(starting: color(0x3A4054), ending: color(0x1E2233))!
+        .draw(in: NSBezierPath(ovalIn: NSRect(x: pivot.x - 18, y: pivot.y - 18, width: 36, height: 36)), angle: -90)
 }
 
 func drawSparkle(center: NSPoint, radius r: CGFloat) {
