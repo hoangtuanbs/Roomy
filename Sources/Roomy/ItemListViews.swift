@@ -158,6 +158,8 @@ struct ItemRow: View {
                     model.toggleBasket(node)
                 }
                 .disabled(verdict.isBlocked)
+                Button("Compress and Move Original to Trash…") { model.startCompress(node) }
+                    .disabled(!model.canCompress(node))
             }
         }
     }

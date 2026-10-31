@@ -77,6 +77,8 @@ struct TreemapView: View {
                             model.toggleBasket(node)
                         }
                         .disabled(model.verdict(for: node).isBlocked)
+                        Button("Compress and Move Original to Trash…") { model.startCompress(node) }
+                            .disabled(!model.canCompress(node))
                     }
                 }
             }

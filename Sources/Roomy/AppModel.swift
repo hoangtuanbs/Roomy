@@ -73,6 +73,12 @@ final class AppModel {
     var lastReport: CleanupReport?
     var isCleaning = false
 
+    var compressTarget: ScanTree.Index?
+    var showCompress = false
+    var isCompressing = false
+    var compressResult: CompressionResult?
+    private var compressTask: Task<Void, Never>?
+
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
 
@@ -330,6 +336,71 @@ final class AppModel {
         isCleaning = false
         treeVersion += 1
         refreshLocations()
+    }
+
+    func canCompress(_ node: ScanTree.Index) -> Bool {
+        guard let tree, node != ScanTree.root, !isCompressing else { return false }
+        let kind = tree.kind(node)
+        guard kind == .file || kind.isContainer else { return false }
+        let flags = tree.flags(node)
+        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) { return false }
+        return tree.size(node) > 0 && !verdict(for: node).isBlocked
+    }
+
+    func startCompress(_ node: ScanTree.Index) {
+        guard canCompress(node) else { return }
+        compressTarget = node
+        compressResult = nil
+        showCompress = true
+    }
+
+    func performCompress() {
+        guard let tree, let node = compressTarget, canCompress(node) else { return }
+        isCompressing = true
+        let path = tree.path(of: node)
+        let size = tree.size(node)
+        let policy = self.policy
+
+        compressTask = Task { [weak self] in
+            let result = await CompressionService(policy: policy).compressAndTrash(path: path, originalBytes: size)
+            self?.finishCompress(result, node: node, in: tree)
+        }
+    }
+
+    func cancelCompress() {
+        compressTask?.cancel()
+    }
+
+    private func finishCompress(_ result: CompressionResult, node: ScanTree.Index, in scanned: ScanTree) {
+        compressTask = nil
+        isCompressing = false
+        compressResult = result
+        // Skip the tree update if a new scan replaced the tree meanwhile.
+        guard let tree, tree === scanned, let archive = result.archivePath else { return }
+        if result.succeeded, let parent = tree.parent(node) {
+            tree.detach(node)
+            tree.insertFile(named: (archive as NSString).lastPathComponent, in: parent,
+                            size: result.archiveBytes, modified: Date())
+            basket = basket.filter { !tree.flags($0).contains(.removed) }
+            biggestFiles = tree.largestFiles(limit: 500)
+        } else if let parent = tree.parent(node) {
+            // The archive was kept next to the original.
+            tree.insertFile(named: (archive as NSString).lastPathComponent, in: parent,
+                            size: result.archiveBytes, modified: Date())
+        }
+        treeVersion += 1
+        refreshLocations()
+    }
+
+    func closeCompress() {
+        guard !isCompressing else { return }
+        showCompress = false
+        compressTarget = nil
+        compressResult = nil
+    }
+
+    func revealPath(_ path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
     func openTrash() {

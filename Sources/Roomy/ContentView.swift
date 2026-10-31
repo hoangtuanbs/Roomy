@@ -24,6 +24,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showReview) {
             ReviewSheet().environment(model)
         }
+        .sheet(isPresented: $model.showCompress, onDismiss: { model.closeCompress() }) {
+            CompressSheet().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }

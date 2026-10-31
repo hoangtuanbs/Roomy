@@ -149,6 +149,22 @@ public final class ScanTree: @unchecked Sendable {
         return false
     }
 
+    /// Adds a file created after the scan, such as an archive, and adds its size to every ancestor.
+    @discardableResult
+    public func insertFile(named name: String, in parent: Index, size: Int64, modified: Date) -> Index {
+        let index = append(name: name, parent: parent, kind: .file, size: size,
+                           modified: Int64(modified.timeIntervalSince1970), flags: [])
+        var n = index
+        while let p = self.parent(n) {
+            sizes[Int(p)] += size
+            fileCounts[Int(p)] += 1
+            n = p
+        }
+        let sizes = self.sizes
+        children[Int(parent)].sort { sizes[Int($0)] > sizes[Int($1)] }
+        return index
+    }
+
     /// Removes a trashed node and subtracts its size from every ancestor.
     public func detach(_ i: Index) {
         guard i != Self.root, !flags[Int(i)].contains(.removed) else { return }
