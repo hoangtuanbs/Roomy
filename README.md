@@ -32,6 +32,20 @@ There is also a command-line scanner:
 swift run roomy-scan ~ --top 20
 ```
 
+## Releases
+
+Each push to `main` and each pull request is built by the **Build** workflow; the app zip is attached to the run.
+
+To publish a version, open **Actions → Release → Run workflow** on GitHub and pick `patch`, `minor` or `major`.
+The workflow takes the latest `vX.Y.Z` tag, bumps it, stamps the number into the app, builds it and publishes a
+GitHub Release with `Roomy-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a version number.
+
 ## Layout
 
 | Path | What it is |
@@ -41,3 +55,4 @@ swift run roomy-scan ~ --top 20
 | `Sources/roomy-scan` | Command-line scanner. |
 | `scripts/build-app.sh` | Builds and signs the app bundle. |
 | `scripts/make-icon.swift` | Draws the app icon and writes `Resources/AppIcon.icns`. |
+| `.github/workflows` | Build on every push, and versioned releases. |

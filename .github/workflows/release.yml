@@ -1,0 +1,107 @@
+name: Release
+
+# Two ways to publish a version:
+#  - Actions > Release > Run workflow, and pick patch, minor or major. The next version is worked out
+#    from the latest vX.Y.Z tag (v0.0.0 if there is none), then tagged and released.
+#  - Or push a tag yourself: git tag v1.2.3 && git push origin v1.2.3
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to increase
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+              echo "::error::Run releases from main (this run is on $GITHUB_REF_NAME)."
+              exit 1
+            fi
+            LAST=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n 1)
+            LAST=${LAST:-v0.0.0}
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST#v}"
+            case "$BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              *)     PATCH=$((PATCH + 1)) ;;
+            esac
+            TAG="v$MAJOR.$MINOR.$PATCH"
+            echo "Latest tag: $LAST, next: $TAG"
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a vX.Y.Z version tag."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build the app bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/build-app.sh
+
+      - name: Check the bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          codesign --verify --deep --strict build/Roomy.app
+          STAMPED=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/Roomy.app/Contents/Info.plist)
+          test "$STAMPED" = "$VERSION"
+
+      - name: Package
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ZIP="build/Roomy-$VERSION.zip"
+          mv build/Roomy.zip "$ZIP"
+          (cd build && shasum -a 256 "Roomy-$VERSION.zip" > "Roomy-$VERSION.zip.sha256")
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          cat > notes.md <<EOF
+          Download **Roomy-$VERSION.zip**, unzip it and move **Roomy.app** to Applications.
+
+          Roomy is not notarized by Apple, so the first time you open it, right-click the app and choose **Open**.
+          Requires macOS 14 or later.
+          EOF
+          gh release create "$TAG" "$ZIP" "$ZIP.sha256" \
+            --title "Roomy $VERSION" \
+            --target "$GITHUB_SHA" \
+            --notes-file notes.md \
+            --generate-notes

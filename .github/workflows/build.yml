@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build all products
+        run: swift build
+
+      - name: Build the app bundle
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/build-app.sh
+
+      - name: Check the bundle
+        run: |
+          codesign --verify --deep --strict build/Roomy.app
+          plutil -lint build/Roomy.app/Contents/Info.plist
+          test -f build/Roomy.app/Contents/Resources/AppIcon.icns
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roomy-build-${{ github.run_number }}
+          path: build/Roomy.zip
+          retention-days: 14
