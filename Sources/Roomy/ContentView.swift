@@ -218,6 +218,10 @@ struct BottomBar: View {
                     .foregroundStyle(.secondary)
                 Button("Clear") { model.basket = [] }
             }
+            Button("Compress and Clean…") { model.startCompressBasket() }
+                .buttonStyle(.bordered)
+                .disabled(!model.canCompressBasket)
+                .help("Zip the selected items, then move the originals to the Trash")
             Button("Review and Clean…") { model.showReview = true }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.basket.isEmpty)
