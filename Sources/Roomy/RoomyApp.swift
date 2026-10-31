@@ -17,6 +17,10 @@ struct RoomyApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("About Roomy") { About.show() }
             }
+            CommandGroup(replacing: .help) {
+                Button("Email Roomy Support…") { About.emailSupport() }
+                Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
+            }
             CommandGroup(after: .newItem) {
                 Button("Choose Folder…") { model.chooseFolder() }
                     .keyboardShortcut("o")
