@@ -127,14 +127,17 @@ func drawDisk(center c: NSPoint, radius r: CGFloat, tilt: CGFloat, thickness t: 
     lip.lineWidth = 4
     lip.stroke()
 
-    // Disk-space ring, raised off the platter: a darker wall first, then the top.
+    // Disk-space ring in three segments (red used, grey system, green free), raised off the platter:
+    // a darker wall first, then the top.
     let ringRadius = r - 46
     let ringWidth: CGFloat = 58
     let wall = 14 / tilt
     let segments: [(CGFloat, UInt32)] = [
-        (0.24, 0xFF6B7A), (0.15, 0xFFB547), (0.12, 0x3FD6A6), (0.11, 0x4DB8FF), (0.08, 0xA88BFF),
+        (0.45, 0xFF4D5E), // red: used space
+        (0.25, 0x5E6579), // grey: system and other (deep slate, so it stands out from the silver)
+        (0.30, 0x34D399), // green: free space
     ]
-    let used = segments.reduce(0) { $0 + $1.0 }
+    let used: CGFloat = 0.70 // where the free (green) segment starts
     func arc(_ from: CGFloat, _ to: CGFloat, dy: CGFloat = 0, radius: CGFloat? = nil, width: CGFloat = ringWidth) -> NSBezierPath {
         let path = NSBezierPath()
         path.appendArc(withCenter: NSPoint(x: c.x, y: c.y + dy), radius: radius ?? ringRadius,
@@ -145,8 +148,6 @@ func drawDisk(center c: NSPoint, radius r: CGFloat, tilt: CGFloat, thickness t: 
     let gap: CGFloat = 3
     for dy in Array(stride(from: -wall, to: 0, by: 2)) + [0] {
         let top = dy == 0
-        color(top ? 0x2A2E45 : 0x15182A).setStroke()
-        arc(90 - used * 360, 90 - 360, dy: dy).stroke()
         var angle: CGFloat = 90
         for (fraction, hex) in segments {
             let end = angle - fraction * 360
