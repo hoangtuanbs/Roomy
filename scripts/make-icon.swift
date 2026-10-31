@@ -133,8 +133,8 @@ func drawDisk(center c: NSPoint, radius r: CGFloat, tilt: CGFloat, thickness t: 
     let ringWidth: CGFloat = 58
     let wall = 14 / tilt
     let segments: [(CGFloat, UInt32)] = [
-        (0.45, 0xFF4D5E), // red: used space
-        (0.25, 0x5E6579), // grey: system and other (deep slate, so it stands out from the silver)
+        (0.08, 0xFF4D5E), // red: a small slice of used space
+        (0.62, 0x5E6579), // grey: system and other (deep slate, so it stands out from the silver)
         (0.30, 0x34D399), // green: free space
     ]
     let used: CGFloat = 0.70 // where the free (green) segment starts
