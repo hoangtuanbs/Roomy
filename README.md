@@ -32,6 +32,12 @@ There is also a command-line scanner:
 swift run roomy-scan ~ --top 20
 ```
 
+## Releases
+
+Every push to `main` is built on GitHub Actions, and the zipped app is attached to the run.
+
+To publish a version, open **Actions → Release → Run workflow** and pick `patch`, `minor` or `major`. The workflow takes the latest `vX.Y.Z` tag, bumps it (the first release is `v0.1.0`), stamps the version into the app, builds it, tags the commit and publishes a GitHub release with `Roomy-X.Y.Z.zip` and its SHA-256. Pushing a tag such as `v1.2.0` yourself does the same for that version.
+
 ## Layout
 
 | Path | What it is |

@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the app
+        run: ./scripts/build-app.sh
+
+      - name: Build the command-line scanner
+        run: swift build -c release --product roomy-scan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Roomy-${{ github.sha }}
+          path: build/Roomy.zip
+          if-no-files-found: error

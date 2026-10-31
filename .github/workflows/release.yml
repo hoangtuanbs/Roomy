@@ -1,0 +1,100 @@
+name: Release
+
+# Two ways to cut a release:
+#  - Actions > Release > Run workflow, and pick patch, minor or major. The next version is
+#    worked out from the latest vX.Y.Z tag (the first release is v0.1.0) and tagged for you.
+#  - Push a tag yourself: git tag v1.2.3 && git push origin v1.2.3
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to increase
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            LATEST="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+            if [[ -z "$LATEST" ]]; then
+              VERSION="0.1.0"
+            else
+              IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+              case "$BUMP" in
+                major) VERSION="$((MAJOR + 1)).0.0" ;;
+                minor) VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+                *)     VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+              esac
+            fi
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$VERSION is not a version like 1.2.3"
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]] && git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          # Build number: commits on this branch, so it always goes up.
+          BUILD="$(git rev-list --count HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Releasing $VERSION (build $BUILD)"
+
+      - name: Stamp the version into Info.plist
+        run: |
+          plutil -replace CFBundleShortVersionString -string "${{ steps.version.outputs.version }}" Resources/Info.plist
+          plutil -replace CFBundleVersion -string "${{ steps.version.outputs.build }}" Resources/Info.plist
+
+      - name: Build the app
+        run: ./scripts/build-app.sh
+
+      - name: Package
+        id: package
+        run: |
+          ZIP="Roomy-${{ steps.version.outputs.version }}.zip"
+          mv build/Roomy.zip "build/$ZIP"
+          (cd build && shasum -a 256 "$ZIP" > "$ZIP.sha256")
+          echo "zip=build/$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          cat > notes.md <<NOTES
+          **Install:** download Roomy-$VERSION.zip, unzip it and move Roomy.app to Applications.
+          The app is not notarized yet, so the first time, right-click Roomy.app and choose Open.
+
+          Requires macOS 14 or later.
+          NOTES
+          # Creates the tag on this commit when the release was started from the Actions tab.
+          gh release create "v$VERSION" "$ZIP" "$ZIP.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "Roomy $VERSION" \
+            --notes-file notes.md \
+            --generate-notes
