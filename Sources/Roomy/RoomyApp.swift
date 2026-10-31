@@ -18,7 +18,7 @@ struct RoomyApp: App {
                 Button("About Roomy") { About.show() }
             }
             CommandGroup(replacing: .help) {
-                Button("Email Roomy Support…") { About.emailSupport() }
+                Button("Email Us…") { About.emailSupport() }
                 Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
             }
             CommandGroup(after: .newItem) {

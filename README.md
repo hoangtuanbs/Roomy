@@ -66,7 +66,7 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 
 ## Help
 
-Choose **Help → Email Roomy Support…** in the app, or write to [hoangtuanbs@proton.me](mailto:hoangtuanbs@proton.me).
+Choose **Help → Email Us…** in the app, or write to [hoangtuanbs@proton.me](mailto:hoangtuanbs@proton.me).
 Bugs and ideas are also welcome as [GitHub issues](https://github.com/hoangtuanbs/Roomy/issues).
 
 ## License
