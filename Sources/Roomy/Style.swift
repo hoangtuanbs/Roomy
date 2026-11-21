@@ -75,6 +75,17 @@ extension JunkCategory {
     }
 }
 
+extension DiskPart {
+    var color: Color {
+        switch self {
+        case .scanned: return FileCategory.folder.color
+        case .hidden: return FileCategory.audio.color
+        case .purgeable: return FileCategory.archive.color
+        case .free: return Color.secondary.opacity(0.25)
+        }
+    }
+}
+
 /// The blue-to-purple gradient used for Smart Clean.
 extension LinearGradient {
     static let smartClean = LinearGradient(

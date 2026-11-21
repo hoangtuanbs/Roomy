@@ -79,10 +79,15 @@ struct ContentColumn: View {
             case .failed(let message):
                 ContentUnavailableView("Scan failed", systemImage: "exclamationmark.triangle", description: Text(message))
             case .ready:
-                switch model.tab {
-                case .folders: FolderListView()
-                case .files: BiggestFilesView()
+                VStack(spacing: 0) {
+                    DiskOverviewCard()
+                    Divider()
+                    switch model.tab {
+                    case .folders: FolderListView()
+                    case .files: BiggestFilesView()
+                    }
                 }
+                .task(id: model.treeVersion) { model.refreshDiskOverview() }
             }
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Filter by name")

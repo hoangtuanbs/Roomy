@@ -83,6 +83,7 @@ final class AppModel {
     private var compressTask: Task<Void, Never>?
 
     let smartClean = SmartCleanModel()
+    let diskOverview = DiskOverviewModel()
     var showSmartClean = false
 
     var hasFullDiskAccess = FullDiskAccess.isGranted()
@@ -256,6 +257,15 @@ final class AppModel {
                 self?.state = .failed(error.localizedDescription)
             }
         }
+    }
+
+    /// What the current scan found, minus what was removed since.
+    var scannedBytes: Int64 { tree?.size(ScanTree.root) ?? 0 }
+
+    /// Reads the space of the scanned disk again, for the disk overview.
+    func refreshDiskOverview() {
+        guard let tree else { return }
+        diskOverview.refresh(scanRoot: tree.rootPath, scanned: tree.size(ScanTree.root))
     }
 
     func cancelScan() {

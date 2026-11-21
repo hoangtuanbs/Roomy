@@ -18,6 +18,13 @@ A macOS app that shows what is using space on your disk and helps you free it up
   so you can review them. Each card says what the files are and what happens if you remove them; open a card to untick
   single items. **Clean** moves the ticked items to the Trash. Caches of macOS and of apps that are open are left alone.
   The Trash is shown on its own card, and emptying it, the one thing that cannot be undone, asks first.
+- **Disk overview** above the results shows where the disk's space goes, like DaisyDisk: a bar with what the scan
+  found, **hidden** space (used, but not found: files Roomy cannot read without Full Disk Access, macOS system files and
+  snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
+  Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
+  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
+  Space…** asks Time Machine to thin its snapshots (`tmutil thinlocalsnapshots`), or open Storage Settings instead.
+  Neither can be undone, so both ask first.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
 
