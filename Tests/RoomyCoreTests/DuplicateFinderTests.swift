@@ -87,6 +87,7 @@ final class DuplicateFinderTests: XCTestCase {
     func testHardLinksAreNotCounted() async throws {
         let data = content(seed: 6, count: 2 * mb)
         let original = try file("photos/big.mov", data)
+        try fm.createDirectory(atPath: home + "/linked", withIntermediateDirectories: true)
         try fm.linkItem(atPath: original, toPath: home + "/linked/big.mov")
         let groups = try await find()
         XCTAssertTrue(groups.isEmpty, "A hard link is the same file, not a copy")
