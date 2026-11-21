@@ -87,6 +87,8 @@ final class AppModel {
     var showSmartClean = false
     let duplicates = DuplicatesModel()
     var showDuplicates = false
+    let uninstaller = UninstallerModel()
+    var showUninstaller = false
 
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
@@ -98,6 +100,7 @@ final class AppModel {
         refreshLocations()
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
@@ -443,7 +446,13 @@ final class AppModel {
         duplicates.scan(tree: state.isScanning ? nil : tree, folder: nil)
     }
 
-    /// Drops items that Smart Clean or Duplicates removed from the current scan.
+    /// Opens the Uninstaller and reads the installed apps again, unless it is busy.
+    func openUninstaller() {
+        showUninstaller = true
+        if !uninstaller.isBusy && uninstaller.phase != .done { uninstaller.load() }
+    }
+
+    /// Drops items that Smart Clean, Duplicates or the Uninstaller removed from the current scan.
     private func applyRemoved(_ paths: [String]) {
         if let tree, !paths.isEmpty {
             for path in paths {

@@ -33,6 +33,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showDuplicates) {
             DuplicatesView().environment(model)
         }
+        .sheet(isPresented: $model.showUninstaller) {
+            UninstallerView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -118,6 +121,14 @@ struct ContentColumn: View {
                     Label("Duplicates", systemImage: "doc.on.doc")
                 }
                 .help("Find identical files that take up space more than once")
+            }
+            ToolbarItem {
+                Button {
+                    model.openUninstaller()
+                } label: {
+                    Label("Uninstaller", systemImage: "xmark.bin")
+                }
+                .help("Remove apps together with the files they leave behind")
             }
             ToolbarItem {
                 Button {

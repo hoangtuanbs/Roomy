@@ -32,6 +32,15 @@ A macOS app that shows what is using space on your disk and helps you free it up
   waste first, with thumbnails; one copy is kept (the oldest one with the plainest path, not one in Downloads or the
   Trash or named like "photo copy.jpg"), and you can pick another with its **Keep** button. **Move Duplicates to
   Trash** moves the rest to the Trash, never every copy.
+- **Uninstaller** (below Duplicates in the sidebar, the toolbar, or ⇧⌘U) lists the apps in `/Applications` and
+  `~/Applications` with their icons, sizes and when you last used them; search them and sort by size, name or last
+  use. Choose an app to see its bundle and the files it left in your Library, grouped (app data, caches, settings,
+  saved window state, sandbox and shared containers, web storage, WebKit data, cookies, logs and launch agents).
+  Only items named exactly by the app's bundle identifier or exact name count, never another app's files or a name
+  shared by a maker's apps. **Uninstall** moves the ticked items to the Trash. Apps of macOS are not listed, and an app
+  that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
+  Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
+  no longer installed. They are guesses, so nothing there is ticked until you review it.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
 

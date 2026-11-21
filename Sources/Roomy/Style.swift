@@ -102,6 +102,14 @@ extension LinearGradient {
     )
 }
 
+/// The pink-to-orange gradient used for the Uninstaller.
+extension LinearGradient {
+    static let uninstaller = LinearGradient(
+        colors: [Color(red: 0.91, green: 0.36, blue: 0.48), Color(red: 0.95, green: 0.58, blue: 0.27)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+}
+
 /// A byte count that counts up or down to its new value when it changes inside an animation.
 struct CountingBytes: View, Animatable {
     var value: Double

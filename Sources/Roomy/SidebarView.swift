@@ -16,10 +16,21 @@ struct SidebarView: View {
             SmartCleanButton()
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
-            DuplicatesButton()
-                .padding(.horizontal, 10)
-                .padding(.top, 6)
-                .padding(.bottom, 4)
+            ToolButton(title: "Duplicates", symbol: "doc.on.doc.fill", gradient: .duplicates,
+                       stroke: Color(red: 0.20, green: 0.66, blue: 0.75),
+                       help: "Find identical files that take up space more than once") {
+                model.openDuplicates()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            ToolButton(title: "Uninstaller", symbol: "xmark.bin.fill", gradient: .uninstaller,
+                       stroke: Color(red: 0.92, green: 0.45, blue: 0.40),
+                       help: "Remove apps together with the files they leave behind") {
+                model.openUninstaller()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
 
             List(selection: selection) {
                 Section("Disks") {
@@ -102,21 +113,24 @@ private struct SmartCleanButton: View {
     }
 }
 
-/// The Duplicates entry below Smart Clean: lighter, with the same hover motion.
-private struct DuplicatesButton: View {
-    @Environment(AppModel.self) private var model
+/// A lighter entry below Smart Clean, such as Duplicates or the Uninstaller, with the same hover motion.
+private struct ToolButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let title: String
+    let symbol: String
+    let gradient: LinearGradient
+    let stroke: Color
+    let help: String
+    let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
-        Button {
-            model.openDuplicates()
-        } label: {
+        Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "doc.on.doc.fill")
-                    .foregroundStyle(LinearGradient.duplicates)
+                Image(systemName: symbol)
+                    .foregroundStyle(gradient)
                     .symbolEffect(.bounce, value: hovering)
-                Text("Duplicates").fontWeight(.semibold)
+                Text(title).fontWeight(.semibold)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -132,13 +146,13 @@ private struct DuplicatesButton: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color(red: 0.20, green: 0.66, blue: 0.75).opacity(hovering ? 0.8 : 0.4), lineWidth: 1)
+                    .strokeBorder(stroke.opacity(hovering ? 0.8 : 0.4), lineWidth: 1)
             )
             .scaleEffect(hovering && !reduceMotion ? 1.02 : 1)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Find identical files that take up space more than once")
+        .help(help)
         .onHover { inside in
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
         }
