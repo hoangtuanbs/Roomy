@@ -27,6 +27,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showCompress, onDismiss: { model.closeCompress() }) {
             CompressSheet().environment(model)
         }
+        .sheet(isPresented: $model.showSmartClean) {
+            SmartCleanView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -91,6 +94,14 @@ struct ContentColumn: View {
                     Label("Enclosing Folder", systemImage: "chevron.left")
                 }
                 .disabled(model.tree == nil || model.currentFolder == ScanTree.root)
+            }
+            ToolbarItem {
+                Button {
+                    model.openSmartClean()
+                } label: {
+                    Label("Smart Clean", systemImage: "sparkles")
+                }
+                .help("Find caches, logs and leftovers that are safe to remove")
             }
             ToolbarItem {
                 Button {

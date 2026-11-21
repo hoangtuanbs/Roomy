@@ -82,6 +82,9 @@ final class AppModel {
     var compressResults: [CompressionResult]?
     private var compressTask: Task<Void, Never>?
 
+    let smartClean = SmartCleanModel()
+    var showSmartClean = false
+
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
 
@@ -90,6 +93,7 @@ final class AppModel {
 
     init() {
         refreshLocations()
+        smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
@@ -406,6 +410,25 @@ final class AppModel {
         lastReport = report
         isCleaning = false
         treeVersion += 1
+        refreshLocations()
+    }
+
+    /// Opens Smart Clean and looks for junk again, unless it is busy.
+    func openSmartClean() {
+        showSmartClean = true
+        if !smartClean.isBusy { smartClean.scan(tree: state.isScanning ? nil : tree) }
+    }
+
+    /// Drops items that Smart Clean removed from the current scan.
+    private func applyRemoved(_ paths: [String]) {
+        if let tree, !paths.isEmpty {
+            for path in paths {
+                if let node = tree.index(ofPath: path) { tree.detach(node) }
+            }
+            basket = basket.filter { !tree.flags($0).contains(.removed) }
+            biggestFiles = tree.largestFiles(limit: 500)
+            treeVersion += 1
+        }
         refreshLocations()
     }
 

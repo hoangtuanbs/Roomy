@@ -13,6 +13,11 @@ struct SidebarView: View {
         )
 
         VStack(spacing: 0) {
+            SmartCleanButton()
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
             List(selection: selection) {
                 Section("Disks") {
                     ForEach(model.volumes) { volume in
@@ -54,6 +59,42 @@ struct SidebarView: View {
                 }
             }
             .padding(12)
+        }
+    }
+}
+
+/// The prominent Smart Clean entry at the top of the sidebar.
+private struct SmartCleanButton: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            model.openSmartClean()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .symbolEffect(.bounce, value: hovering)
+                Text("Smart Clean").fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .opacity(hovering ? 1 : 0.6)
+                    .offset(x: hovering && !reduceMotion ? 2 : 0)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(LinearGradient.smartClean))
+            .shadow(color: Color(red: 0.45, green: 0.45, blue: 0.9).opacity(hovering ? 0.35 : 0.15), radius: hovering ? 6 : 3, y: 2)
+            .scaleEffect(hovering && !reduceMotion ? 1.02 : 1)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Find caches, logs and leftovers that are safe to remove")
+        .onHover { inside in
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
         }
     }
 }

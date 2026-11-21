@@ -11,6 +11,13 @@ A macOS app that shows what is using space on your disk and helps you free it up
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **Clean up** by ticking items and choosing **Review and Clean…**. Items go to the Trash, so Put Back still works.
+- **Smart Clean** (top of the sidebar, the toolbar, or ⇧⌘K) finds junk that is safe to remove: app caches, logs,
+  Xcode build data, device support files and simulator caches, package manager caches (npm, Yarn, pnpm, pip, Homebrew,
+  CocoaPods, Gradle, Cargo) and installers in Downloads older than 30 days. Xcode archives, simulators unused for
+  6 months and `node_modules` folders untouched for 30 days in the scanned folder are listed too, but start unticked
+  so you can review them. Each card says what the files are and what happens if you remove them; open a card to untick
+  single items. **Clean** moves the ticked items to the Trash. Caches of macOS and of apps that are open are left alone.
+  The Trash is shown on its own card, and emptying it, the one thing that cannot be undone, asks first.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
 
@@ -57,7 +64,8 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 
 | Path | What it is |
 | --- | --- |
-| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup and compression. No UI. |
+| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression and the Smart Clean junk finder. No UI. |
+| `Tests/RoomyCoreTests` | Unit tests, run with `swift test`. They only use temporary folders. |
 | `Sources/Roomy` | The SwiftUI app. |
 | `Sources/roomy-scan` | Command-line scanner. |
 | `scripts/build-app.sh` | Builds and signs the app bundle. |

@@ -24,6 +24,9 @@ struct RoomyApp: App {
                 Button("Rescan") { model.rescan() }
                     .keyboardShortcut("r")
                     .disabled(model.tree == nil)
+                Divider()
+                Button("Smart Clean…") { model.openSmartClean() }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }

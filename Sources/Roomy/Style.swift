@@ -50,3 +50,55 @@ struct SizeBar: View {
         .frame(height: 5)
     }
 }
+
+extension JunkCategory {
+    var color: Color {
+        switch self {
+        case .caches: return Color(red: 0.29, green: 0.52, blue: 0.86)
+        case .logs: return Color(red: 0.55, green: 0.62, blue: 0.70)
+        case .developer: return Color(red: 0.85, green: 0.62, blue: 0.20)
+        case .packages: return Color(red: 0.36, green: 0.72, blue: 0.48)
+        case .installers: return Color(red: 0.62, green: 0.45, blue: 0.85)
+        case .trash: return Color(red: 0.86, green: 0.36, blue: 0.42)
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .caches: return "bolt.horizontal.circle"
+        case .logs: return "text.alignleft"
+        case .developer: return "hammer"
+        case .packages: return "shippingbox"
+        case .installers: return "opticaldiscdrive"
+        case .trash: return "trash"
+        }
+    }
+}
+
+/// The blue-to-purple gradient used for Smart Clean.
+extension LinearGradient {
+    static let smartClean = LinearGradient(
+        colors: [Color(red: 0.29, green: 0.52, blue: 0.86), Color(red: 0.62, green: 0.45, blue: 0.85)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+}
+
+/// A byte count that counts up or down to its new value when it changes inside an animation.
+struct CountingBytes: View, Animatable {
+    var value: Double
+    var suffix: String
+
+    init(_ bytes: Int64, suffix: String = "") {
+        value = Double(bytes)
+        self.suffix = suffix
+    }
+
+    var animatableData: Double {
+        get { value }
+        set { value = newValue }
+    }
+
+    var body: some View {
+        Text(Int64(max(0, value).rounded()).bytes + suffix).monospacedDigit()
+    }
+}

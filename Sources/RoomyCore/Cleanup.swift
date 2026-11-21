@@ -78,20 +78,23 @@ public struct CleanupService: Sendable {
         }
     }
 
-    public func execute(_ items: [CleanupItem]) -> CleanupReport {
+    /// Moves each item to the Trash unless the policy blocks it. `progress` is called after each item.
+    public func execute(_ items: [CleanupItem], progress: ((CleanupResult) -> Void)? = nil) -> CleanupReport {
         var results: [CleanupResult] = []
         for item in items {
-            let verdict = policy.verdict(for: item.path)
-            if case .blocked(let reason) = verdict {
-                results.append(CleanupResult(path: item.path, bytes: item.bytes, trashedTo: nil, error: reason))
-                continue
+            let result: CleanupResult
+            if case .blocked(let reason) = policy.verdict(for: item.path) {
+                result = CleanupResult(path: item.path, bytes: item.bytes, trashedTo: nil, error: reason)
+            } else {
+                do {
+                    let destination = try trasher.moveToTrash(path: item.path)
+                    result = CleanupResult(path: item.path, bytes: item.bytes, trashedTo: destination, error: nil)
+                } catch {
+                    result = CleanupResult(path: item.path, bytes: item.bytes, trashedTo: nil, error: error.localizedDescription)
+                }
             }
-            do {
-                let destination = try trasher.moveToTrash(path: item.path)
-                results.append(CleanupResult(path: item.path, bytes: item.bytes, trashedTo: destination, error: nil))
-            } catch {
-                results.append(CleanupResult(path: item.path, bytes: item.bytes, trashedTo: nil, error: error.localizedDescription))
-            }
+            results.append(result)
+            progress?(result)
         }
         let report = CleanupReport(date: Date(), results: results)
         try? history?.append(report)

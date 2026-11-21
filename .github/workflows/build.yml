@@ -25,6 +25,9 @@ jobs:
       - name: Build all products
         run: swift build
 
+      - name: Run tests
+        run: swift test
+
       - name: Build the app bundle
         env:
           BUILD_NUMBER: ${{ github.run_number }}
