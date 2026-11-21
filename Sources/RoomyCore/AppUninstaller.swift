@@ -82,12 +82,16 @@ public struct Leftover: Sendable, Hashable, Identifiable {
     public let name: String
     public let kind: LeftoverKind
     public var bytes: Int64
+    /// Matched only through a dotted child of the bundle identifier (`com.maker.app.beta`), so it may belong to a
+    /// different app. The app shows it unticked, to review first.
+    public let needsReview: Bool
 
-    public init(path: String, name: String, kind: LeftoverKind, bytes: Int64 = 0) {
+    public init(path: String, name: String, kind: LeftoverKind, bytes: Int64 = 0, needsReview: Bool = false) {
         self.path = path
         self.name = name
         self.kind = kind
         self.bytes = bytes
+        self.needsReview = needsReview
     }
 }
 
@@ -236,9 +240,9 @@ public struct AppUninstaller: Sendable {
 
         var found: [Leftover] = []
         var claimed = Set<String>()
-        func add(_ path: String, _ name: String, _ kind: LeftoverKind) {
+        func add(_ path: String, _ name: String, _ kind: LeftoverKind, review: Bool = false) {
             guard claimed.insert(path).inserted, !policy.verdict(for: path).isBlocked else { return }
-            found.append(Leftover(path: path, name: name, kind: kind))
+            found.append(Leftover(path: path, name: name, kind: kind, needsReview: review))
         }
 
         for kind in LeftoverKind.allCases {
@@ -248,7 +252,12 @@ public struct AppUninstaller: Sendable {
                     Self.owns(id: $0, itemName: entry.name, kind: kind, otherIDs: otherIDs)
                 } ?? false
                 let ownerByName = Self.matchesName(app.name, itemName: entry.name, kind: kind, otherNames: otherNames)
-                if ownerByID || ownerByName { add(folder + "/" + entry.name, entry.name, kind) }
+                if ownerByID || ownerByName {
+                    let exact = ownerByName || app.bundleID.map {
+                        Self.identifier(fromItemName: entry.name, kind: kind).lowercased() == $0.lowercased()
+                    } ?? false
+                    add(folder + "/" + entry.name, entry.name, kind, review: !exact)
+                }
             }
             if kind == .preferences, let id = app.bundleID {
                 let byHost = folder + "/ByHost"

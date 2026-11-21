@@ -491,7 +491,7 @@ private struct AppDetail: View {
                     } else {
                         ForEach(Array(groups.enumerated()), id: \.element.kind) { index, group in
                             LeftoverSection(title: group.kind.title, symbol: symbol(group.kind), color: color(index),
-                                            rows: group.items.map { LeftoverRow(path: $0.path, name: $0.name, bytes: $0.bytes) },
+                                            rows: group.items.map { LeftoverRow(path: $0.path, name: $0.name, bytes: $0.bytes, needsReview: $0.needsReview) },
                                             disabled: blocked != nil, subtitle: "~/Library/" + group.kind.folder)
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
@@ -571,6 +571,7 @@ private struct LeftoverRow {
     let path: String
     let name: String
     let bytes: Int64
+    var needsReview = false
 }
 
 /// A group of tickable rows with a group tick box and a total.
@@ -621,6 +622,15 @@ private struct LeftoverSection: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(un.ticked.contains(row.path) ? Color.primary : Color.secondary)
+                    if row.needsReview {
+                        Text("Review first")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.orange.opacity(0.15)))
+                            .help("Named like a related bundle identifier, so it may belong to a different app")
+                    }
                     Spacer(minLength: 6)
                     Text(row.bytes.bytes)
                         .font(.caption.monospacedDigit())

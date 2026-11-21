@@ -112,6 +112,12 @@ final class AppUninstallerTests: XCTestCase {
             "LaunchAgents/com.maker.sketchy.updater.plist", "Cookies/com.maker.sketchy.binarycookies",
         ])
         XCTAssertEqual(found.first { $0.name == "com.maker.sketchy.plist" }?.kind, .preferences)
+
+        // Items named by a dotted child of the bundle id may belong to another app, so they are left to review.
+        let review = Set(found.filter(\.needsReview).map(\.name))
+        XCTAssertEqual(review, ["com.maker.sketchy.ShipIt", "com.maker.sketchy.updater.plist"])
+        XCTAssertFalse(try XCTUnwrap(found.first { $0.path.hasSuffix("Caches/com.maker.sketchy") }).needsReview)
+        XCTAssertFalse(try XCTUnwrap(found.first { $0.name == "Sketchy" }).needsReview)
     }
 
     func testDoesNotMatchADifferentAppWithASimilarName() throws {

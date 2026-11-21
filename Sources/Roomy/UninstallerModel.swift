@@ -183,7 +183,7 @@ final class UninstallerModel {
         let wasBlocked = selectedApp.map { blockReason(for: $0) != nil } ?? false
         runningPaths = Set(NSWorkspace.shared.runningApplications.compactMap { $0.bundleURL.map { Self.standardize($0.path) } })
         if wasBlocked, let app = selectedApp, blockReason(for: app) == nil, ticked.isEmpty {
-            ticked = Set([app.path] + leftovers.map(\.path))
+            ticked = Set([app.path] + leftovers.filter { !$0.needsReview }.map(\.path))
         }
     }
 
@@ -209,7 +209,8 @@ final class UninstallerModel {
             }.value
             guard !Task.isCancelled, self.focus == .app(app.path) else { return }
             self.leftovers = found
-            if self.blockReason(for: app) == nil { self.ticked.formUnion(found.map(\.path)) }
+            // Items matched only through a dotted child id may belong to another app, so they start unticked.
+            if self.blockReason(for: app) == nil { self.ticked.formUnion(found.filter { !$0.needsReview }.map(\.path)) }
             self.isFindingLeftovers = false
         }
     }
