@@ -28,7 +28,7 @@ final class CSVExportTests: XCTestCase {
         XCTAssertEqual(String(lines[1]), "/scan/movie.mov,movie.mov,file,video,600,600 bytes,1970-01-01T01:06:40Z,")
         XCTAssertEqual(String(lines[2]), "/scan/docs,docs,folder,folder,100,100 bytes,1970-01-01T00:33:20Z,1")
         XCTAssertEqual(lines[3], "")
-        XCTAssertFalse(csv.contains("old"))
+        XCTAssertFalse(csv.contains("/scan/old"))
     }
 
     func testDescendantsUpToDepthAndQuotedNames() {
