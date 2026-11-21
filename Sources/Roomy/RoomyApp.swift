@@ -35,6 +35,14 @@ struct RoomyApp: App {
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
+                Button("Quick Look") { model.toggleQuickLook() }
+                    .keyboardShortcut("y")
+                    .disabled(model.selection == nil)
+                Divider()
+                Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
+                    ForEach(MapStyle.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.inline)
             }
         }
 

@@ -21,6 +21,14 @@
     <key>NSDocumentsFolderUsageDescription</key><string>Roomy measures file sizes in Documents so you can see what uses space.</string>
     <key>NSDownloadsFolderUsageDescription</key><string>Roomy measures file sizes in Downloads so you can see what uses space.</string>
     <key>NSRemovableVolumesUsageDescription</key><string>Roomy measures file sizes on external disks so you can see what uses space.</string>
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key><string>io.github.hoangtuanbs.Roomy.item</string>
+            <key>UTTypeDescription</key><string>Roomy item</string>
+            <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+        </dict>
+    </array>
     <key>NSNetworkVolumesUsageDescription</key><string>Roomy measures file sizes on network disks so you can see what uses space.</string>
 </dict>
 </plist>

@@ -42,18 +42,47 @@ enum TreemapBuilder {
 
 struct TreemapView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            TreemapCanvas(folder: model.currentFolder)
+                .id(model.currentFolder)
+                .transition(MapZoom.transition(zoomingOut: model.zoomingOut, reduceMotion: reduceMotion))
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86), value: model.currentFolder)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// The zoom used when the treemap or the rings open a folder or go up.
+enum MapZoom {
+    static func transition(zoomingOut: Bool, reduceMotion: Bool) -> AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .scale(scale: zoomingOut ? 1.25 : 0.7).combined(with: .opacity),
+            removal: .opacity
+        )
+    }
+}
+
+private struct TreemapCanvas: View {
+    @Environment(AppModel.self) private var model
+    let folder: ScanTree.Index
 
     var body: some View {
         GeometryReader { geo in
             if let tree = model.tree {
                 let _ = model.treeVersion
-                let tiles = TreemapBuilder.tiles(tree: tree, folder: model.currentFolder, in: CGRect(origin: .zero, size: geo.size))
+                let tiles = TreemapBuilder.tiles(tree: tree, folder: folder, in: CGRect(origin: .zero, size: geo.size))
                 let hovered = model.hovered
                 let basket = model.basket
+                let selection = model.selection
 
                 Canvas { context, _ in
                     for tile in tiles {
-                        draw(tile, tree: tree, hovered: hovered, basket: basket, in: &context)
+                        draw(tile, tree: tree, hovered: hovered, selection: selection, basket: basket, in: &context)
                     }
                 }
                 .contentShape(Rectangle())
@@ -65,29 +94,24 @@ struct TreemapView: View {
                         model.hovered = nil
                     }
                 }
-                .gesture(SpatialTapGesture().onEnded { value in
+                .gesture(SpatialTapGesture(count: 2).onEnded { value in
                     if let node = hit(tiles, at: value.location, preferInner: false) {
                         if tree.kind(node) == .directory { model.open(node) } else { model.reveal(node) }
                     }
                 })
+                .simultaneousGesture(SpatialTapGesture().onEnded { value in
+                    model.selection = hit(tiles, at: value.location, preferInner: true)
+                })
+                .trayDraggable(hovered, model: model)
                 .contextMenu {
-                    if let node = model.hovered {
-                        Button("Reveal in Finder") { model.reveal(node) }
-                        Button(model.isInBasket(node) ? "Remove from Cleanup List" : "Add to Cleanup List") {
-                            model.toggleBasket(node)
-                        }
-                        .disabled(model.verdict(for: node).isBlocked)
-                        Button("Compress and Move Original to Trash…") { model.startCompress(node) }
-                            .disabled(!model.canCompress(node))
-                    }
+                    if let node = model.hovered { NodeMenu(node: node) }
                 }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func draw(_ tile: TreemapTile, tree: ScanTree, hovered: ScanTree.Index?, basket: Set<ScanTree.Index>, in context: inout GraphicsContext) {
+    private func draw(_ tile: TreemapTile, tree: ScanTree, hovered: ScanTree.Index?, selection: ScanTree.Index?,
+                      basket: Set<ScanTree.Index>, in context: inout GraphicsContext) {
         let rect = tile.rect.insetBy(dx: tile.depth == 0 ? 1 : 0.5, dy: tile.depth == 0 ? 1 : 0.5)
         guard rect.width > 0, rect.height > 0 else { return }
         let shape = Path(roundedRect: rect, cornerRadius: tile.depth == 0 ? 4 : 2)
@@ -107,7 +131,10 @@ struct TreemapView: View {
                 context.fill(shape, with: .color(.red.opacity(0.25)))
                 context.stroke(shape, with: .color(.red), lineWidth: 1.5)
             }
-            if node == hovered {
+            if node == selection {
+                context.fill(shape, with: .color(.white.opacity(0.18)))
+                context.stroke(shape, with: .color(.accentColor), lineWidth: 2.5)
+            } else if node == hovered {
                 context.stroke(shape, with: .color(.white), lineWidth: 2)
             }
             if tile.depth == 0, rect.width > 44, rect.height > 16 {

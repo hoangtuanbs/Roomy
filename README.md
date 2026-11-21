@@ -10,7 +10,17 @@ A macOS app that shows what is using space on your disk and helps you free it up
 
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
-- **Clean up** by ticking items and choosing **Review and Clean…**. Items go to the Trash, so Put Back still works.
+- **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
+  open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
+  to zoom in and click the centre to go up.
+- **Quick Look**: select an item in a list, the treemap or the rings and press Space (or ⌘Y). The arrow keys move the
+  preview through the list.
+- **Collect** items in the **tray** at the bottom of the window: drag them there from any list, the treemap or the
+  rings, choose **Add to Tray** in the context menu, or tick them. The tray shows each item with its size and the total,
+  and **Review and Clean…** moves them to the Trash after you review them, so Put Back still works.
+- **Fast reopening**: each scan is cached in `~/Library/Caches/io.github.hoangtuanbs.Roomy/Scans`, so the last scan of
+  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while a fresh scan runs behind it. **Rescan This
+  Folder** in the context menu scans just that folder again and updates the totals around it.
 - **Smart Clean** (top of the sidebar, the toolbar, or ⇧⌘K) finds junk that is safe to remove: app caches, logs,
   Xcode build data, device support files and simulator caches, package manager caches (npm, Yarn, pnpm, pip, Homebrew,
   CocoaPods, Gradle, Cargo) and installers in Downloads older than 30 days. Xcode archives, simulators unused for
@@ -37,7 +47,9 @@ A macOS app that shows what is using space on your disk and helps you free it up
   use. Choose an app to see its bundle and the files it left in your Library, grouped (app data, caches, settings,
   saved window state, sandbox and shared containers, web storage, WebKit data, cookies, logs and launch agents).
   Only items named exactly by the app's bundle identifier or exact name count, never another app's files or a name
-  shared by a maker's apps. **Uninstall** moves the ticked items to the Trash. Apps of macOS are not listed, and an app
+  shared by a maker's apps. Items named by a longer, related identifier (such as `com.google.Chrome.canary` for Chrome)
+  may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
+  items to the Trash. Apps of macOS are not listed, and an app
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
   Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
   no longer installed. They are guesses, so nothing there is ticked until you review it.

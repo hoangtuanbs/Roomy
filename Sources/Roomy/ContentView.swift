@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var model = model
@@ -18,9 +19,15 @@ struct ContentView: View {
             } detail: {
                 DetailColumn()
             }
+            if model.tree != nil {
+                Divider()
+                TrayView()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             Divider()
             BottomBar()
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: model.tree != nil)
         .sheet(isPresented: $model.showReview) {
             ReviewSheet().environment(model)
         }
@@ -152,6 +159,8 @@ struct ScanProgressView: View {
             Text("Scanning…").font(.title3.weight(.semibold))
             Text("\(progress.files.formatted()) files · \(progress.bytes.bytes)")
                 .font(.body.monospacedDigit())
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.2), value: progress.files)
                 .foregroundStyle(.secondary)
             Text(progress.currentPath)
                 .font(.caption)
@@ -169,24 +178,46 @@ struct ScanProgressView: View {
 struct DetailColumn: View {
     @Environment(AppModel.self) private var model
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
+        @Bindable var model = model
+
         if let tree = model.tree, case .ready = model.state {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .center, spacing: 10) {
                     Text(model.currentFolder == ScanTree.root ? tree.rootPath : tree.name(model.currentFolder))
                         .font(.headline)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    Text(tree.size(model.currentFolder).bytes)
-                        .font(.headline.monospacedDigit())
+                    CountingBytes(tree.size(model.currentFolder))
+                        .font(.headline)
                         .foregroundStyle(.secondary)
+                        .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: tree.size(model.currentFolder))
+                    Picker("Map", selection: $model.mapStyle) {
+                        ForEach(MapStyle.allCases) { style in
+                            Label(style.rawValue, systemImage: style.symbol).tag(style)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .help("Show the folder as a treemap or as rings")
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
 
-                TreemapView()
-                    .padding([.horizontal, .bottom], 12)
+                ZStack {
+                    switch model.mapStyle {
+                    case .treemap:
+                        TreemapView().transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    case .rings:
+                        RingsView().transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    }
+                }
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.mapStyle)
+                .padding([.horizontal, .bottom], 12)
 
                 HoverCaption()
                     .padding(.horizontal, 16)
@@ -210,12 +241,14 @@ struct HoverCaption: View {
                 Text(tree.size(node).bytes).foregroundStyle(.secondary).monospacedDigit()
                 Spacer()
                 if tree.kind(node) == .directory {
-                    Text("Click to open").foregroundStyle(.tertiary)
+                    Text(model.mapStyle == .rings ? "Click to open" : "Double-click to open").foregroundStyle(.tertiary)
                 }
             }
             .font(.callout)
         } else {
-            Text("Hover a tile to see what it is. Click a folder to open it.")
+            Text(model.mapStyle == .rings
+                 ? "Hover a ring to see what it is. Click a folder to open it, or the centre to go up. Space shows Quick Look."
+                 : "Hover a tile to see what it is. Click to select, double-click a folder to open it. Space shows Quick Look.")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
         }
@@ -224,6 +257,7 @@ struct HoverCaption: View {
 
 struct BottomBar: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
@@ -237,12 +271,13 @@ struct BottomBar: View {
                                     .foregroundStyle(.tertiary)
                             }
                             Button(node == ScanTree.root ? tree.rootPath : tree.name(node)) {
-                                model.currentFolder = node
+                                model.go(to: node)
                             }
                             .buttonStyle(.borderless)
                             .foregroundStyle(node == model.currentFolder ? Color.primary : Color.secondary)
                         }
                     }
+                    .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.breadcrumb)
                 }
             } else {
                 Spacer()
@@ -250,22 +285,73 @@ struct BottomBar: View {
 
             Spacer(minLength: 12)
 
-            if !model.basket.isEmpty {
-                Text("\(model.basket.count) \(model.basket.count == 1 ? "item" : "items"), \(model.basketBytes.bytes) selected")
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                Button("Clear") { model.basket = [] }
-            }
-            Button("Compress and Clean…") { model.startCompressBasket() }
-                .buttonStyle(.bordered)
-                .disabled(!model.canCompressBasket)
-                .help("Zip the selected items, then move the originals to the Trash")
-            Button("Review and Clean…") { model.showReview = true }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.basket.isEmpty)
+            ScanStatusNote()
         }
         .padding(.horizontal, 14)
-        .frame(height: 46)
+        .frame(height: 34)
         .background(.bar)
+    }
+}
+
+/// When the shown results were scanned, and whether a fresh scan is running behind them.
+struct ScanStatusNote: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Group {
+            if let node = model.rescanningNode, let tree = model.tree {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("Rescanning \(tree.name(node))…")
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            } else if model.isRefreshing {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    if let date = model.scannedAt { ScannedAgo(date: date) }
+                    Text("·")
+                    Text(updatingText)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                    Button("Stop") { model.cancelScan() }
+                        .buttonStyle(.link)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            } else if let date = model.scannedAt {
+                HStack(spacing: 6) {
+                    if let error = model.refreshError {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).help(error)
+                    } else {
+                        Image(systemName: "clock")
+                    }
+                    ScannedAgo(date: date)
+                    Text("·")
+                    Button("Rescan") { model.rescan() }
+                        .buttonStyle(.link)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.isRefreshing)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.rescanningNode)
+    }
+
+    private var updatingText: String {
+        guard let progress = model.refreshProgress else { return "Updating…" }
+        return "Updating · \(progress.files.formatted()) files…"
+    }
+}
+
+private struct ScannedAgo: View {
+    let date: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let seconds = context.date.timeIntervalSince(date)
+            Text(seconds < 60 ? "Scanned just now" : "Scanned \(date.formatted(.relative(presentation: .named)))")
+        }
     }
 }
