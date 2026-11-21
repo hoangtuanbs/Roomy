@@ -184,4 +184,54 @@ public final class ScanTree: @unchecked Sendable {
             stack.append(contentsOf: children[Int(m)])
         }
     }
+
+    /// Sets totals read from a saved snapshot and sorts children largest first.
+    func restoreTotals(sizes newSizes: [Int64], fileCounts newCounts: [Int32]) {
+        guard newSizes.count == count, newCounts.count == count else { return }
+        sizes = newSizes
+        fileCounts = newCounts
+        let sizes = self.sizes
+        for n in 0..<children.count where children[n].count > 1 {
+            children[n].sort { sizes[Int($0)] > sizes[Int($1)] }
+        }
+    }
+
+    /// Replaces what is inside the folder `i` with a fresh scan of that folder, and updates the totals of `i` and every
+    /// ancestor. The old nodes stay in the arrays, marked removed, so other indexes keep pointing at the same items.
+    public func replaceSubtree(_ i: Index, with fresh: ScanTree) {
+        guard !flags[Int(i)].contains(.removed), kinds[Int(i)].isContainer else { return }
+        var stack = children[Int(i)]
+        while let m = stack.popLast() {
+            flags[Int(m)].insert(.removed)
+            stack.append(contentsOf: children[Int(m)])
+        }
+        children[Int(i)] = []
+
+        var map = [Index](repeating: -1, count: fresh.count)
+        map[0] = i
+        for n in 1..<max(1, fresh.count) where !fresh.flags[n].contains(.removed) {
+            let parent = map[Int(fresh.parents[n])]
+            guard parent >= 0 else { continue }
+            map[n] = append(name: fresh.names[n], parent: parent, kind: fresh.kinds[n], size: fresh.sizes[n],
+                            modified: fresh.modified[n], flags: fresh.flags[n])
+            fileCounts[Int(map[n])] = fresh.fileCounts[n]
+        }
+
+        let sizeDelta = fresh.size(Self.root) - sizes[Int(i)]
+        let fileDelta = fresh.fileCount(Self.root) - fileCounts[Int(i)]
+        sizes[Int(i)] = fresh.size(Self.root)
+        fileCounts[Int(i)] = fresh.fileCount(Self.root)
+        modified[Int(i)] = fresh.modified[0]
+        flags[Int(i)] = fresh.flags[0]
+        var n = i
+        while let p = parent(n) {
+            sizes[Int(p)] += sizeDelta
+            fileCounts[Int(p)] += fileDelta
+            n = p
+        }
+        let sizes = self.sizes
+        for node in map + lineage(of: i).dropLast() where node >= 0 && children[Int(node)].count > 1 {
+            children[Int(node)].sort { sizes[Int($0)] > sizes[Int($1)] }
+        }
+    }
 }
