@@ -56,6 +56,11 @@ public struct CleanupReport: Codable, Sendable, Equatable {
     public let date: Date
     public let results: [CleanupResult]
 
+    public init(date: Date, results: [CleanupResult]) {
+        self.date = date
+        self.results = results
+    }
+
     public var freedBytes: Int64 { results.filter(\.succeeded).reduce(0) { $0 + $1.bytes } }
     public var succeeded: [CleanupResult] { results.filter(\.succeeded) }
     public var failed: [CleanupResult] { results.filter { !$0.succeeded } }

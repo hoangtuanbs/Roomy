@@ -146,7 +146,7 @@ final class UninstallerModel {
             let list = await Task.detached { uninstaller.listApps() }.value
             guard !Task.isCancelled else { return }
             self.allApps = list
-            self.apps = list.filter { !$0.isApple && !SafetyPolicy.isSameOrInside($0.path, "/System") }
+            self.apps = list.filter { !$0.isApple && !$0.path.hasPrefix("/System/") }
             self.measured = []
             self.phase = .ready
             await self.measureApps()
