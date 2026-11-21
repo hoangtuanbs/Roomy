@@ -710,6 +710,12 @@ final class AppModel {
     }
 
     /// Opens Smart Clean and looks for junk again, unless it is busy.
+    /// Saves the current folder as CSV. Depth 1 lists its children; larger depths add the folders inside them.
+    func exportCSV(depth: Int) {
+        guard let tree else { return }
+        CSVExporter.save(tree: tree, folder: currentFolder, depth: depth)
+    }
+
     func openSmartClean() {
         showSmartClean = true
         if !smartClean.isBusy { smartClean.scan(tree: state.isScanning ? nil : tree) }

@@ -53,6 +53,15 @@ A macOS app that shows what is using space on your disk and helps you free it up
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
   Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
   no longer installed. They are guesses, so nothing there is ticked until you review it.
+- **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
+  external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
+  **Open Roomy**, **Smart Clean…** and **Quit** are a click away. Roomy keeps running in the menu bar after its window closes.
+- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), Roomy sends one
+  notification a day, "Your disk is almost full". Clicking it opens Roomy. Roomy asks for notification permission only
+  when you turn the alert on, and it does nothing if you say no.
+- **Export as CSV…** (File menu, ⇧⌘E, or the toolbar's CSV button) saves the current folder as a CSV file: path, name,
+  kind, category, size in bytes and as text, modified date (ISO 8601) and item count for folders. Choose to include the
+  folders inside it down to 2, 3 or 5 levels.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
 
@@ -99,7 +108,7 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 
 | Path | What it is |
 | --- | --- |
-| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression and the Smart Clean junk finder. No UI. |
+| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule and CSV export. No UI. |
 | `Tests/RoomyCoreTests` | Unit tests, run with `swift test`. They only use temporary folders. |
 | `Sources/Roomy` | The SwiftUI app. |
 | `Sources/roomy-scan` | Command-line scanner. |

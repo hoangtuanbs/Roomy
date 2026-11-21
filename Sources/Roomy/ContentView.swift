@@ -138,6 +138,18 @@ struct ContentColumn: View {
                 .help("Remove apps together with the files they leave behind")
             }
             ToolbarItem {
+                Menu {
+                    Button("Items in This Folder") { model.exportCSV(depth: 1) }
+                    Button("Up to 2 Levels Deep") { model.exportCSV(depth: 2) }
+                    Button("Up to 3 Levels Deep") { model.exportCSV(depth: 3) }
+                    Button("Up to 5 Levels Deep") { model.exportCSV(depth: 5) }
+                } label: {
+                    Label("Export as CSV", systemImage: "tablecells")
+                }
+                .disabled(model.tree == nil)
+                .help("Save this folder and its items as a CSV file")
+            }
+            ToolbarItem {
                 Button {
                     model.rescan()
                 } label: {
