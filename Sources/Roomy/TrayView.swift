@@ -121,7 +121,7 @@ struct TrayView: View {
                 VStack(alignment: .trailing, spacing: 0) {
                     CountingBytes(model.basketBytes)
                         .font(.headline)
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: model.basketBytes)
+                        .animation(Motion.smooth.unless(reduceMotion), value: model.basketBytes)
                     Text("\(items.count) \(items.count == 1 ? "item" : "items")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -168,9 +168,9 @@ struct TrayView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.72), value: items)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isTargeted)
-        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8), value: model.trayNotice)
+        .animation(Motion.bouncy.unless(reduceMotion), value: items)
+        .animation(Motion.hover.unless(reduceMotion), value: isTargeted)
+        .animation(Motion.spring.unless(reduceMotion), value: model.trayNotice)
         .dropDestination(for: TrayItem.self) { dropped, location in
             let first = dropped.first.flatMap { model.tree?.index(ofPath: $0.path) }
             let added = model.addToTray(paths: dropped.map(\.path))
@@ -250,7 +250,7 @@ private struct TrayChip: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Button {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                    withAnimation(Motion.spring.unless(reduceMotion)) {
                         model.toggleBasket(node)
                     }
                 } label: {
@@ -267,7 +267,7 @@ private struct TrayChip: View {
             .background(Capsule().fill(color.opacity(isHovered ? 0.24 : 0.14)))
             .overlay(Capsule().strokeBorder(color.opacity(0.4), lineWidth: 1))
             .scaleEffect(isHovered && !reduceMotion ? 1.04 : 1)
-            .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: isHovered)
+            .animation(Motion.quick.unless(reduceMotion), value: isHovered)
             .onHover { isHovered = $0 }
             .help(path)
             .contextMenu {

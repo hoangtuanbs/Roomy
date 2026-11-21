@@ -27,6 +27,16 @@ enum ScanState {
         if case .scanning = self { return true }
         return false
     }
+
+    /// Which kind of state this is, without the progress, so a view can animate between them.
+    var phase: Int {
+        switch self {
+        case .idle: return 0
+        case .scanning: return 1
+        case .ready: return 2
+        case .failed: return 3
+        }
+    }
 }
 
 enum AgeFilter: String, CaseIterable, Identifiable {

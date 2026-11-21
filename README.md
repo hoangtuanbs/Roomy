@@ -64,6 +64,7 @@ A macOS app that shows what is using space on your disk and helps you free it up
   folders inside it down to 2, 3 or 5 levels.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
+- **Motion**: lists, the treemap, the rings and every clean move with short spring animations. Treemap tiles slide into place when items are removed, the scan shows a turning ring with a live file count, and each clean ends with the same "space freed" moment. Turn on Reduce Motion in System Settings > Accessibility > Display to keep everything still.
 
 ## Requirements
 

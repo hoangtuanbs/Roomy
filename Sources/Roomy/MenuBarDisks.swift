@@ -35,11 +35,7 @@ final class MenuBarDiskModel {
     /// Reads the disks again. Bars move with a spring unless Reduce Motion is on.
     func refresh() {
         let fresh = Self.readDisks()
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            disks = fresh
-        } else {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { disks = fresh }
-        }
+        withAnimation(Motion.spring.unless(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)) { disks = fresh }
         if let startup = fresh.first(where: \.isStartup) {
             LowSpaceNotifier.checkStartupDisk(free: startup.space.availableForImportantUsage)
         }

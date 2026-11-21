@@ -27,7 +27,7 @@ struct ContentView: View {
             Divider()
             BottomBar()
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: model.tree != nil)
+        .animation(Motion.spring.unless(reduceMotion), value: model.tree != nil)
         .sheet(isPresented: $model.showReview) {
             ReviewSheet().environment(model)
         }
@@ -80,28 +80,40 @@ struct ContentColumn: View {
 
             Divider()
 
-            switch model.state {
-            case .idle:
-                ContentUnavailableView(
-                    "Choose a location",
-                    systemImage: "internaldrive",
-                    description: Text("Pick your home folder or a disk in the sidebar, or drop a folder here, to see what is using space.")
-                )
-            case .scanning(let progress):
-                ScanProgressView(progress: progress)
-            case .failed(let message):
-                ContentUnavailableView("Scan failed", systemImage: "exclamationmark.triangle", description: Text(message))
-            case .ready:
-                VStack(spacing: 0) {
-                    DiskOverviewCard()
-                    Divider()
-                    switch model.tab {
-                    case .folders: FolderListView()
-                    case .files: BiggestFilesView()
+            ZStack {
+                switch model.state {
+                case .idle:
+                    ContentUnavailableView(
+                        "Choose a location",
+                        systemImage: "internaldrive",
+                        description: Text("Pick your home folder or a disk in the sidebar, or drop a folder here, to see what is using space.")
+                    )
+                    .transition(.opacity)
+                case .scanning(let progress):
+                    ScanProgressView(progress: progress)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                case .failed(let message):
+                    ContentUnavailableView("Scan failed", systemImage: "exclamationmark.triangle", description: Text(message))
+                        .transition(.opacity)
+                case .ready:
+                    VStack(spacing: 0) {
+                        DiskOverviewCard()
+                        Divider()
+                        ZStack {
+                            switch model.tab {
+                            case .folders: FolderListView().transition(.opacity)
+                            case .files: BiggestFilesView().transition(.opacity)
+                            }
+                        }
+                        .frame(maxHeight: .infinity)
+                        .motion(Motion.smooth, value: model.tab)
                     }
+                    .task(id: model.treeVersion) { model.refreshDiskOverview() }
+                    .transition(.opacity)
                 }
-                .task(id: model.treeVersion) { model.refreshDiskOverview() }
             }
+            .frame(maxHeight: .infinity)
+            .motion(Motion.smooth, value: model.state.phase)
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Filter by name")
         .toolbar {
@@ -161,27 +173,45 @@ struct ContentColumn: View {
     }
 }
 
+/// The scan in progress: a turning ring with the files counted so far, and the folder being read.
 struct ScanProgressView: View {
     @Environment(AppModel.self) private var model
     let progress: ScanProgress
 
     var body: some View {
-        VStack(spacing: 14) {
-            ProgressView().controlSize(.large)
-            Text("Scanning…").font(.title3.weight(.semibold))
-            Text("\(progress.files.formatted()) files · \(progress.bytes.bytes)")
-                .font(.body.monospacedDigit())
-                .contentTransition(.numericText())
-                .animation(.snappy(duration: 0.2), value: progress.files)
-                .foregroundStyle(.secondary)
-            Text(progress.currentPath)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 360)
+        VStack(spacing: 16) {
+            BusyRing(gradient: .scan, size: 150, lineWidth: 9, period: 1.4) {
+                VStack(spacing: 2) {
+                    Text(progress.files.formatted())
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .contentTransition(.numericText(value: Double(progress.files)))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .padding(.horizontal, 18)
+                    Text("files").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .entrance(offset: 0, scale: 0.85)
+            VStack(spacing: 6) {
+                Text("Scanning…").font(.title3.weight(.semibold))
+                Text(progress.bytes.bytes)
+                    .font(.body.monospacedDigit())
+                    .contentTransition(.numericText(value: Double(progress.bytes)))
+                    .foregroundStyle(.secondary)
+                Text(progress.currentPath)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 360)
+                    .contentTransition(.opacity)
+            }
+            .entrance(index: 1, offset: 10)
             Button("Cancel") { model.cancelScan() }
+                .entrance(index: 2, offset: 10)
         }
+        .motion(Motion.quick, value: progress.files)
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -206,7 +236,7 @@ struct DetailColumn: View {
                     CountingBytes(tree.size(model.currentFolder))
                         .font(.headline)
                         .foregroundStyle(.secondary)
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: tree.size(model.currentFolder))
+                        .animation(Motion.smooth.unless(reduceMotion), value: tree.size(model.currentFolder))
                     Picker("Map", selection: $model.mapStyle) {
                         ForEach(MapStyle.allCases) { style in
                             Label(style.rawValue, systemImage: style.symbol).tag(style)
@@ -228,7 +258,7 @@ struct DetailColumn: View {
                         RingsView().transition(.opacity.combined(with: .scale(scale: 0.97)))
                     }
                 }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.mapStyle)
+                .animation(Motion.smooth.unless(reduceMotion), value: model.mapStyle)
                 .padding([.horizontal, .bottom], 12)
 
                 HoverCaption()
@@ -289,7 +319,7 @@ struct BottomBar: View {
                             .foregroundStyle(node == model.currentFolder ? Color.primary : Color.secondary)
                         }
                     }
-                    .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.breadcrumb)
+                    .animation(Motion.quick.unless(reduceMotion), value: model.breadcrumb)
                 }
             } else {
                 Spacer()
@@ -347,8 +377,8 @@ struct ScanStatusNote: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.isRefreshing)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.rescanningNode)
+        .animation(Motion.quick.unless(reduceMotion), value: model.isRefreshing)
+        .animation(Motion.quick.unless(reduceMotion), value: model.rescanningNode)
     }
 
     private var updatingText: String {

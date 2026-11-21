@@ -30,7 +30,7 @@ struct SmartCleanView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: clean.phase)
+            .animation(Motion.smooth.unless(reduceMotion), value: clean.phase)
             Divider()
             footer
         }
@@ -113,7 +113,7 @@ private struct SmartCleanHeader: View {
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(clean.selectedBytes)))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: clean.selectedBytes)
+                        .animation(Motion.quick.unless(reduceMotion), value: clean.selectedBytes)
                     Text("\(clean.selectedItems.count) \(clean.selectedItems.count == 1 ? "item" : "items") selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -123,14 +123,12 @@ private struct SmartCleanHeader: View {
             }
         }
         .padding(18)
-        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: clean.phase)
+        .animation(Motion.smooth.unless(reduceMotion), value: clean.phase)
     }
 }
 
 private struct SmartCleanScanning: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var spinning = false
 
     var body: some View {
         let step: String = {
@@ -138,29 +136,19 @@ private struct SmartCleanScanning: View {
             return "Looking for junk…"
         }()
         VStack(spacing: 18) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 6)
-                Circle()
-                    .trim(from: 0, to: 0.28)
-                    .stroke(LinearGradient.smartClean, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(spinning ? 360 : 0))
+            BusyRing(gradient: .smartClean, period: 1) {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(LinearGradient.smartClean)
             }
-            .frame(width: 92, height: 92)
             Text(step)
                 .font(.title3.weight(.medium))
                 .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.2), value: step)
+                .motion(Motion.quick, value: step)
             Text("Only places known to hold junk are checked. Nothing is moved yet.")
                 .foregroundStyle(.secondary)
         }
         .padding(32)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) { spinning = true }
-        }
     }
 }
 
@@ -222,7 +210,7 @@ private struct FindingCard: View {
             HStack(alignment: .top, spacing: 12) {
                 if !finding.isPermanent {
                     SelectionBox(state: state, color: color) {
-                        withAnimation(motion(.snappy(duration: 0.25))) {
+                        withAnimation(Motion.quick.unless(reduceMotion)) {
                             clean.selection.setAll(finding, selected: state != .all)
                         }
                     }
@@ -276,7 +264,7 @@ private struct FindingCard: View {
             .padding(14)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(motion(.spring(response: 0.35, dampingFraction: 0.85))) { clean.toggleExpanded(finding) }
+                withAnimation(Motion.spring.unless(reduceMotion)) { clean.toggleExpanded(finding) }
             }
             .help(isExpanded ? "Hide the items" : "Show the items")
 
@@ -312,13 +300,7 @@ private struct FindingCard: View {
         .scaleEffect(appeared ? 1 : 0.97)
         .onAppear {
             guard !appeared else { return }
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8).delay(Double(index) * 0.05)) {
-                    appeared = true
-                }
-            }
+            withAnimation(Motion.stagger(index).unless(reduceMotion)) { appeared = true }
         }
         .alert("Empty the Trash?", isPresented: $confirmEmpty) {
             Button("Empty Trash", role: .destructive) { clean.emptyTrash() }
@@ -334,9 +316,6 @@ private struct FindingCard: View {
         return "\(model.smartClean.selection.selectedBytes(in: finding).bytes) of \(count)"
     }
 
-    private func motion(_ animation: Animation) -> Animation? {
-        reduceMotion ? nil : animation
-    }
 }
 
 private struct JunkItemRow: View {
@@ -350,7 +329,7 @@ private struct JunkItemRow: View {
         HStack(spacing: 10) {
             if !finding.isPermanent {
                 SelectionBox(state: clean.selection.contains(item) ? .all : .none, color: finding.category.color) {
-                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                    withAnimation(Motion.quick.unless(reduceMotion)) {
                         clean.selection.toggle(item, in: finding)
                     }
                 }
@@ -443,142 +422,26 @@ private struct TrashResultBanner: View {
 
 private struct SmartCleanProgress: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let clean = model.smartClean
-        VStack(spacing: 20) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 12)
-                Circle()
-                    .trim(from: 0, to: max(0.02, clean.cleanFraction))
-                    .stroke(LinearGradient.smartClean, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: clean.cleanFraction)
-                VStack(spacing: 2) {
-                    Text(clean.cleanedBytes.bytes)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .contentTransition(.numericText(value: Double(clean.cleanedBytes)))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: clean.cleanedBytes)
-                    Text("moved to the Trash").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 190, height: 190)
-            Text("Moving \(min(clean.cleanedCount + 1, clean.cleanTotal)) of \(clean.cleanTotal)…")
-                .font(.title3)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: clean.cleanedCount)
-        }
-        .padding(32)
+        CleaningProgressRing(fraction: clean.cleanFraction, bytes: clean.cleanedBytes,
+                             done: clean.cleanedCount, total: clean.cleanTotal, gradient: .smartClean)
+            .padding(32)
     }
 }
 
 private struct SmartCleanDone: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
 
     var body: some View {
         let clean = model.smartClean
-        let report = clean.report
-        let moved = report?.succeeded.count ?? 0
-        let failed = report?.failed ?? []
-
-        ZStack {
-            if shown && !reduceMotion {
-                ConfettiBurst()
-            }
-            VStack(spacing: 14) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 68))
-                    .foregroundStyle(Color.green.gradient)
-                    .scaleEffect(shown ? 1 : 0.3)
-                    .opacity(shown ? 1 : 0)
-                    .symbolEffect(.bounce, value: shown)
-                CountingBytes(shown ? clean.cleanedBytes : 0, suffix: " freed")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                Text("Moved \(moved) \(moved == 1 ? "item" : "items") to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 440)
-                    .opacity(shown ? 1 : 0)
-                if !failed.isEmpty {
-                    DisclosureGroup("\(failed.count) could not be moved") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(failed, id: \.path) { result in
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text((result.path as NSString).lastPathComponent)
-                                    Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
-                    .frame(maxWidth: 440)
-                    .foregroundStyle(.orange)
-                }
-            }
-            .padding(32)
-        }
-        .onAppear {
-            if reduceMotion {
-                shown = true
-            } else {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.62)) { shown = true }
-            }
-        }
-    }
-}
-
-/// A short burst of colourful pieces behind the result.
-struct ConfettiBurst: View {
-    struct Piece: Identifiable {
-        let id: Int
-        let angle: CGFloat
-        let distance: CGFloat
-        let size: CGFloat
-        let spin: Double
-        let color: Color
-    }
-
-    @State private var pieces: [Piece] = ConfettiBurst.makePieces()
-    @State private var flown = false
-    @State private var faded = false
-
-    var body: some View {
-        ZStack {
-            ForEach(pieces) { piece in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(piece.color)
-                    .frame(width: piece.size, height: piece.size * 0.55)
-                    .rotationEffect(.degrees(flown ? piece.spin : 0))
-                    .offset(x: flown ? cos(piece.angle) * piece.distance : 0,
-                            y: flown ? sin(piece.angle) * piece.distance + 60 : -40)
-                    .opacity(faded ? 0 : 1)
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.9)) { flown = true }
-            withAnimation(.easeIn(duration: 0.5).delay(0.7)) { faded = true }
-        }
-    }
-
-    static func makePieces() -> [Piece] {
-        let colors = JunkCategory.allCases.map(\.color) + [.yellow, .pink]
-        return (0..<40).map { i in
-            Piece(
-                id: i,
-                angle: CGFloat.random(in: 0..<(2 * .pi)),
-                distance: CGFloat.random(in: 120...300),
-                size: CGFloat.random(in: 6...11),
-                spin: Double.random(in: -360...360),
-                color: colors[i % colors.count]
-            )
-        }
+        let moved = clean.report?.succeeded.count ?? 0
+        FreedSpaceCelebration(
+            bytes: clean.cleanedBytes,
+            message: "Moved \(moved) \(moved == 1 ? "item" : "items") to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+            failed: clean.report?.failed ?? [],
+            maxWidth: 440
+        )
     }
 }

@@ -35,12 +35,14 @@ struct SidebarView: View {
             List(selection: selection) {
                 Section("Disks") {
                     ForEach(model.volumes) { volume in
-                        VolumeRow(location: volume).tag(volume.path)
+                        VolumeRow(location: volume, isSelected: isSelected(volume.path), isScanning: isScanning(volume.path))
+                            .tag(volume.path)
                     }
                 }
                 Section("Folders") {
                     ForEach(model.folders) { folder in
-                        Label(folder.name, systemImage: folder.symbol)
+                        LocationLabel(name: folder.name, symbol: folder.symbol,
+                                      isSelected: isSelected(folder.path), isScanning: isScanning(folder.path))
                             .tag(folder.path)
                             .contextMenu {
                                 if model.isPinned(folder.path) {
@@ -51,6 +53,7 @@ struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
+            .motion(Motion.spring, value: model.folders.map(\.path))
 
             VStack(alignment: .leading, spacing: 10) {
                 Button {
@@ -73,6 +76,35 @@ struct SidebarView: View {
                 }
             }
             .padding(12)
+        }
+    }
+
+    private func isSelected(_ path: String) -> Bool {
+        model.selectedPath == path
+    }
+
+    private func isScanning(_ path: String) -> Bool {
+        model.selectedPath == path && (model.state.isScanning || model.isRefreshing)
+    }
+}
+
+/// A sidebar location's name and symbol. The symbol grows a little when the location is chosen and pulses
+/// while it is being scanned.
+private struct LocationLabel: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let name: String
+    let symbol: String
+    let isSelected: Bool
+    let isScanning: Bool
+
+    var body: some View {
+        Label {
+            Text(name)
+        } icon: {
+            Image(systemName: symbol)
+                .symbolEffect(.pulse, isActive: isScanning && !reduceMotion)
+                .scaleEffect(isSelected && !reduceMotion ? 1.12 : 1)
+                .animation(Motion.bouncy.unless(reduceMotion), value: isSelected)
         }
     }
 }
@@ -108,7 +140,7 @@ private struct SmartCleanButton: View {
         .buttonStyle(.plain)
         .help("Find caches, logs and leftovers that are safe to remove")
         .onHover { inside in
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
+            withAnimation(Motion.quick.unless(reduceMotion)) { hovering = inside }
         }
     }
 }
@@ -154,17 +186,19 @@ private struct ToolButton: View {
         .buttonStyle(.plain)
         .help(help)
         .onHover { inside in
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
+            withAnimation(Motion.quick.unless(reduceMotion)) { hovering = inside }
         }
     }
 }
 
 private struct VolumeRow: View {
     let location: Location
+    let isSelected: Bool
+    let isScanning: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(location.name, systemImage: location.symbol)
+            LocationLabel(name: location.name, symbol: location.symbol, isSelected: isSelected, isScanning: isScanning)
             if let total = location.total, let available = location.available, total > 0 {
                 let used = Double(total - available) / Double(total)
                 SizeBar(fraction: used, color: used > 0.9 ? .red : .accentColor)

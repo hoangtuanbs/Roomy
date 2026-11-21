@@ -32,7 +32,7 @@ struct UninstallerView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: un.phase)
+            .animation(Motion.smooth.unless(reduceMotion), value: un.phase)
             Divider()
             footer
         }
@@ -105,7 +105,7 @@ private struct UninstallerHeader: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     CountingBytes(un.totalAppBytes)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: un.totalAppBytes)
+                        .animation(Motion.quick.unless(reduceMotion), value: un.totalAppBytes)
                     Text("in \(un.apps.count) \(un.apps.count == 1 ? "app" : "apps")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -115,36 +115,28 @@ private struct UninstallerHeader: View {
             }
         }
         .padding(18)
-        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: un.phase)
+        .animation(Motion.smooth.unless(reduceMotion), value: un.phase)
     }
 }
 
 private struct UninstallerLoading: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var spinning = false
     @State private var bobbing = false
 
     var body: some View {
         VStack(spacing: 18) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 8)
-                Circle()
-                    .trim(from: 0, to: 0.28)
-                    .stroke(LinearGradient.uninstaller, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .rotationEffect(.degrees(spinning ? 360 : 0))
+            BusyRing(gradient: .uninstaller, size: 110, lineWidth: 8) {
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(LinearGradient.uninstaller)
                     .offset(y: bobbing ? -3 : 3)
             }
-            .frame(width: 110, height: 110)
             Text("Reading your apps…").font(.title3.weight(.medium))
             Text("Nothing is moved yet.").font(.callout).foregroundStyle(.tertiary)
         }
         .padding(32)
         .onAppear {
             guard !reduceMotion else { return }
-            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) { spinning = true }
             withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { bobbing = true }
         }
     }
@@ -179,7 +171,7 @@ private struct UninstallerBrowser: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.86), value: un.focus)
+        .animation(Motion.spring.unless(reduceMotion), value: un.focus)
     }
 }
 
@@ -212,7 +204,7 @@ private struct AppGrid: View {
                 .padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(0.06)))
                 .frame(maxWidth: 260)
-                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: un.searchText.isEmpty)
+                .animation(Motion.quick.unless(reduceMotion), value: un.searchText.isEmpty)
 
                 Spacer()
                 Picker("Sort by", selection: $un.sort) {
@@ -238,7 +230,7 @@ private struct AppGrid: View {
                     }
                 }
                 .padding(16)
-                .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82), value: visible.map(\.path))
+                .animation(Motion.spring.unless(reduceMotion), value: visible.map(\.path))
             }
             .overlay {
                 if visible.isEmpty && !un.searchText.isEmpty {
@@ -323,19 +315,13 @@ private struct AppTile: View {
         .help(app.path)
         .opacity(appeared ? 1 : 0)
         .scaleEffect(appeared ? 1 : 0.9)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.4), value: app.bytes)
+        .animation(Motion.smooth.unless(reduceMotion), value: app.bytes)
         .onHover { inside in
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { hovering = inside }
+            withAnimation(Motion.quick.unless(reduceMotion)) { hovering = inside }
         }
         .onAppear {
             guard !appeared else { return }
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8).delay(Double(min(index, 18)) * 0.02)) {
-                    appeared = true
-                }
-            }
+            withAnimation(Motion.stagger(index).unless(reduceMotion)) { appeared = true }
         }
         .contextMenu {
             Button("Show in Finder") { un.reveal(app.path) }
@@ -400,7 +386,7 @@ private struct OrphansTile: View {
         .buttonStyle(.plain)
         .help("Library folders named after apps that are no longer installed")
         .onHover { inside in
-            withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { hovering = inside }
+            withAnimation(Motion.quick.unless(reduceMotion)) { hovering = inside }
         }
     }
 }
@@ -498,8 +484,8 @@ private struct AppDetail: View {
                     }
                 }
                 .padding(16)
-                .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: un.leftovers.map(\.path))
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: un.isFindingLeftovers)
+                .animation(Motion.spring.unless(reduceMotion), value: un.leftovers.map(\.path))
+                .animation(Motion.smooth.unless(reduceMotion), value: un.isFindingLeftovers)
             }
 
             Divider()
@@ -508,12 +494,12 @@ private struct AppDetail: View {
                 VStack(alignment: .leading, spacing: 1) {
                     CountingBytes(un.tickedBytes)
                         .font(.title3.weight(.bold))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: un.tickedBytes)
+                        .animation(Motion.quick.unless(reduceMotion), value: un.tickedBytes)
                     Text("\(un.tickedCount) \(un.tickedCount == 1 ? "item" : "items") ticked")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: un.tickedCount)
+                        .animation(Motion.quick.unless(reduceMotion), value: un.tickedCount)
                 }
                 Spacer()
                 Button {
@@ -529,7 +515,7 @@ private struct AppDetail: View {
             }
             .padding(14)
         }
-        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: blocked)
+        .animation(Motion.smooth.unless(reduceMotion), value: blocked)
         .alert(un.ticked.contains(app.path) ? "Uninstall \(app.name)?" : "Remove the leftovers of \(app.name)?",
                isPresented: $confirm) {
             Button("Move to Trash", role: .destructive) { un.uninstall() }
@@ -538,7 +524,7 @@ private struct AppDetail: View {
             Text("\(un.tickedCount) \(un.tickedCount == 1 ? "item" : "items") (\(un.tickedBytes.bytes)) will be moved to the Trash. You can put them back from the Trash until you empty it.")
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7)) { appeared = true }
+            withAnimation(Motion.bouncy.unless(reduceMotion)) { appeared = true }
         }
     }
 
@@ -594,7 +580,7 @@ private struct LeftoverSection: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 SelectionBox(state: state, color: color) {
-                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                    withAnimation(Motion.quick.unless(reduceMotion)) {
                         let paths = rows.map(\.path)
                         if state == .all { un.ticked.subtract(paths) } else { un.ticked.formUnion(paths) }
                     }
@@ -615,7 +601,7 @@ private struct LeftoverSection: View {
             ForEach(rows, id: \.path) { row in
                 HStack(spacing: 8) {
                     SelectionBox(state: un.ticked.contains(row.path) ? .all : .none, color: color) {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { un.toggle(row.path) }
+                        withAnimation(Motion.quick.unless(reduceMotion)) { un.toggle(row.path) }
                     }
                     .disabled(disabled)
                     Text(row.name)
@@ -709,7 +695,7 @@ private struct OrphansDetail: View {
                         LazyVStack(spacing: 8) {
                             ForEach(un.orphans) { group in
                                 OrphanCard(group: group, isExpanded: expanded.contains(group.id)) {
-                                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
+                                    withAnimation(Motion.spring.unless(reduceMotion)) {
                                         if expanded.contains(group.id) { expanded.remove(group.id) } else { expanded.insert(group.id) }
                                     }
                                 }
@@ -717,13 +703,13 @@ private struct OrphansDetail: View {
                             }
                         }
                         .padding(16)
-                        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: un.orphans.map(\.id))
+                        .animation(Motion.spring.unless(reduceMotion), value: un.orphans.map(\.id))
                     }
                     .transition(.opacity)
                 }
             }
             .frame(maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: un.isFindingOrphans)
+            .animation(Motion.smooth.unless(reduceMotion), value: un.isFindingOrphans)
 
             Divider()
 
@@ -731,7 +717,7 @@ private struct OrphansDetail: View {
                 VStack(alignment: .leading, spacing: 1) {
                     CountingBytes(un.orphanTickedBytes)
                         .font(.title3.weight(.bold))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: un.orphanTickedBytes)
+                        .animation(Motion.quick.unless(reduceMotion), value: un.orphanTickedBytes)
                     Text("\(un.orphanTickedItems.count) ticked")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -777,7 +763,7 @@ private struct OrphanCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 SelectionBox(state: state, color: Self.color) {
-                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                    withAnimation(Motion.quick.unless(reduceMotion)) {
                         un.setAllOrphans(group, ticked: state != .all)
                     }
                 }
@@ -804,7 +790,7 @@ private struct OrphanCard: View {
                     ForEach(group.items) { item in
                         HStack(spacing: 8) {
                             SelectionBox(state: un.orphanTicked.contains(item.path) ? .all : .none, color: Self.color) {
-                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { un.toggleOrphan(item.path) }
+                                withAnimation(Motion.quick.unless(reduceMotion)) { un.toggleOrphan(item.path) }
                             }
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(item.name).lineLimit(1).truncationMode(.middle)
@@ -865,28 +851,8 @@ private struct UninstallerRemoving: View {
                 }
                 .frame(width: 300, height: 120)
             }
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 10)
-                Circle()
-                    .trim(from: 0, to: max(0.02, un.cleanFraction))
-                    .stroke(LinearGradient.uninstaller, style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: un.cleanFraction)
-                VStack(spacing: 2) {
-                    Text(un.cleanedBytes.bytes)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .contentTransition(.numericText(value: Double(un.cleanedBytes)))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: un.cleanedBytes)
-                    Text("moved to the Trash").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 160, height: 160)
-            Text("Moving \(min(un.cleanedCount + 1, un.cleanTotal)) of \(un.cleanTotal)…")
-                .font(.title3)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: un.cleanedCount)
+            CleaningProgressRing(fraction: un.cleanFraction, bytes: un.cleanedBytes,
+                                 done: un.cleanedCount, total: un.cleanTotal, gradient: .uninstaller, size: 160)
         }
         .padding(32)
         .onAppear {
@@ -901,66 +867,28 @@ private struct UninstallerRemoving: View {
 
 private struct UninstallerDone: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
 
     var body: some View {
         let un = model.uninstaller
         let moved = un.report?.succeeded.count ?? 0
-        let failed = un.report?.failed ?? []
         let appGone = un.removingApp.map { app in un.report?.succeeded.contains { $0.path == app.path } ?? false } ?? false
 
-        ZStack {
-            if shown && !reduceMotion && moved > 0 {
-                ConfettiBurst()
-            }
-            VStack(spacing: 14) {
-                Image(systemName: un.appFailure == nil ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .font(.system(size: 68))
-                    .foregroundStyle(un.appFailure == nil ? Color.green.gradient : Color.orange.gradient)
-                    .scaleEffect(shown ? 1 : 0.3)
-                    .opacity(shown ? 1 : 0)
-                    .symbolEffect(.bounce, value: shown)
-                CountingBytes(shown ? un.cleanedBytes : 0, suffix: " freed")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                Text(summary(moved: moved, appGone: appGone))
-                    .foregroundStyle(.secondary)
+        FreedSpaceCelebration(
+            bytes: un.cleanedBytes,
+            message: summary(moved: moved, appGone: appGone),
+            failed: un.report?.failed ?? [],
+            succeeded: un.appFailure == nil,
+            confetti: moved > 0,
+            maxWidth: 480
+        ) {
+            if let failure = un.appFailure {
+                Text(failure)
+                    .font(.callout)
                     .multilineTextAlignment(.center)
+                    .padding(12)
                     .frame(maxWidth: 480)
-                    .opacity(shown ? 1 : 0)
-                if let failure = un.appFailure {
-                    Text(failure)
-                        .font(.callout)
-                        .multilineTextAlignment(.center)
-                        .padding(12)
-                        .frame(maxWidth: 480)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.orange.opacity(0.12)))
-                        .transition(.opacity)
-                }
-                if !failed.isEmpty {
-                    DisclosureGroup("\(failed.count) could not be moved") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(failed, id: \.path) { result in
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text((result.path as NSString).lastPathComponent)
-                                    Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
-                    .frame(maxWidth: 480)
-                    .foregroundStyle(.orange)
-                }
-            }
-            .padding(32)
-        }
-        .onAppear {
-            if reduceMotion {
-                shown = true
-            } else {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.62)) { shown = true }
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.orange.opacity(0.12)))
+                    .transition(.opacity)
             }
         }
     }

@@ -59,9 +59,9 @@ struct DiskOverviewCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .animation(motion(.smooth(duration: 0.35)), value: space)
-                .animation(motion(.spring(response: 0.35, dampingFraction: 0.85)), value: expanded)
-                .animation(motion(.smooth(duration: 0.3)), value: disk.errorMessage)
+                .animation(Motion.smooth.unless(reduceMotion), value: space)
+                .animation(Motion.spring.unless(reduceMotion), value: expanded)
+                .animation(Motion.smooth.unless(reduceMotion), value: disk.errorMessage)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .onAppear(perform: grow)
             }
@@ -128,7 +128,7 @@ struct DiskOverviewCard: View {
             .buttonStyle(.plain)
             .help(expanded ? "Hide local snapshots" : "Show local snapshots")
         }
-        .animation(motion(.spring(response: 0.4, dampingFraction: 0.7)), value: disk.freedBytes)
+        .animation(Motion.bouncy.unless(reduceMotion), value: disk.freedBytes)
     }
 
     private func legend(_ space: DiskSpace) -> some View {
@@ -163,7 +163,7 @@ struct DiskOverviewCard: View {
                 }
                 .buttonStyle(.plain)
                 .onHover { inside in
-                    withAnimation(motion(.snappy(duration: 0.2))) {
+                    withAnimation(Motion.quick.unless(reduceMotion)) {
                         if inside { hovered = part } else if hovered == part { hovered = nil }
                     }
                 }
@@ -185,16 +185,9 @@ struct DiskOverviewCard: View {
 
     private func grow() {
         guard !grown else { return }
-        if reduceMotion {
-            grown = true
-        } else {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05)) { grown = true }
-        }
+        withAnimation(Motion.stagger(1).unless(reduceMotion)) { grown = true }
     }
 
-    private func motion(_ animation: Animation) -> Animation? {
-        reduceMotion ? nil : animation
-    }
 }
 
 /// The segmented capacity bar. The track is the free space; the used parts grow in from the left.
@@ -224,8 +217,7 @@ private struct CapacityBar: View {
                                 .fill(part.color.gradient)
                                 .brightness(hovered == part ? 0.08 : 0)
                                 .frame(width: grown ? max(2, geo.size.width * fraction - gap) : 0)
-                                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8)
-                                    .delay(Double(part.rawValue) * 0.07), value: grown)
+                                .animation(Motion.stagger(part.rawValue + 1).unless(reduceMotion), value: grown)
                                 .contentShape(Rectangle())
                                 .onTapGesture { onTap(part) }
                                 .onHover { hover(part, $0) }
@@ -243,7 +235,7 @@ private struct CapacityBar: View {
     }
 
     private func hover(_ part: DiskPart, _ inside: Bool) {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+        withAnimation(Motion.quick.unless(reduceMotion)) {
             if inside { hovered = part } else if hovered == part { hovered = nil }
         }
     }
@@ -390,7 +382,7 @@ private struct SnapshotSection: View {
                 }
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.82), value: disk.snapshots)
+        .animation(Motion.spring.unless(reduceMotion), value: disk.snapshots)
     }
 
     private var snapshotList: some View {

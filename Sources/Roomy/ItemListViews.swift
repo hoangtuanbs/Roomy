@@ -59,7 +59,8 @@ struct FolderListView: View {
                 }
                 .listStyle(.inset)
                 .itemListActions(model)
-                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: children)
+                // Only short lists animate their rows, so a folder with thousands of items stays quick.
+                .animation(Motion.list(children.count, reduceMotion), value: children)
             }
         }
     }
@@ -67,6 +68,7 @@ struct FolderListView: View {
 
 struct BiggestFilesView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var model = model
@@ -101,6 +103,7 @@ struct BiggestFilesView: View {
                     }
                     .listStyle(.inset)
                     .itemListActions(model)
+                    .animation(Motion.list(files.count, reduceMotion), value: files)
                 }
             }
         }
@@ -170,7 +173,7 @@ struct ItemRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(tree.size(node).bytes)
                         .monospacedDigit()
-                        .contentTransition(.numericText())
+                        .contentTransition(.numericText(value: Double(tree.size(node))))
                         .foregroundStyle(sizeColor(tree.size(node)))
                     if kind.isContainer {
                         Text("\(Int(tree.fileCount(node)).formatted()) files")
@@ -198,7 +201,7 @@ struct ItemRow: View {
                 if inside { model.hovered = node } else if model.hovered == node { model.hovered = nil }
             }
             .trayDraggable(node, model: model)
-            .animation(.snappy(duration: 0.25), value: model.rescanningNode == node)
+            .motion(Motion.quick, value: model.rescanningNode == node)
         }
     }
 

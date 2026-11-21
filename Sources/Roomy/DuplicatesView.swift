@@ -37,7 +37,7 @@ struct DuplicatesView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: dups.phase)
+            .animation(Motion.smooth.unless(reduceMotion), value: dups.phase)
             Divider()
             footer
         }
@@ -137,18 +137,18 @@ private struct DuplicatesHeader: View {
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(dups.selectedBytes)))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: dups.selectedBytes)
+                        .animation(Motion.quick.unless(reduceMotion), value: dups.selectedBytes)
                     Text("\(dups.selectedFiles.count) \(dups.selectedFiles.count == 1 ? "copy" : "copies") selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: dups.selectedFiles.count)
+                        .animation(Motion.quick.unless(reduceMotion), value: dups.selectedFiles.count)
                 }
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
         .padding(18)
-        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: dups.phase)
+        .animation(Motion.smooth.unless(reduceMotion), value: dups.phase)
     }
 }
 
@@ -183,7 +183,7 @@ private struct DuplicatesScanning: View {
                     .trim(from: 0, to: max(0.02, progress.fraction))
                     .stroke(LinearGradient.duplicates, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: progress.fraction)
+                    .animation(Motion.smooth.unless(reduceMotion), value: progress.fraction)
                 Circle()
                     .trim(from: 0, to: 0.12)
                     .stroke(Color.white.opacity(0.5), style: StrokeStyle(lineWidth: 3, lineCap: .round))
@@ -206,7 +206,7 @@ private struct DuplicatesScanning: View {
             Text(title(progress))
                 .font(.title3.weight(.medium))
                 .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.2), value: progress.stage)
+                .motion(Motion.quick, value: progress.stage)
             Text(detail(progress))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -265,7 +265,7 @@ private struct DuplicatesResults: View {
                     }
                 }
                 .padding(16)
-                .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: dups.groups.map(\.id))
+                .animation(Motion.spring.unless(reduceMotion), value: dups.groups.map(\.id))
             }
         }
     }
@@ -295,7 +295,7 @@ private struct DuplicatesSummary: View {
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.accentColor.opacity(0.06)))
         .onAppear {
             guard !appeared else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.6)) { appeared = true }
+            withAnimation(Motion.smooth.unless(reduceMotion)) { appeared = true }
         }
     }
 
@@ -330,7 +330,7 @@ private struct DuplicateCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 SelectionBox(state: state, color: Self.color) {
-                    withAnimation(motion(.snappy(duration: 0.25))) {
+                    withAnimation(Motion.quick.unless(reduceMotion)) {
                         dups.selection.setAll(group, selected: state != .all)
                     }
                 }
@@ -355,7 +355,7 @@ private struct DuplicateCard: View {
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
                 }
-                .animation(motion(.snappy(duration: 0.3)), value: selectedBytes)
+                .animation(Motion.quick.unless(reduceMotion), value: selectedBytes)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -365,7 +365,7 @@ private struct DuplicateCard: View {
             .padding(14)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(motion(.spring(response: 0.35, dampingFraction: 0.85))) { dups.toggleExpanded(group) }
+                withAnimation(Motion.spring.unless(reduceMotion)) { dups.toggleExpanded(group) }
             }
             .help(isExpanded ? "Hide the copies" : "Show the copies")
 
@@ -392,19 +392,10 @@ private struct DuplicateCard: View {
         .scaleEffect(appeared ? 1 : 0.97)
         .onAppear {
             guard !appeared else { return }
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8).delay(Double(index < 8 ? index : 0) * 0.05)) {
-                    appeared = true
-                }
-            }
+            withAnimation(Motion.stagger(index).unless(reduceMotion)) { appeared = true }
         }
     }
 
-    private func motion(_ animation: Animation) -> Animation? {
-        reduceMotion ? nil : animation
-    }
 }
 
 private struct DuplicateRow: View {
@@ -422,7 +413,7 @@ private struct DuplicateRow: View {
 
         HStack(spacing: 10) {
             Button {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                withAnimation(Motion.spring.unless(reduceMotion)) {
                     dups.selection.keep(file, in: group)
                 }
             } label: {
@@ -463,7 +454,7 @@ private struct DuplicateRow: View {
                 HStack(spacing: 4) {
                     Text("Trash").font(.caption).foregroundStyle(isTicked ? Color.primary : Color.secondary)
                     SelectionBox(state: isTicked ? .all : .none, color: .red) {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                        withAnimation(Motion.quick.unless(reduceMotion)) {
                             dups.selection.toggle(file, in: group)
                         }
                     }
@@ -495,7 +486,7 @@ private struct DuplicateRow: View {
         .opacity(isTicked ? 0.75 : 1)
         .contentShape(Rectangle())
         .onHover { inside in
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { hovering = inside }
+            withAnimation(Motion.hover.unless(reduceMotion)) { hovering = inside }
         }
         .contextMenu {
             Button("Keep This Copy") { dups.selection.keep(file, in: group) }
@@ -568,91 +559,25 @@ struct FileThumbnail: View {
 
 private struct DuplicatesCleaning: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let dups = model.duplicates
-        VStack(spacing: 20) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.08), lineWidth: 12)
-                Circle()
-                    .trim(from: 0, to: max(0.02, dups.cleanFraction))
-                    .stroke(LinearGradient.duplicates, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: dups.cleanFraction)
-                VStack(spacing: 2) {
-                    Text(dups.cleanedBytes.bytes)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .contentTransition(.numericText(value: Double(dups.cleanedBytes)))
-                        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: dups.cleanedBytes)
-                    Text("moved to the Trash").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 190, height: 190)
-            Text("Moving \(min(dups.cleanedCount + 1, dups.cleanTotal)) of \(dups.cleanTotal)…")
-                .font(.title3)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: dups.cleanedCount)
-        }
-        .padding(32)
+        CleaningProgressRing(fraction: dups.cleanFraction, bytes: dups.cleanedBytes,
+                             done: dups.cleanedCount, total: dups.cleanTotal, gradient: .duplicates)
+            .padding(32)
     }
 }
 
 private struct DuplicatesDone: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
 
     var body: some View {
         let dups = model.duplicates
         let moved = dups.report?.succeeded.count ?? 0
-        let failed = dups.report?.failed ?? []
-
-        ZStack {
-            if shown && !reduceMotion {
-                ConfettiBurst()
-            }
-            VStack(spacing: 14) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 68))
-                    .foregroundStyle(Color.green.gradient)
-                    .scaleEffect(shown ? 1 : 0.3)
-                    .opacity(shown ? 1 : 0)
-                    .symbolEffect(.bounce, value: shown)
-                CountingBytes(shown ? dups.cleanedBytes : 0, suffix: " freed")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                Text("Moved \(moved) \(moved == 1 ? "duplicate" : "duplicates") to the Trash and kept one copy of each file. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
-                    .opacity(shown ? 1 : 0)
-                if !failed.isEmpty {
-                    DisclosureGroup("\(failed.count) could not be moved") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(failed, id: \.path) { result in
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text((result.path as NSString).lastPathComponent)
-                                    Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
-                    .frame(maxWidth: 460)
-                    .foregroundStyle(.orange)
-                }
-            }
-            .padding(32)
-        }
-        .onAppear {
-            if reduceMotion {
-                shown = true
-            } else {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.62)) { shown = true }
-            }
-        }
+        FreedSpaceCelebration(
+            bytes: dups.cleanedBytes,
+            message: "Moved \(moved) \(moved == 1 ? "duplicate" : "duplicates") to the Trash and kept one copy of each file. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+            failed: dups.report?.failed ?? []
+        )
     }
 }

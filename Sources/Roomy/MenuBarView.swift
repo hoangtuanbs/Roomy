@@ -98,6 +98,7 @@ struct MenuBarAction: View {
     let title: String
     let symbol: String
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovered = false
 
     var body: some View {
@@ -111,7 +112,7 @@ struct MenuBarAction: View {
         }
         .buttonStyle(.plain)
         .onHover { inside in
-            withAnimation(.easeOut(duration: 0.15)) { hovered = inside }
+            withAnimation(Motion.hover.unless(reduceMotion)) { hovered = inside }
         }
     }
 }

@@ -32,6 +32,6 @@ struct AlertSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 420)
-        .animation(.easeOut(duration: 0.2), value: permissionDenied)
+        .motion(Motion.quick, value: permissionDenied)
     }
 }

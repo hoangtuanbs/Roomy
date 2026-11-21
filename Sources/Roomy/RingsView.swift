@@ -12,7 +12,7 @@ struct RingsView: View {
                 .id(model.currentFolder)
                 .transition(MapZoom.transition(zoomingOut: model.zoomingOut, reduceMotion: reduceMotion))
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.85), value: model.currentFolder)
+        .animation(Motion.spring.unless(reduceMotion), value: model.currentFolder)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
@@ -111,14 +111,14 @@ private struct RingsChart: View {
                             .transition(.opacity)
                     }
                 }
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
+                .animation(Motion.hover.unless(reduceMotion), value: hovered)
             }
         }
         .onAppear {
             if reduceMotion {
                 sweep = 1
             } else {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.9)) { sweep = 1 }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.9)) { sweep = 1 }
             }
         }
     }
@@ -209,7 +209,7 @@ private struct CenterLabel: View {
             }
             .padding(8)
         }
-        .animation(.snappy(duration: 0.2), value: highlighted)
+        .motion(Motion.quick, value: highlighted)
         .help(canGoUp ? "Go to the enclosing folder" : "")
     }
 }
