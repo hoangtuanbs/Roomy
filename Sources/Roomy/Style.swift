@@ -94,6 +94,14 @@ extension LinearGradient {
     )
 }
 
+/// The teal-to-blue gradient used for Duplicates.
+extension LinearGradient {
+    static let duplicates = LinearGradient(
+        colors: [Color(red: 0.20, green: 0.70, blue: 0.70), Color(red: 0.29, green: 0.52, blue: 0.86)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+}
+
 /// A byte count that counts up or down to its new value when it changes inside an animation.
 struct CountingBytes: View, Animatable {
     var value: Double

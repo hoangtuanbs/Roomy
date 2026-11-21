@@ -380,7 +380,7 @@ private struct JunkItemRow: View {
     }
 }
 
-private struct SelectionBox: View {
+struct SelectionBox: View {
     let state: JunkSelection.State
     let color: Color
     let action: () -> Void
@@ -405,7 +405,7 @@ private struct SelectionBox: View {
     }
 }
 
-private struct Badge: View {
+struct Badge: View {
     let text: String
     let color: Color
 
@@ -534,7 +534,7 @@ private struct SmartCleanDone: View {
 }
 
 /// A short burst of colourful pieces behind the result.
-private struct ConfettiBurst: View {
+struct ConfettiBurst: View {
     struct Piece: Identifiable {
         let id: Int
         let angle: CGFloat

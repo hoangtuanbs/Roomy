@@ -27,6 +27,8 @@ struct RoomyApp: App {
                 Divider()
                 Button("Smart Clean…") { model.openSmartClean() }
                     .keyboardShortcut("k", modifiers: [.command, .shift])
+                Button("Find Duplicates…") { model.openDuplicates() }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }

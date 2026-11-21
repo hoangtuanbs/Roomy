@@ -25,6 +25,13 @@ A macOS app that shows what is using space on your disk and helps you free it up
   snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
   Space…** asks Time Machine to thin its snapshots (`tmutil thinlocalsnapshots`), or open Storage Settings instead.
   Neither can be undone, so both ask first.
+- **Duplicates** (below Smart Clean in the sidebar, the toolbar, or ⇧⌘D) finds identical files of 1 MB or more in
+  the current scan, or in a folder you choose. Files of the same size are compared by their first and last 64 KB, and
+  only those that still match are read in full (SHA-256). Hard links, symbolic links, empty files, packages such as
+  apps and Photos libraries, Git folders and protected places are left out. Each set of copies is a card, largest
+  waste first, with thumbnails; one copy is kept (the oldest one with the plainest path, not one in Downloads or the
+  Trash or named like "photo copy.jpg"), and you can pick another with its **Keep** button. **Move Duplicates to
+  Trash** moves the rest to the Trash, never every copy.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
 

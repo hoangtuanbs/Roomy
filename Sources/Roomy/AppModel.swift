@@ -85,6 +85,8 @@ final class AppModel {
     let smartClean = SmartCleanModel()
     let diskOverview = DiskOverviewModel()
     var showSmartClean = false
+    let duplicates = DuplicatesModel()
+    var showDuplicates = false
 
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
@@ -95,6 +97,7 @@ final class AppModel {
     init() {
         refreshLocations()
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
@@ -429,7 +432,18 @@ final class AppModel {
         if !smartClean.isBusy { smartClean.scan(tree: state.isScanning ? nil : tree) }
     }
 
-    /// Drops items that Smart Clean removed from the current scan.
+    /// Opens Duplicates and looks in the current scan again, unless it is busy.
+    func openDuplicates() {
+        showDuplicates = true
+        if !duplicates.isBusy { findDuplicates() }
+    }
+
+    /// Looks for duplicates in the current scan. Without a finished scan, Duplicates asks for a folder.
+    func findDuplicates() {
+        duplicates.scan(tree: state.isScanning ? nil : tree, folder: nil)
+    }
+
+    /// Drops items that Smart Clean or Duplicates removed from the current scan.
     private func applyRemoved(_ paths: [String]) {
         if let tree, !paths.isEmpty {
             for path in paths {

@@ -16,6 +16,9 @@ struct SidebarView: View {
             SmartCleanButton()
                 .padding(.horizontal, 10)
                 .padding(.top, 8)
+            DuplicatesButton()
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
                 .padding(.bottom, 4)
 
             List(selection: selection) {
@@ -93,6 +96,49 @@ private struct SmartCleanButton: View {
         }
         .buttonStyle(.plain)
         .help("Find caches, logs and leftovers that are safe to remove")
+        .onHover { inside in
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
+        }
+    }
+}
+
+/// The Duplicates entry below Smart Clean: lighter, with the same hover motion.
+private struct DuplicatesButton: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            model.openDuplicates()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.on.doc.fill")
+                    .foregroundStyle(LinearGradient.duplicates)
+                    .symbolEffect(.bounce, value: hovering)
+                Text("Duplicates").fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .opacity(hovering ? 1 : 0.6)
+                    .offset(x: hovering && !reduceMotion ? 2 : 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.09 : 0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Color(red: 0.20, green: 0.66, blue: 0.75).opacity(hovering ? 0.8 : 0.4), lineWidth: 1)
+            )
+            .scaleEffect(hovering && !reduceMotion ? 1.02 : 1)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Find identical files that take up space more than once")
         .onHover { inside in
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { hovering = inside }
         }
