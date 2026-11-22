@@ -231,13 +231,23 @@ private struct DiskHealthCard: View {
         }
     }
 
+    /// Such as "Apple Fabric, internal", or "Internal" when the bus isn't reported.
+    private var connection: String {
+        let place = report.isInternal.map { $0 ? "internal" : "external" }
+        switch (report.interconnect, place) {
+        case let (bus?, place?): return "\(bus), \(place)"
+        case let (bus?, nil): return bus
+        case let (nil, place?): return place.prefix(1).uppercased() + place.dropFirst()
+        case (nil, nil): return "Not reported"
+        }
+    }
+
     private var details: [(String, String)] {
         [
             ("Model", report.model ?? "Not reported"),
             ("Serial number", report.maskedSerial ?? "Not reported"),
             ("Firmware", report.revision ?? "Not reported"),
-            ("Connection", [report.interconnect, report.isInternal.map { $0 ? "internal" : "external" }]
-                .compactMap { $0 }.joined(separator: ", ").nonEmpty ?? "Not reported"),
+            ("Connection", connection),
             ("Type", report.mediumTitle ?? "Not reported"),
             ("S.M.A.R.T. status", report.smart.title),
             ("Life used", report.percentageUsed.map { "\($0)%" } ?? Self.adminOnly),
@@ -246,10 +256,6 @@ private struct DiskHealthCard: View {
             ("Device", report.id),
         ]
     }
-}
-
-private extension String {
-    var nonEmpty: String? { isEmpty ? nil : self }
 }
 
 /// The verdict in a coloured capsule that springs in when the card appears.
