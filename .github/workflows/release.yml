@@ -60,16 +60,31 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Stop if this version was already published
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # scripts/release.sh publishes signed releases from a Mac; its tag also lands here.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Show toolchain
+        if: steps.existing.outputs.skip != 'true'
         run: swift --version
 
       - name: Build the app bundle
+        if: steps.existing.outputs.skip != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: ./scripts/build-app.sh
 
       - name: Check the bundle
+        if: steps.existing.outputs.skip != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -78,6 +93,7 @@ jobs:
           test "$STAMPED" = "$VERSION"
 
       - name: Package
+        if: steps.existing.outputs.skip != 'true'
         id: package
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -88,6 +104,7 @@ jobs:
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
       - name: Publish the release
+        if: steps.existing.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
@@ -97,7 +114,8 @@ jobs:
           cat > notes.md <<EOF
           Download **RoomyDisk-$VERSION.zip**, unzip it and move **RoomyDisk.app** to Applications.
 
-          RoomyDisk is not notarized by Apple, so the first time you open it, right-click the app and choose **Open**.
+          This build is not notarized by Apple, so the first time you open it, right-click the app and choose **Open**.
+          It does not update itself; signed releases made with scripts/release.sh do.
           Requires macOS 14 or later.
           EOF
           gh release create "$TAG" "$ZIP" "$ZIP.sha256" \

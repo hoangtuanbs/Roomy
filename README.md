@@ -122,7 +122,7 @@ macOS 14 or later, and Swift 5.10 or later (Xcode or the Command Line Tools).
 open build/RoomyDisk.app
 ```
 
-The app is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time.
+This build is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time. Signed, notarized builds come from `scripts/release.sh` (see Releases).
 
 For complete sizes, give RoomyDisk Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
 
@@ -137,6 +137,33 @@ swift run roomy-scan ~ --top 20
 RoomyDisk follows the language of your Mac. It is translated into Vietnamese, Spanish and German, and the translations are kept in `Localization/`. To change the language, open System Settings › General › Language & Region › Applications, choose RoomyDisk and pick a language, then reopen the app.
 
 ## Releases
+
+### Signed releases with automatic updates
+
+`scripts/release.sh` runs on a Mac with a Developer ID certificate. It builds RoomyDisk, signs it with the
+hardened runtime, sends it to Apple for notarization, staples the ticket, and writes `appcast.xml`, the
+update feed that installed copies read through [Sparkle](https://sparkle-project.org):
+
+```sh
+./scripts/release.sh 1.0.0             # signed, notarized build in build/
+./scripts/release.sh 1.0.0 --publish   # also publishes GitHub release v1.0.0 with the feed
+```
+
+One-time setup on that Mac:
+
+1. Xcode › Settings › Accounts › Manage Certificates › + › **Developer ID Application**.
+2. An app-specific password from appleid.apple.com, saved for notarization:
+   `xcrun notarytool store-credentials roomydisk --apple-id <email> --team-id <TEAMID>`
+3. `gh auth login`, for `--publish`.
+
+The first run creates the update signing key in the login keychain. Keep it (back it up with
+`.build/artifacts/sparkle/Sparkle/bin/generate_keys -x <file>`): installed copies accept only updates
+signed with that same key. Push the commit before publishing, since the release points at it.
+
+Installed copies check `releases/latest/download/appcast.xml` once a day, and RoomyDisk › Check for Updates…
+checks right away. Only release builds carry the update key, so local and CI builds never look for updates.
+
+### Unsigned builds
 
 Each push to `main` and each pull request is built by the **Build** workflow; the app zip is attached to the run.
 
