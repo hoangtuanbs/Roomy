@@ -6,13 +6,13 @@ import AppKit
 @MainActor
 enum ScreenTour {
     static func run(model: AppModel, into directory: String) {
-        Task {
+        Task { @MainActor in
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-            func shot(_ name: String, wait seconds: Double = 2) async {
+            @MainActor func shot(_ name: String, wait seconds: Double = 2) async {
                 try? await Task.sleep(for: .seconds(seconds))
                 save(to: (directory as NSString).appendingPathComponent(name + ".png"))
             }
-            func waitWhile(_ busy: () -> Bool, limit: Double = 60) async {
+            @MainActor func waitWhile(_ busy: () -> Bool, limit: Double = 60) async {
                 let start = Date()
                 while busy() && Date().timeIntervalSince(start) < limit {
                     try? await Task.sleep(for: .milliseconds(250))
