@@ -77,6 +77,19 @@ jobs:
             exit 1
           fi
 
+      - name: Print small copies of the screenshots
+        # Artifact downloads need a blob storage host that some reviewers can't reach; the job log can be read.
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in "$RUNNER_TEMP"/screenshots/*.png; do
+            small="$RUNNER_TEMP/small-$(basename "$f" .png).jpg"
+            sips -Z 1000 -s format jpeg -s formatOptions 70 "$f" --out "$small" > /dev/null
+            echo "=== BEGIN $(basename "$small")"
+            base64 -i "$small" | fold -w 4000
+            echo "=== END $(basename "$small")"
+          done
+
       - name: Upload the screenshots
         if: always()
         uses: actions/upload-artifact@v4
