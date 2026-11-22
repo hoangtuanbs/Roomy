@@ -46,7 +46,7 @@ struct PhotoPrint: @unchecked Sendable {
     private static func runOnCPU(_ request: VNRequest) {
         guard let stages = try? request.supportedComputeStageDevices else { return }
         for (stage, devices) in stages {
-            if let cpu = devices.first(where: { $0 is MLCPUComputeDevice }) {
+            if let cpu = devices.first(where: { if case .cpu = $0 { return true } else { return false } }) {
                 request.setComputeDevice(cpu, for: stage)
             }
         }
