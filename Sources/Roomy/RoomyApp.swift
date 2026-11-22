@@ -37,6 +37,8 @@ struct RoomyApp: App {
                     .keyboardShortcut("d", modifiers: [.command, .shift])
                 Button("Uninstall Apps…") { model.openUninstaller() }
                     .keyboardShortcut("u", modifiers: [.command, .shift])
+                Button("Space Hunters…") { model.openSpaceHunters() }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }

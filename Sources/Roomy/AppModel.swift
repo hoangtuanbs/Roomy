@@ -120,6 +120,8 @@ final class AppModel {
     var showDuplicates = false
     let uninstaller = UninstallerModel()
     var showUninstaller = false
+    let spaceHunters = SpaceHuntersModel()
+    var showSpaceHunters = false
 
     /// When the shown results were scanned. Older than now when they came from the cache.
     private(set) var scannedAt: Date?
@@ -146,6 +148,8 @@ final class AppModel {
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
@@ -593,7 +597,8 @@ final class AppModel {
     }
 
     private var anySheetOpen: Bool {
-        showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showOnboarding
+        showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
+            || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -749,6 +754,27 @@ final class AppModel {
     func openUninstaller() {
         showUninstaller = true
         if !uninstaller.isBusy && uninstaller.phase != .done { uninstaller.load() }
+    }
+
+    /// Opens Space Hunters and hunts again, unless it is busy.
+    func openSpaceHunters() {
+        showSpaceHunters = true
+        if !spaceHunters.isBusy { huntSpace() }
+    }
+
+    /// Hunts for old backups, downloads, Mail attachments and similar photos. Photos are looked for in the
+    /// finished scan, or in ~/Pictures without one.
+    func huntSpace() {
+        spaceHunters.hunt(tree: state.isScanning ? nil : tree)
+    }
+
+    /// Closes Space Hunters and shows the Full Disk Access guide; only one sheet can be open at a time.
+    private func showAccessHelpFromHunters() {
+        showSpaceHunters = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            showOnboarding = true
+        }
     }
 
     /// Drops items that Smart Clean, Duplicates or the Uninstaller removed from the current scan.

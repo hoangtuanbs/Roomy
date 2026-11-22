@@ -60,6 +60,12 @@ jobs:
           cp "$sample/Photos/holiday.mov" "$sample/Downloads/holiday copy.mov"
           mkfile 12m "$sample/Projects/app/build.dmg"
           mkfile 4m "$sample/Projects/app/notes.txt"
+          # Two sizes of one picture, for Similar photos in Space Hunters.
+          picture=$(find "/System/Library/Desktop Pictures" -maxdepth 2 \( -name "*.heic" -o -name "*.jpg" \) 2>/dev/null | head -1)
+          if [ -n "$picture" ]; then
+            sips -s format jpeg -Z 2400 "$picture" --out "$sample/Photos/beach.jpg" > /dev/null || true
+            sips -s format jpeg -Z 1600 "$picture" --out "$sample/Photos/beach small.jpg" > /dev/null || true
+          fi
           out="$RUNNER_TEMP/screenshots"
           build/RoomyDisk.app/Contents/MacOS/RoomyDisk --scan "$sample" --tour "$out" &
           pid=$!
@@ -72,8 +78,8 @@ jobs:
           wait "$pid" || { echo "::error::RoomyDisk exited with an error during the tour"; exit 1; }
           ls -l "$out"
           count=$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$count" -lt 6 ]; then
-            echo "::error::Expected 6 screenshots, got $count (is there a window session on this runner?)"
+          if [ "$count" -lt 7 ]; then
+            echo "::error::Expected 7 screenshots, got $count (is there a window session on this runner?)"
             exit 1
           fi
 

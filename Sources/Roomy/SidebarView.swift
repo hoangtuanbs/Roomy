@@ -30,6 +30,13 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
+            ToolButton(title: "Space Hunters", symbol: "scope", gradient: .spaceHunters,
+                       stroke: Color(red: 0.70, green: 0.70, blue: 0.30),
+                       help: "Find old backups, downloads, Mail attachments and similar photos") {
+                model.openSpaceHunters()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
             .padding(.bottom, 4)
 
             List(selection: selection) {

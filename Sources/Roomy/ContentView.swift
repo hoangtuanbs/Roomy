@@ -43,6 +43,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showUninstaller) {
             UninstallerView().environment(model)
         }
+        .sheet(isPresented: $model.showSpaceHunters) {
+            SpaceHuntersView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -148,6 +151,14 @@ struct ContentColumn: View {
                     Label("Uninstaller", systemImage: "xmark.bin")
                 }
                 .help("Remove apps together with the files they leave behind")
+            }
+            ToolbarItem {
+                Button {
+                    model.openSpaceHunters()
+                } label: {
+                    Label("Space Hunters", systemImage: "scope")
+                }
+                .help("Find old backups, downloads, Mail attachments and similar photos")
             }
             ToolbarItem {
                 Menu {

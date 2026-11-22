@@ -53,6 +53,21 @@ A macOS app that shows what is using space on your disk and helps you free it up
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
   RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
   no longer installed. They are guesses, so nothing there is ticked until you review it.
+- **Space Hunters** (below the Uninstaller in the sidebar, the toolbar, or ⇧⌘H) hunts for big things you may have
+  forgotten, each on its own card with a total that counts up:
+  - **iPhone & iPad backups** in `~/Library/Application Support/MobileSync/Backup`, with the device's name, model,
+    iOS version, date and whether the backup is encrypted. Only an older backup of a device that has a newer one, made
+    90 days ago or more, starts ticked; the newest backup of each device never does. Backups are only ever moved whole.
+    macOS protects this folder, so RoomyDisk needs Full Disk Access to see them and says so.
+  - **Old downloads**: items in Downloads you have not opened (Spotlight's last-used date), added or changed for 90
+    days, largest first. Nothing is ticked; preview them with Quick Look first.
+  - **Mail attachments**: the attachments in Mail's own folder are only shown, with **Open in Finder** and how to
+    remove them in Mail (Message > Remove Attachments), because removing them in Finder can damage Mail. Copies of
+    attachments you opened (Mail Downloads) can go to the Trash; they start unticked, since you may have edited one.
+  - **Similar photos**: JPEG, HEIC and PNG pictures in the current scan (or `~/Pictures`) that look almost the same,
+    compared with Vision and by when they were taken, up to the 3,000 largest. Pictures in Photos libraries are never
+    touched. The one with the most pixels, then the newest, is suggested to keep; nothing is ticked, and one picture of
+    each group always stays.
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
   external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
   **Open RoomyDisk**, **Smart Clean…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
@@ -63,7 +78,7 @@ A macOS app that shows what is using space on your disk and helps you free it up
   kind, category, size in bytes and as text, modified date (ISO 8601) and item count for folders. Choose to include the
   folders inside it down to 2, 3 or 5 levels.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
-- **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
+- **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives, Photos libraries, Mail's own folder and parts of device backups, and warn about Library, Git repositories and running apps.
 - **Motion**: lists, the treemap, the rings and every clean move with short spring animations. Treemap tiles slide into place when items are removed, the scan shows a turning ring with a live file count, and each clean ends with the same "space freed" moment. Turn on Reduce Motion in System Settings > Accessibility > Display to keep everything still.
 
 ## Requirements
