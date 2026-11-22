@@ -13,6 +13,7 @@ struct AlertSettingsView: View {
     @AppStorage(LowSpaceNotifier.enabledKey) private var alertEnabled = true
     @AppStorage(LowSpaceNotifier.thresholdKey) private var thresholdGB = 10
     @State private var permissionDenied = false
+    @ObservedObject private var updater = AppUpdater.shared
 
     var body: some View {
         Form {
@@ -61,6 +62,17 @@ struct AlertSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .transition(.opacity)
+                }
+            }
+            if updater.isAvailable {
+                Section {
+                    Toggle("Check for updates automatically", isOn: $updater.automaticallyChecks)
+                    Button("Check Now") { updater.checkForUpdates() }
+                        .disabled(!updater.canCheck)
+                } footer: {
+                    Text("Updates are signed and checked before they are installed.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

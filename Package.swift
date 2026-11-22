@@ -6,6 +6,8 @@ var products: [Product] = [
     .executable(name: "roomy-scan", targets: ["roomy-scan"]),
 ]
 
+var dependencies: [Package.Dependency] = []
+
 var targets: [Target] = [
     .target(name: "RoomyCore"),
     .executableTarget(name: "roomy-scan", dependencies: ["RoomyCore"]),
@@ -14,12 +16,18 @@ var targets: [Target] = [
 
 #if os(macOS)
 products.append(.executable(name: "Roomy", targets: ["Roomy"]))
-targets.append(.executableTarget(name: "Roomy", dependencies: ["RoomyCore"]))
+// Sparkle delivers signed updates to the app (see scripts/release.sh).
+dependencies.append(.package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"))
+targets.append(.executableTarget(
+    name: "Roomy",
+    dependencies: ["RoomyCore", .product(name: "Sparkle", package: "Sparkle")]
+))
 #endif
 
 let package = Package(
     name: "Roomy",
     platforms: [.macOS(.v14)],
     products: products,
+    dependencies: dependencies,
     targets: targets
 )

@@ -592,3 +592,6 @@
 "junk" = "archivos basura";
 "logs" = "registros";
 "the folder" = "la carpeta";
+"Check for Updates…" = "Buscar actualizaciones…";
+"Check for updates automatically" = "Buscar actualizaciones automáticamente";
+"Updates are signed and checked before they are installed." = "Las actualizaciones están firmadas y se verifican antes de instalarse.";

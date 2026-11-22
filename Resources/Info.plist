@@ -37,6 +37,9 @@
             <key>UTTypeConformsTo</key><array><string>public.data</string></array>
         </dict>
     </array>
+    <key>SUFeedURL</key><string>https://github.com/hoangtuanbs/Roomy/releases/latest/download/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>NSNetworkVolumesUsageDescription</key><string>RoomyDisk measures file sizes on network disks so you can see what uses space.</string>
 </dict>
 </plist>

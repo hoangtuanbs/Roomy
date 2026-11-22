@@ -592,3 +592,6 @@
 "junk" = "tệp rác";
 "logs" = "nhật ký";
 "the folder" = "thư mục";
+"Check for Updates…" = "Kiểm tra bản cập nhật…";
+"Check for updates automatically" = "Tự động kiểm tra bản cập nhật";
+"Updates are signed and checked before they are installed." = "Bản cập nhật được ký và kiểm tra trước khi cài đặt.";

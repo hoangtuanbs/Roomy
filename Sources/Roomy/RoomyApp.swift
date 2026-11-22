@@ -19,6 +19,7 @@ struct RoomyApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About RoomyDisk") { About.show() }
+                CheckForUpdatesButton()
             }
             HelpCommands()
             CommandGroup(after: .newItem) {
@@ -97,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        MainActor.assumeIsolated { _ = AppUpdater.shared }
         UNUserNotificationCenter.current().delegate = self
     }
 
