@@ -9,6 +9,7 @@
         <string>vi</string>
         <string>es</string>
         <string>de</string>
+        <string>fr</string>
     </array>
     <key>CFBundleExecutable</key><string>RoomyDisk</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
