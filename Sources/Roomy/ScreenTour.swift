@@ -51,31 +51,44 @@ enum ScreenTour {
         }
     }
 
-    /// Captures the screen area of the main window, so sheets attached to it are included.
+    /// Captures the main window by its window number (no screen recording permission is needed for the app's own
+    /// windows), and draws an attached sheet on top of it where it sits on screen.
     private static func save(to path: String) {
-        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else {
-            FileHandle.standardError.write(Data("tour: no visible window for \(path)\n".utf8))
-            return
-        }
-        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-        let screenHeight = NSScreen.screens.first?.frame.height ?? window.frame.maxY
-        let frame = window.frame
-        let rect = CGRect(x: frame.minX, y: screenHeight - frame.maxY, width: frame.width, height: frame.height)
-        var rep: NSBitmapImageRep?
-        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage"),
-           let image = unsafeBitCast(symbol, to: CreateImage.self)(rect, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution])?
-            .takeRetainedValue() {
-            rep = NSBitmapImageRep(cgImage: image)
-        } else if let frameView = window.contentView?.superview,
-                  let cached = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) {
-            frameView.cacheDisplay(in: frameView.bounds, to: cached)
-            rep = cached
-        }
-        guard let data = rep?.representation(using: .png, properties: [:]) else {
+        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
+              let base = capture(window) else {
             FileHandle.standardError.write(Data("tour: could not capture \(path)\n".utf8))
             return
         }
+        var image = base
+        if let sheet = window.attachedSheet, let sheetImage = capture(sheet) {
+            let scale = CGFloat(base.width) / window.frame.width
+            let size = CGSize(width: base.width, height: base.height)
+            if let context = CGContext(data: nil, width: base.width, height: base.height, bitsPerComponent: 8,
+                                       bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                context.draw(base, in: CGRect(origin: .zero, size: size))
+                let x = (sheet.frame.minX - window.frame.minX) * scale
+                let y = (sheet.frame.minY - window.frame.minY) * scale
+                context.draw(sheetImage, in: CGRect(x: x, y: y, width: CGFloat(sheetImage.width), height: CGFloat(sheetImage.height)))
+                if let combined = context.makeImage() { image = combined }
+            }
+        }
+        guard let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
         try? data.write(to: URL(fileURLWithPath: path))
-        print("tour: saved \(path)")
+        print("tour: saved \(path) (\(image.width)x\(image.height)\(window.attachedSheet == nil ? "" : ", with sheet"))")
+    }
+
+    private static func capture(_ window: NSWindow) -> CGImage? {
+        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
+        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage"),
+           let image = unsafeBitCast(symbol, to: CreateImage.self)(
+               .null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]
+           )?.takeRetainedValue() {
+            return image
+        }
+        guard let frameView = window.contentView?.superview,
+              let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return nil }
+        frameView.cacheDisplay(in: frameView.bounds, to: rep)
+        return rep.cgImage
     }
 }
