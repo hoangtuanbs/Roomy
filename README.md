@@ -68,6 +68,16 @@ A macOS app that shows what is using space on your disk and helps you free it up
     compared with Vision and by when they were taken, up to the 3,000 largest. Pictures in Photos libraries are never
     touched. The one with the most pixels, then the newest, is suggested to keep; nothing is ticked, and one picture of
     each group always stays.
+- **Cloud Space** (below Space Hunters in the sidebar, the toolbar, or ⇧⌘L, "Free Up Cloud Space…") frees space
+  without deleting anything: it removes the downloaded copies of files kept in **iCloud Drive** (and apps' iCloud
+  folders in `~/Library/Mobile Documents`) and in **Dropbox, OneDrive, Google Drive and Box** (`~/Library/CloudStorage`).
+  Each service gets a card with its folders, the space their local copies take, and a tick for each folder; nothing
+  starts ticked. **Remove Downloads** asks macOS to evict each file (`FileManager.evictUbiquitousItem`), the same as
+  Finder's **Remove Download**: the files stay in the cloud and download again when you open them. Files are never moved
+  or deleted. A file whose changes have not reached the cloud yet, that is still uploading, whose state is unknown, or
+  that has conflicting versions is kept and labelled ("Not uploaded yet — kept"); each file is checked again just
+  before. If **Optimize Mac Storage** is off for iCloud Drive, macOS may download files again on its own. Very large
+  cloud folders are checked up to 250,000 files each.
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
   external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
   **Open RoomyDisk**, **Smart Clean…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.

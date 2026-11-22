@@ -37,6 +37,13 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
+            ToolButton(title: "Cloud Space", symbol: "icloud.fill", gradient: .cloudSpace,
+                       stroke: Color(red: 0.38, green: 0.58, blue: 0.93),
+                       help: "Free space by removing downloaded copies of cloud files; they stay in the cloud") {
+                model.openCloudSpace()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
             .padding(.bottom, 4)
 
             List(selection: selection) {

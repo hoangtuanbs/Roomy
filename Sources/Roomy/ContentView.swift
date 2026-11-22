@@ -46,6 +46,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showSpaceHunters) {
             SpaceHuntersView().environment(model)
         }
+        .sheet(isPresented: $model.showCloudSpace) {
+            CloudSpaceView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -159,6 +162,14 @@ struct ContentColumn: View {
                     Label("Space Hunters", systemImage: "scope")
                 }
                 .help("Find old backups, downloads, Mail attachments and similar photos")
+            }
+            ToolbarItem {
+                Button {
+                    model.openCloudSpace()
+                } label: {
+                    Label("Cloud Space", systemImage: "icloud")
+                }
+                .help("Free space by removing downloaded copies of cloud files; they stay in the cloud")
             }
             ToolbarItem {
                 Menu {

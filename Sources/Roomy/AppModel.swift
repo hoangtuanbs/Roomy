@@ -122,6 +122,8 @@ final class AppModel {
     var showUninstaller = false
     let spaceHunters = SpaceHuntersModel()
     var showSpaceHunters = false
+    let cloudSpace = CloudSpaceModel()
+    var showCloudSpace = false
 
     /// When the shown results were scanned. Older than now when they came from the cache.
     private(set) var scannedAt: Date?
@@ -598,7 +600,7 @@ final class AppModel {
 
     private var anySheetOpen: Bool {
         showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
-            || showOnboarding
+            || showCloudSpace || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -766,6 +768,12 @@ final class AppModel {
     /// finished scan, or in ~/Pictures without one.
     func huntSpace() {
         spaceHunters.hunt(tree: state.isScanning ? nil : tree)
+    }
+
+    /// Opens Cloud Space and looks for downloaded cloud files again, unless it is busy.
+    func openCloudSpace() {
+        showCloudSpace = true
+        if !cloudSpace.isBusy { cloudSpace.find() }
     }
 
     /// Closes Space Hunters and shows the Full Disk Access guide; only one sheet can be open at a time.

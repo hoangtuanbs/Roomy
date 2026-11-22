@@ -1,7 +1,7 @@
 import AppKit
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
-/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Disk overview) and quits.
+/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk overview) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
 enum ScreenTour {
@@ -52,6 +52,12 @@ enum ScreenTour {
             await waitWhile({ model.spaceHunters.isBusy }, limit: 40)
             await shot("7-space-hunters", wait: 2.5)
             model.showSpaceHunters = false
+
+            try? await Task.sleep(for: .seconds(1))
+            model.openCloudSpace()
+            await waitWhile({ model.cloudSpace.isBusy }, limit: 40)
+            await shot("8-cloud-space", wait: 2)
+            model.showCloudSpace = false
 
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
