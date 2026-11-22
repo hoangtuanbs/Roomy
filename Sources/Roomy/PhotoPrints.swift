@@ -1,3 +1,4 @@
+import CoreML
 import CoreServices
 import Foundation
 import ImageIO
@@ -28,8 +29,7 @@ struct PhotoPrint: @unchecked Sendable {
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         request.revision = VNGenerateImageFeaturePrintRequestRevision2
-        // The CPU is quick enough for a small picture, and works on machines without a usable GPU.
-        request.usesCPUOnly = true
+        runOnCPU(request)
         do {
             try VNImageRequestHandler(cgImage: thumbnail, options: [:]).perform([request])
         } catch {
@@ -39,6 +39,17 @@ struct PhotoPrint: @unchecked Sendable {
         let candidate = PhotoCandidate(path: path, bytes: bytes, pixelWidth: width, pixelHeight: height,
                                        taken: taken, modified: modified)
         return PhotoPrint(candidate: candidate, print: observation)
+    }
+
+    /// Runs every stage of the request on the CPU. The CPU is quick enough for a small picture, and works on
+    /// machines without a usable GPU (a build machine's GPU once hung here).
+    private static func runOnCPU(_ request: VNRequest) {
+        guard let stages = try? request.supportedComputeStageDevices else { return }
+        for (stage, devices) in stages {
+            if let cpu = devices.first(where: { $0 is MLCPUComputeDevice }) {
+                request.setComputeDevice(cpu, for: stage)
+            }
+        }
     }
 
     /// Seconds one picture may take before it is skipped.
