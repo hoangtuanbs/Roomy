@@ -63,6 +63,10 @@ public struct SafetyPolicy: Sendable {
         if path.contains(".photoslibrary/") {
             return .blocked("This is inside a Photos library. Delete photos in the Photos app instead.")
         }
+        if Self.isSameOrInside(path, home + "/Library/Mail") {
+            return .blocked("This is Mail's own store. Removing files here can damage Mail; remove attachments in Mail instead.")
+        }
+        if let verdict = Self.mobileSyncVerdict(path, home: home) { return verdict }
         for folder in Self.standardHomeFolders where path == home + "/" + folder {
             return .blocked("macOS expects this folder to exist. Clean up what is inside it instead.")
         }
@@ -80,6 +84,21 @@ public struct SafetyPolicy: Sendable {
             return .caution("This is a Git repository's history.")
         }
         return .allowed
+    }
+
+    /// iPhone and iPad backups may only go to the Trash whole, one backup folder at a time.
+    static func mobileSyncVerdict(_ path: String, home: String) -> SafetyVerdict? {
+        let mobileSync = home + "/Library/Application Support/MobileSync"
+        guard isSameOrInside(path, mobileSync) else { return nil }
+        let backups = mobileSync + "/Backup"
+        if path.hasPrefix(backups + "/") {
+            let rest = path.dropFirst(backups.count + 1)
+            if !rest.contains("/") {
+                return .caution("This is an iPhone or iPad backup. Without it you cannot restore the device to this point.")
+            }
+            return .blocked("This is part of an iPhone or iPad backup. Removing part of a backup breaks it.")
+        }
+        return .blocked("Finder keeps iPhone and iPad backups here. Remove single backups instead.")
     }
 
     static func isSameOrInside(_ path: String, _ folder: String) -> Bool {
