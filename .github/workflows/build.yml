@@ -90,6 +90,23 @@ jobs:
             exit 1
           fi
 
+      - name: Take Vietnamese screenshots of the main view and Smart Clean
+        # The same tour in Vietnamese (the app follows -AppleLanguages), to check the translated screens.
+        run: |
+          sample="$RUNNER_TEMP/sample"
+          out="$RUNNER_TEMP/screenshots-vi"
+          build/RoomyDisk.app/Contents/MacOS/RoomyDisk -AppleLanguages '(vi)' --scan "$sample" --tour "$out" &
+          pid=$!
+          for i in $(seq 1 180); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::error::The Vietnamese screenshot tour did not finish within 3 minutes"
+            kill "$pid"
+            exit 1
+          fi
+          wait "$pid" || { echo "::error::RoomyDisk exited with an error during the Vietnamese tour"; exit 1; }
+          cp "$out/1-main-treemap.png" "$RUNNER_TEMP/vi-1-main-treemap.png"
+          cp "$out/3-smart-clean.png" "$RUNNER_TEMP/vi-3-smart-clean.png"
+
       - name: Print small copies of the screenshots
         # Artifact downloads need a blob storage host that some reviewers can't reach; the job log can be read.
         if: always()
@@ -101,6 +118,19 @@ jobs:
             echo "=== BEGIN $(basename "$small")"
             base64 -i "$small" | fold -w 4000
             echo "=== END $(basename "$small")"
+          done
+
+      - name: Print the Vietnamese screenshots
+        if: always()
+        run: |
+          for name in vi-1-main-treemap vi-3-smart-clean; do
+            f="$RUNNER_TEMP/$name.png"
+            [ -f "$f" ] || continue
+            small="$RUNNER_TEMP/small-$name.jpg"
+            sips -Z 1000 -s format jpeg -s formatOptions 70 "$f" --out "$small" > /dev/null
+            echo "=== BEGIN $name.jpg"
+            base64 -i "$small" | fold -w 4000
+            echo "=== END $name.jpg"
           done
 
       - name: Upload the screenshots

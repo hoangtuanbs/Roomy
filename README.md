@@ -132,6 +132,10 @@ There is also a command-line scanner:
 swift run roomy-scan ~ --top 20
 ```
 
+## Language
+
+RoomyDisk follows the language of your Mac. It is translated into Vietnamese, Spanish and German, and the translations are kept in `Localization/`. To change the language, open System Settings › General › Language & Region › Applications, choose RoomyDisk and pick a language, then reopen the app.
+
 ## Releases
 
 Each push to `main` and each pull request is built by the **Build** workflow; the app zip is attached to the run.
