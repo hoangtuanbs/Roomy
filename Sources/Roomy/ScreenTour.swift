@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
 /// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk Health, Disk overview,
-/// the menu bar popover with Quick Clean, and Settings) and quits.
+/// the menu bar popover with Quick Clean, and each Settings tab) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
 enum ScreenTour {
@@ -78,8 +78,9 @@ enum ScreenTour {
         }
     }
 
-    /// The menu bar popover after one background check, its Quick Clean confirmation, and Settings, each shown in a
-    /// plain window because the menu bar can't be captured. The confirmation is only shown and then cancelled.
+    /// The menu bar popover after one background check and its Quick Clean confirmation, each shown in a
+    /// plain window because the menu bar can't be captured, then Settings. The confirmation is only shown and then
+    /// cancelled.
     private static func menuBarShots(model: AppModel, directory: String) async {
         try? await Task.sleep(for: .seconds(1))
         model.autoCheck.check()
@@ -101,20 +102,42 @@ enum ScreenTour {
         }
         popover.close()
 
-        // A grouped form has no height of its own, so the Settings window gets one.
-        let settings = hostingWindow(AlertSettingsView().environment(model), title: "Settings",
-                                     size: NSSize(width: 420, height: 660))
+        await settingsShots(path: path)
+    }
+
+    /// The real Settings window, opened through the RoomyDisk menu as a click on Settings… would, on each tab.
+    private static func settingsShots(path: (String) -> String) async {
+        let defaults = UserDefaults.standard
+        let tabs: [(AlertSettingsView.Tab, String)] = [(.general, "11-settings"), (.checks, "13-settings-checks"),
+                                                       (.updates, "14-settings-updates")]
+        defaults.set(AlertSettingsView.Tab.general.rawValue, forKey: AlertSettingsView.tabKey)
+        let before = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        if let menu = NSApplication.shared.mainMenu?.items.first?.submenu,
+           let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," }) {
+            menu.performActionForItem(at: index)
+        }
         try? await Task.sleep(for: .seconds(1.5))
-        save(to: path("11-settings"), window: settings)
+        let windows = NSApplication.shared.windows
+        print("tour: windows \(windows.map { "\($0.identifier?.rawValue ?? "-") \($0.isVisible ? "visible" : "hidden")" })")
+        guard let settings = windows.first(where: {
+            $0.isVisible && (!before.contains(ObjectIdentifier($0)) || $0.identifier?.rawValue.contains("Settings") == true)
+        }) else {
+            FileHandle.standardError.write(Data("tour: the Settings window did not open\n".utf8))
+            return
+        }
+        for (tab, name) in tabs {
+            defaults.set(tab.rawValue, forKey: AlertSettingsView.tabKey)
+            try? await Task.sleep(for: .seconds(1.5))
+            print("tour: settings \(tab.rawValue) is \(Int(settings.frame.width))x\(Int(settings.frame.height))")
+            save(to: path(name), window: settings)
+        }
+        defaults.set(AlertSettingsView.Tab.general.rawValue, forKey: AlertSettingsView.tabKey)
         settings.close()
         try? await Task.sleep(for: .seconds(0.5))
     }
 
-    private static func hostingWindow<Content: View>(_ view: Content, title: String, size: NSSize? = nil) -> NSWindow {
-        let controller = NSHostingController(rootView: view)
-        if size != nil { controller.sizingOptions = [] }
-        let window = NSWindow(contentViewController: controller)
-        if let size { window.setContentSize(size) }
+    private static func hostingWindow<Content: View>(_ view: Content, title: String) -> NSWindow {
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = title
         window.isReleasedWhenClosed = false
         window.styleMask.remove(.resizable)

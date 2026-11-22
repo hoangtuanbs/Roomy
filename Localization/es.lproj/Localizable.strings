@@ -596,3 +596,7 @@
 "Check for updates automatically" = "Buscar actualizaciones automáticamente";
 "Updates are signed and checked before they are installed." = "Las actualizaciones están firmadas y se verifican antes de instalarse.";
 "Getting the list ready…" = "Preparando la lista…";
+"General" = "General";
+"Checks & Alerts" = "Revisiones y avisos";
+"Updates" = "Actualizaciones";
+"This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Esta copia de RoomyDisk no busca actualizaciones. Las versiones nuevas están en GitHub.";
