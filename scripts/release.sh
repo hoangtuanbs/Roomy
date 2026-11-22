@@ -41,11 +41,17 @@ echo "Signing as: $IDENTITY"
 
 swift package resolve
 SPARKLE_BIN="$(dirname "$(find .build/artifacts -type f -name generate_keys -path '*/bin/*' | head -n 1)")"
-PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null || true)"
+# generate_keys -p prints an error on stdout and fails when there is no key yet, so trust only its success.
+PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p 2>/dev/null)" || PUBLIC_KEY=""
 if [[ -z "$PUBLIC_KEY" ]]; then
     echo "Creating the update signing key in your login keychain…"
     "$SPARKLE_BIN/generate_keys" >/dev/null
     PUBLIC_KEY="$("$SPARKLE_BIN/generate_keys" -p)"
+fi
+# An EdDSA public key is 32 bytes, 44 characters of base64.
+if [[ ! "$PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+    echo "Could not read the update signing key (got: $PUBLIC_KEY)." >&2
+    exit 1
 fi
 
 BUILD_NUMBER="$(git rev-list --count HEAD)"
