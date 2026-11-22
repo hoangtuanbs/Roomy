@@ -1,19 +1,41 @@
+import AppKit
 import RoomyCore
 import SwiftUI
 
-/// The Settings window: the menu bar icon, the background junk check and the alerts.
+/// The Settings window, in tabs: the menu bar icon, the background junk check with the alerts, and updates.
+/// Each tab has its own height, so the window fits it, and its form scrolls when a translation runs long.
 struct AlertSettingsView: View {
-    @Environment(AppModel.self) private var model
+    enum Tab: String {
+        case general, checks, updates
+    }
+
+    /// The chosen tab, kept between openings. The screenshot tour sets it to show each tab.
+    static let tabKey = "settingsTab"
+    @AppStorage(tabKey) private var tab = Tab.general
+
+    var body: some View {
+        TabView(selection: $tab) {
+            GeneralSettings()
+                .frame(width: 480, height: 160)
+                .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(Tab.general)
+            CheckSettings()
+                .frame(width: 480, height: 370)
+                .tabItem { Label("Checks & Alerts", systemImage: "bell.badge") }
+                .tag(Tab.checks)
+            UpdateSettings()
+                .frame(width: 480, height: 160)
+                .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
+                .tag(Tab.updates)
+        }
+    }
+}
+
+/// The menu bar icon and what it shows.
+private struct GeneralSettings: View {
     @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
-    @AppStorage(AutoCheckSettings.intervalKey) private var interval = AutoCheckInterval.sixHours
     @AppStorage(AutoCheckSettings.showAmountKey) private var showAmount = true
     @AppStorage(AutoCheckSettings.amountThresholdKey) private var amountThresholdGB = 1
-    @AppStorage(AutoCheckSettings.notifyKey) private var notifyReclaimable = true
-    @AppStorage(AutoCheckSettings.notifyThresholdKey) private var notifyThresholdGB = 5
-    @AppStorage(LowSpaceNotifier.enabledKey) private var alertEnabled = true
-    @AppStorage(LowSpaceNotifier.thresholdKey) private var thresholdGB = 10
-    @State private var permissionDenied = false
-    @ObservedObject private var updater = AppUpdater.shared
 
     var body: some View {
         Form {
@@ -26,6 +48,23 @@ struct AlertSettingsView: View {
                 }
                 .disabled(!showInMenuBar || !showAmount)
             }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+/// The background junk check, its notice, and the low-space warning.
+private struct CheckSettings: View {
+    @Environment(AppModel.self) private var model
+    @AppStorage(AutoCheckSettings.intervalKey) private var interval = AutoCheckInterval.sixHours
+    @AppStorage(AutoCheckSettings.notifyKey) private var notifyReclaimable = true
+    @AppStorage(AutoCheckSettings.notifyThresholdKey) private var notifyThresholdGB = 5
+    @AppStorage(LowSpaceNotifier.enabledKey) private var alertEnabled = true
+    @AppStorage(LowSpaceNotifier.thresholdKey) private var thresholdGB = 10
+    @State private var permissionDenied = false
+
+    var body: some View {
+        Form {
             Section {
                 Picker("Check for junk", selection: $interval) {
                     ForEach(AutoCheckInterval.allCases) { Text($0.title).tag($0) }
@@ -64,6 +103,18 @@ struct AlertSettingsView: View {
                         .transition(.opacity)
                 }
             }
+        }
+        .formStyle(.grouped)
+        .motion(Motion.quick, value: permissionDenied)
+    }
+}
+
+/// Automatic updates, which only a signed release build has.
+private struct UpdateSettings: View {
+    @ObservedObject private var updater = AppUpdater.shared
+
+    var body: some View {
+        Form {
             if updater.isAvailable {
                 Section {
                     Toggle("Check for updates automatically", isOn: $updater.automaticallyChecks)
@@ -74,10 +125,15 @@ struct AlertSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+            } else {
+                Section {
+                    Text("This copy of RoomyDisk doesn't look for updates. New versions are on GitHub.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("RoomyDisk on GitHub") { NSWorkspace.shared.open(About.projectURL) }
+                }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .motion(Motion.quick, value: permissionDenied)
     }
 }

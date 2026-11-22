@@ -85,6 +85,8 @@ struct HelpCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        // Lets a notification click open the main window when no window or menu bar icon is around.
+        let _ = MainWindow.openAction = openWindow
         CommandGroup(replacing: .help) {
             Button("Email Us…") { About.emailSupport() }
             Button("Donate…") { openWindow(id: "donate") }
@@ -108,17 +110,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean,
-    /// and one on the failing disk notice opens Disk Health.
+    /// and one on the failing disk notice opens Disk Health. This works with the menu bar icon hidden too.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        let name: Notification.Name
+        let route: MainWindow.Route
         switch response.notification.request.identifier {
-        case LowSpaceNotifier.reclaimableIdentifier: name = .roomyShowSmartClean
-        case DiskHealthNotifier.identifier: name = .roomyShowDiskHealth
-        default: name = .roomyShowMain
+        case LowSpaceNotifier.reclaimableIdentifier: route = .smartClean
+        case DiskHealthNotifier.identifier: route = .diskHealth
+        default: route = .main
         }
-        NotificationCenter.default.post(name: name, object: nil)
+        Task { @MainActor in MainWindow.show(route) }
         completionHandler()
     }
 

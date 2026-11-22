@@ -2,26 +2,15 @@ import AppKit
 import RoomyCore
 import SwiftUI
 
-extension Notification.Name {
-    /// Posted when the user clicks a RoomyDisk notification. The menu bar label opens the main window.
-    static let roomyShowMain = Notification.Name("roomyShowMain")
-    /// Posted when the user clicks the "can free" notification. The menu bar label opens Smart Clean.
-    static let roomyShowSmartClean = Notification.Name("roomyShowSmartClean")
-    /// Posted when the user clicks the failing disk notification. The menu bar label opens Disk Health.
-    static let roomyShowDiskHealth = Notification.Name("roomyShowDiskHealth")
-}
-
 /// Whether the menu bar icon is shown. On by default.
 enum MenuBarSettings {
     static let key = "showInMenuBar"
     static var isShown: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
 }
 
-/// The menu bar icon, with how much junk can be freed next to it when that is worth saying. It stays alive while
-/// the menu bar item is shown, so it can open the main window.
+/// The menu bar icon, with how much junk can be freed next to it when that is worth saying.
 struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
     @AppStorage(AutoCheckSettings.showAmountKey) private var showAmount = true
     @AppStorage(AutoCheckSettings.amountThresholdKey) private var thresholdGB = 1
 
@@ -38,20 +27,6 @@ struct MenuBarLabel: View {
                 Text(amount).monospacedDigit()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .roomyShowMain)) { _ in
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .roomyShowSmartClean)) { _ in
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-            model.openSmartClean()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .roomyShowDiskHealth)) { _ in
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-            model.openDiskHealth()
-        }
     }
 }
 
@@ -59,7 +34,6 @@ struct MenuBarLabel: View {
 struct MenuBarView: View {
     @Environment(AppModel.self) private var model
     @Environment(MenuBarDiskModel.self) private var disks
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -90,13 +64,12 @@ struct MenuBarView: View {
         .onAppear {
             disks.refresh()
             model.diskHealth.refreshIfStale()
-            if model.autoCheck.summary == nil && AutoCheckSettings.interval != .off { model.autoCheck.check() }
+            model.autoCheck.checkIfListIsMissing()
         }
     }
 
     private func openMain() {
-        openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
+        MainWindow.bringForward()
     }
 }
 

@@ -87,20 +87,24 @@ A macOS app that shows what is using space on your disk and helps you free it up
   thread. Wear, power-on hours and temperature are only given to admin tools on macOS, so they say "Not available
   without admin rights" instead of a made-up number. Many USB drives, card readers and virtual disks don't report
   their health; they show **Unknown**. The menu bar popover shows a dot in the health's colour next to each disk.
-  RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**.
-- **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
+  RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**;
+  clicking it opens Disk Health.
+- **Settings** (⌘,) has three tabs: **General** (the menu bar icon), **Checks & Alerts** (automatic checks, their
+  notice and the low-space alert) and **Updates**.
+- **Menu bar** (on by default, turn it off in Settings › General): an icon in the menu bar shows the startup disk and any
   external disks with a bar for how full they are, their free space and a health dot, refreshed every minute and when you open it.
   **Open RoomyDisk**, **Smart Clean…**, **Disk Health…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
-- **Automatic checks and Quick Clean** (Settings): while RoomyDisk runs, it looks at the places Smart Clean knows
+- **Automatic checks and Quick Clean** (Settings › Checks & Alerts): while RoomyDisk runs, it looks at the places Smart Clean knows
   (never the whole disk) every 6 hours, a minute after launch and after the Mac wakes; choose every hour, once a day or
   Off. Checks run at low priority and wait while the Mac is on a battery below 20% or in Low Power Mode. The menu bar
   popover shows **Can be freed**: the total, a bar per kind of junk and when it last looked. **Quick Clean** moves only
   what Smart Clean ticks by itself (app caches, logs, Xcode build data, package caches, old installers) to the Trash, after you confirm
-  ("Move 3.2 GB of caches and logs to the Trash?") right in the popover. Nothing is ever removed without that click.
+  ("Move 3.2 GB of caches and logs to the Trash?") right in the popover. Nothing is ever removed without that click. After a relaunch only the totals are
+  remembered, so opening the popover looks again at once and Quick Clean is ready a few seconds later.
   Above 1 GB the amount also shows next to the menu bar icon ("3.2G"; turn it off or raise it in Settings). When more
   than 5 GB can be freed (2 to 20 GB), RoomyDisk sends at most one notification every 3 days, "RoomyDisk can free
-  7.4 GB of caches and logs"; clicking it opens Smart Clean.
-- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), RoomyDisk sends one
+  7.4 GB of caches and logs"; clicking it opens Smart Clean, even with the menu bar icon turned off.
+- **Low-space alert** (Settings › Checks & Alerts): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), RoomyDisk sends one
   notification a day, "Your disk is almost full". Clicking it opens RoomyDisk. RoomyDisk asks for notification permission only
   when you turn the alert on, and it does nothing if you say no.
 - **Export as CSV…** (File menu, ⇧⌘E, or the toolbar's CSV button) saves the current folder as a CSV file: path, name,
@@ -134,7 +138,7 @@ swift run roomy-scan ~ --top 20
 
 ## Language
 
-RoomyDisk follows the language of your Mac. It is translated into Vietnamese, Spanish and German, and the translations are kept in `Localization/`. To change the language, open System Settings › General › Language & Region › Applications, choose RoomyDisk and pick a language, then reopen the app.
+RoomyDisk follows the language of your Mac. It is translated into Vietnamese, Spanish, German, French, Japanese and Simplified Chinese, and the translations are kept in `Localization/`. To change the language, open System Settings › General › Language & Region › Applications, choose RoomyDisk and pick a language, then reopen the app.
 
 ## Releases
 
