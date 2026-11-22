@@ -39,6 +39,53 @@ jobs:
           plutil -lint build/Roomy.app/Contents/Info.plist
           test -f build/Roomy.app/Contents/Resources/AppIcon.icns
 
+      - name: Launch the app and check it stays up
+        run: |
+          build/Roomy.app/Contents/MacOS/Roomy > "$RUNNER_TEMP/launch.log" 2>&1 &
+          pid=$!
+          sleep 20
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::Roomy quit or crashed within 20 seconds of launch"
+            cat "$RUNNER_TEMP/launch.log"
+            exit 1
+          fi
+          echo "Roomy is still running after 20 seconds"
+          kill "$pid"
+
+      - name: Take screenshots of the main screens
+        run: |
+          sample="$RUNNER_TEMP/sample"
+          mkdir -p "$sample/Photos" "$sample/Projects/app" "$sample/Downloads"
+          mkfile -n 30m "$sample/Photos/holiday.mov"
+          cp "$sample/Photos/holiday.mov" "$sample/Downloads/holiday copy.mov"
+          mkfile -n 12m "$sample/Projects/app/build.dmg"
+          mkfile -n 4m "$sample/Projects/app/notes.txt"
+          out="$RUNNER_TEMP/screenshots"
+          build/Roomy.app/Contents/MacOS/Roomy --scan "$sample" --tour "$out" &
+          pid=$!
+          for i in $(seq 1 180); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::error::The screenshot tour did not finish within 3 minutes"
+            kill "$pid"
+            exit 1
+          fi
+          wait "$pid" || { echo "::error::Roomy exited with an error during the tour"; exit 1; }
+          ls -l "$out"
+          count=$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$count" -lt 6 ]; then
+            echo "::error::Expected 6 screenshots, got $count (is there a window session on this runner?)"
+            exit 1
+          fi
+
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roomy-screenshots-${{ github.run_number }}
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload the app
         uses: actions/upload-artifact@v4
         with:
