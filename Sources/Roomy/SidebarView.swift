@@ -44,6 +44,13 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
+            ToolButton(title: "Disk Health", symbol: "stethoscope", gradient: .diskHealth,
+                       stroke: Color(red: 0.22, green: 0.67, blue: 0.58),
+                       help: "See what your disks report about their own health") {
+                model.openDiskHealth()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
             .padding(.bottom, 4)
 
             List(selection: selection) {

@@ -124,6 +124,9 @@ final class AppModel {
     var showSpaceHunters = false
     let cloudSpace = CloudSpaceModel()
     var showCloudSpace = false
+    /// What each disk reports about its own health, shown in Disk Health and as dots in the menu bar.
+    let diskHealth = DiskHealthModel()
+    var showDiskHealth = false
     /// The background junk check behind the menu bar's Quick Clean.
     let autoCheck = AutoCheckModel()
 
@@ -606,7 +609,7 @@ final class AppModel {
 
     private var anySheetOpen: Bool {
         showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
-            || showCloudSpace || showOnboarding
+            || showCloudSpace || showDiskHealth || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -780,6 +783,12 @@ final class AppModel {
     func openCloudSpace() {
         showCloudSpace = true
         if !cloudSpace.isBusy { cloudSpace.find() }
+    }
+
+    /// Opens Disk Health and reads the disks again, unless a read is already running.
+    func openDiskHealth() {
+        showDiskHealth = true
+        diskHealth.refresh()
     }
 
     /// Closes Space Hunters and shows the Full Disk Access guide; only one sheet can be open at a time.

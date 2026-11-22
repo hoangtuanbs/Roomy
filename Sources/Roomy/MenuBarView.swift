@@ -7,6 +7,8 @@ extension Notification.Name {
     static let roomyShowMain = Notification.Name("roomyShowMain")
     /// Posted when the user clicks the "can free" notification. The menu bar label opens Smart Clean.
     static let roomyShowSmartClean = Notification.Name("roomyShowSmartClean")
+    /// Posted when the user clicks the failing disk notification. The menu bar label opens Disk Health.
+    static let roomyShowDiskHealth = Notification.Name("roomyShowDiskHealth")
 }
 
 /// Whether the menu bar icon is shown. On by default.
@@ -45,6 +47,11 @@ struct MenuBarLabel: View {
             NSApp.activate(ignoringOtherApps: true)
             model.openSmartClean()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .roomyShowDiskHealth)) { _ in
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+            model.openDiskHealth()
+        }
     }
 }
 
@@ -60,7 +67,7 @@ struct MenuBarView: View {
                 Text("No disks found").foregroundStyle(.secondary)
             }
             ForEach(disks.disks) { disk in
-                MenuBarDiskRow(disk: disk)
+                MenuBarDiskRow(disk: disk, health: model.diskHealth.verdict(forVolume: disk.path))
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
             Divider()
@@ -71,6 +78,10 @@ struct MenuBarView: View {
                 model.openSmartClean()
                 openMain()
             }
+            MenuBarAction(title: "Disk Health…", symbol: "stethoscope") {
+                model.openDiskHealth()
+                openMain()
+            }
             Divider()
             MenuBarAction(title: "Quit", symbol: "power") { NSApplication.shared.terminate(nil) }
         }
@@ -78,6 +89,7 @@ struct MenuBarView: View {
         .frame(width: 290)
         .onAppear {
             disks.refresh()
+            model.diskHealth.refreshIfStale()
             if model.autoCheck.summary == nil && AutoCheckSettings.interval != .off { model.autoCheck.check() }
         }
     }
@@ -88,9 +100,11 @@ struct MenuBarView: View {
     }
 }
 
-/// One disk: its name, free space, and a bar of how much is used.
+/// One disk: its name, a dot for its health, free space, and a bar of how much is used.
 struct MenuBarDiskRow: View {
     let disk: MenuBarDisk
+    /// The health of the physical disk under this volume, nil before it has been read.
+    var health: DiskHealthVerdict?
 
     private var usedFraction: Double {
         guard disk.space.total > 0 else { return 0 }
@@ -103,6 +117,9 @@ struct MenuBarDiskRow: View {
                 Label(disk.name, systemImage: disk.isStartup ? "internaldrive" : "externaldrive")
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
+                if let health {
+                    HealthDot(verdict: health)
+                }
                 Spacer()
                 Text("\(disk.space.available.bytes) free")
                     .font(.system(size: 12))
@@ -141,5 +158,25 @@ struct MenuBarAction: View {
         .onHover { inside in
             withAnimation(Motion.hover.unless(reduceMotion)) { hovered = inside }
         }
+    }
+}
+
+/// A small dot in the colour of a disk's health, which pops in when the health is first known.
+struct HealthDot: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let verdict: DiskHealthVerdict
+    @State private var shown = false
+
+    var body: some View {
+        Circle()
+            .fill(verdict.color)
+            .frame(width: 7, height: 7)
+            .scaleEffect(shown ? 1 : 0.2)
+            .animation(Motion.quick.unless(reduceMotion), value: verdict)
+            .onAppear {
+                if reduceMotion { shown = true } else { withAnimation(Motion.bouncy) { shown = true } }
+            }
+            .help("Disk health: \(verdict.title)")
+            .accessibilityLabel("Disk health: \(verdict.title)")
     }
 }

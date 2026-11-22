@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
-/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk overview,
+/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk Health, Disk overview,
 /// the menu bar popover with Quick Clean, and Settings) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
@@ -60,6 +60,16 @@ enum ScreenTour {
             await waitWhile({ model.cloudSpace.isBusy }, limit: 40)
             await shot("8-cloud-space", wait: 2)
             model.showCloudSpace = false
+
+            try? await Task.sleep(for: .seconds(1))
+            model.openDiskHealth()
+            await waitWhile({ model.diskHealth.isBusy }, limit: 40)
+            for report in model.diskHealth.reports {
+                print("tour: disk health \(report.id) \(report.name): \(report.verdict.title), SMART \(report.smart.title), "
+                      + "\(report.interconnect ?? "?"), internal \(report.isInternal.map { $0 ? "yes" : "no" } ?? "?"), volumes \(report.volumeNames)")
+            }
+            await shot("12-disk-health", wait: 2.5)
+            model.showDiskHealth = false
 
             await menuBarShots(model: model, directory: directory)
 

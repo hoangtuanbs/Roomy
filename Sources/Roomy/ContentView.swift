@@ -49,6 +49,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showCloudSpace) {
             CloudSpaceView().environment(model)
         }
+        .sheet(isPresented: $model.showDiskHealth) {
+            DiskHealthView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -170,6 +173,14 @@ struct ContentColumn: View {
                     Label("Cloud Space", systemImage: "icloud")
                 }
                 .help("Free space by removing downloaded copies of cloud files; they stay in the cloud")
+            }
+            ToolbarItem {
+                Button {
+                    model.openDiskHealth()
+                } label: {
+                    Label("Disk Health", systemImage: "stethoscope")
+                }
+                .help("See what your disks report about their own health")
             }
             ToolbarItem {
                 Menu {

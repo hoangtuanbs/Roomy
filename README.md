@@ -78,9 +78,19 @@ A macOS app that shows what is using space on your disk and helps you free it up
   that has conflicting versions is kept and labelled ("Not uploaded yet — kept"); each file is checked again just
   before. If **Optimize Mac Storage** is off for iCloud Drive, macOS may download files again on its own. Very large
   cloud folders are checked up to 250,000 files each.
+- **Disk Health** (below Cloud Space in the sidebar, the toolbar, the menu bar popover, or ⇧⌘I) shows a card for every
+  internal and external disk: its model, connection (Apple Fabric, PCI Express, USB, Thunderbolt, SATA), whether it is
+  an SSD, its size and how much of it is used, the firmware, the serial number (mostly hidden) and its **S.M.A.R.T.**
+  status. Each disk gets a verdict, **Good**, **Warning**, **Failing** or **Unknown**, with what it means and what to do
+  ("Back up now with Time Machine, then replace this disk"). It is strictly read-only and needs no admin rights: it reads
+  the I/O Registry and asks `diskutil info` and `system_profiler`, each with a 10-second limit, away from the main
+  thread. Wear, power-on hours and temperature are only given to admin tools on macOS, so they say "Not available
+  without admin rights" instead of a made-up number. Many USB drives, card readers and virtual disks don't report
+  their health; they show **Unknown**. The menu bar popover shows a dot in the health's colour next to each disk.
+  RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**.
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
-  external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
-  **Open RoomyDisk**, **Smart Clean…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
+  external disks with a bar for how full they are, their free space and a health dot, refreshed every minute and when you open it.
+  **Open RoomyDisk**, **Smart Clean…**, **Disk Health…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
 - **Automatic checks and Quick Clean** (Settings): while RoomyDisk runs, it looks at the places Smart Clean knows
   (never the whole disk) every 6 hours, a minute after launch and after the Mac wakes; choose every hour, once a day or
   Off. Checks run at low priority and wait while the Mac is on a battery below 20% or in Low Power Mode. The menu bar
@@ -143,7 +153,7 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 
 | Path | What it is |
 | --- | --- |
-| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule and CSV export. No UI. |
+| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule, the disk health reader and CSV export. No UI. |
 | `Tests/RoomyCoreTests` | Unit tests, run with `swift test`. They only use temporary folders. |
 | `Sources/Roomy` | The SwiftUI app. |
 | `Sources/roomy-scan` | Command-line scanner. |

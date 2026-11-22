@@ -41,6 +41,8 @@ struct RoomyApp: App {
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Free Up Cloud Space…") { model.openCloudSpace() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button("Disk Health…") { model.openDiskHealth() }
+                    .keyboardShortcut("i", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }
@@ -103,12 +105,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         !MenuBarSettings.isShown
     }
 
-    /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean.
+    /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean,
+    /// and one on the failing disk notice opens Disk Health.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        let smartClean = response.notification.request.identifier == LowSpaceNotifier.reclaimableIdentifier
-        NotificationCenter.default.post(name: smartClean ? .roomyShowSmartClean : .roomyShowMain, object: nil)
+        let name: Notification.Name
+        switch response.notification.request.identifier {
+        case LowSpaceNotifier.reclaimableIdentifier: name = .roomyShowSmartClean
+        case DiskHealthNotifier.identifier: name = .roomyShowDiskHealth
+        default: name = .roomyShowMain
+        }
+        NotificationCenter.default.post(name: name, object: nil)
         completionHandler()
     }
 
