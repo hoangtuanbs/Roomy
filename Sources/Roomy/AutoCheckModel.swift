@@ -121,6 +121,17 @@ final class AutoCheckModel {
         }
     }
 
+    /// After a relaunch only the totals are known, so Quick Clean has no list to move. The menu bar popover calls
+    /// this when it opens, to look again at low priority and bring the list back.
+    func checkIfListIsMissing() {
+        guard !isChecking, phase == .idle, findings.isEmpty else { return }
+        if let summary {
+            if summary.totalBytes > 0 { check() }
+        } else if AutoCheckSettings.interval != .off {
+            check()
+        }
+    }
+
     func cancelCheck() {
         checkTask?.cancel()
     }

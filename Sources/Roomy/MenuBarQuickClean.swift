@@ -114,8 +114,14 @@ struct MenuBarQuickClean: View {
             QuickCleanButton(title: "Quick Clean", symbol: "sparkles") { check.askToClean() }
                 .disabled(check.quickCleanItems.isEmpty)
                 .opacity(check.quickCleanItems.isEmpty ? 0.5 : 1)
-        } else if summary.totalBytes > 0 && !check.isChecking {
-            // After a relaunch only the totals are known; check again to know what to move.
+        } else if summary.totalBytes > 0 && check.isChecking {
+            // After a relaunch only the totals are known; the check the popover started brings the list back.
+            QuickCleanButton(title: "Quick Clean", symbol: "sparkles") {}
+                .disabled(true)
+                .opacity(0.5)
+                .help("Getting the list ready…")
+        } else if summary.totalBytes > 0 {
+            // The check was stopped, such as by sleep; check again to know what to move.
             QuickCleanButton(title: "Check Again to Clean", symbol: "arrow.clockwise") { check.check() }
         }
     }

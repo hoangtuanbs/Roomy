@@ -64,7 +64,7 @@ struct MenuBarView: View {
         .onAppear {
             disks.refresh()
             model.diskHealth.refreshIfStale()
-            if model.autoCheck.summary == nil && AutoCheckSettings.interval != .off { model.autoCheck.check() }
+            model.autoCheck.checkIfListIsMissing()
         }
     }
 
