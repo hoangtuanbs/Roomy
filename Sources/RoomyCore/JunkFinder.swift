@@ -157,24 +157,24 @@ public struct JunkFinder: Sendable {
                 && !skippedCacheNames.contains(entry.name)
         }
         groups.append(CandidateGroup(
-            id: "caches", category: .caches, title: "App caches",
-            explanation: "Files apps keep so they load faster. Apps make them again when needed, so they can be a little slower the first time. Caches of macOS and of apps that are open now are left alone.",
+            id: "caches", category: .caches, title: String(localized: "App caches"),
+            explanation: String(localized: "Files apps keep so they load faster. Apps make them again when needed, so they can be a little slower the first time. Caches of macOS and of apps that are open now are left alone."),
             preselected: true,
             candidates: appCaches.map { Candidate(path: caches + "/" + $0.name, name: $0.name) }
         ))
 
         let logs = library + "/Logs"
         groups.append(CandidateGroup(
-            id: "logs", category: .logs, title: "Logs",
-            explanation: "Records apps write about what they did, mostly for troubleshooting. Removing them does not change how apps work.",
+            id: "logs", category: .logs, title: String(localized: "Logs"),
+            explanation: String(localized: "Records apps write about what they did, mostly for troubleshooting. Removing them does not change how apps work."),
             preselected: true,
             candidates: Self.entries(in: logs).map { Candidate(path: logs + "/" + $0.name, name: $0.name) }
         ))
 
         let derived = xcode + "/DerivedData"
         groups.append(CandidateGroup(
-            id: "derivedData", category: .developer, title: "Xcode build data",
-            explanation: "Build products and indexes Xcode makes for your projects (DerivedData). Xcode makes them again on the next build, which takes longer once.",
+            id: "derivedData", category: .developer, title: String(localized: "Xcode build data"),
+            explanation: String(localized: "Build products and indexes Xcode makes for your projects (DerivedData). Xcode makes them again on the next build, which takes longer once."),
             preselected: true,
             candidates: Self.entries(in: derived).map {
                 Candidate(path: derived + "/" + $0.name, name: Self.projectName(fromDerivedData: $0.name))
@@ -190,22 +190,22 @@ public struct JunkFinder: Sendable {
             }
         }
         groups.append(CandidateGroup(
-            id: "archives", category: .developer, title: "Xcode archives",
-            explanation: "Copies of apps you archived in Xcode for release. You need an archive to upload that build again or to read its crash reports, so check before removing.",
+            id: "archives", category: .developer, title: String(localized: "Xcode archives"),
+            explanation: String(localized: "Copies of apps you archived in Xcode for release. You need an archive to upload that build again or to read its crash reports, so check before removing."),
             preselected: false, candidates: archiveItems
         ))
 
         let simCaches = simulator + "/Caches"
         groups.append(CandidateGroup(
-            id: "simulatorCaches", category: .developer, title: "Simulator caches",
-            explanation: "Files the iOS Simulator keeps so it starts faster. It makes them again when needed.",
+            id: "simulatorCaches", category: .developer, title: String(localized: "Simulator caches"),
+            explanation: String(localized: "Files the iOS Simulator keeps so it starts faster. It makes them again when needed."),
             preselected: true,
             candidates: Self.entries(in: simCaches).map { Candidate(path: simCaches + "/" + $0.name, name: $0.name) }
         ))
 
         groups.append(CandidateGroup(
-            id: "oldSimulators", category: .developer, title: "Unused simulators",
-            explanation: "Simulated devices you have not used for 6 months, with the apps and data in them. If Xcode still lists one afterwards, delete it in Devices and Simulators.",
+            id: "oldSimulators", category: .developer, title: String(localized: "Unused simulators"),
+            explanation: String(localized: "Simulated devices you have not used for 6 months, with the apps and data in them. If Xcode still lists one afterwards, delete it in Devices and Simulators."),
             preselected: false, candidates: oldSimulators(in: simulator + "/Devices")
         ))
 
@@ -217,8 +217,8 @@ public struct JunkFinder: Sendable {
             }
         }
         groups.append(CandidateGroup(
-            id: "deviceSupport", category: .developer, title: "Device support files",
-            explanation: "Debug files Xcode copies from each iPhone, iPad or Apple Watch you connect. Xcode copies them again the next time you connect that device, which takes a few minutes.",
+            id: "deviceSupport", category: .developer, title: String(localized: "Device support files"),
+            explanation: String(localized: "Debug files Xcode copies from each iPhone, iPad or Apple Watch you connect. Xcode copies them again the next time you connect that device, which takes a few minutes."),
             preselected: true, candidates: supportItems
         ))
 
@@ -230,15 +230,15 @@ public struct JunkFinder: Sendable {
             }
         }
         groups.append(CandidateGroup(
-            id: "packageCaches", category: .packages, title: "Package manager caches",
-            explanation: "Downloads that npm, Yarn, pnpm, pip, Homebrew, CocoaPods, Gradle and Cargo keep so they can install packages again without downloading them. They download what they need on the next install.",
+            id: "packageCaches", category: .packages, title: String(localized: "Package manager caches"),
+            explanation: String(localized: "Downloads that npm, Yarn, pnpm, pip, Homebrew, CocoaPods, Gradle and Cargo keep so they can install packages again without downloading them. They download what they need on the next install."),
             preselected: true, candidates: packageItems
         ))
 
         if let tree {
             groups.append(CandidateGroup(
-                id: "nodeModules", category: .packages, title: "Old node_modules folders",
-                explanation: "Packages installed for JavaScript projects you have not touched in 30 days. Run npm install (or yarn, pnpm) in the project to get them back.",
+                id: "nodeModules", category: .packages, title: String(localized: "Old node_modules folders"),
+                explanation: String(localized: "Packages installed for JavaScript projects you have not touched in 30 days. Run npm install (or yarn, pnpm) in the project to get them back."),
                 preselected: false, candidates: oldNodeModules(in: tree)
             ))
         }
@@ -250,8 +250,8 @@ public struct JunkFinder: Sendable {
             return Self.installerExtensions.contains(ext) && Self.date(entry.modified) < installerCutoff
         }
         groups.append(CandidateGroup(
-            id: "installers", category: .installers, title: "Old installers",
-            explanation: "Disk images and installer packages in Downloads that are more than 30 days old. Once an app is installed, you rarely need its installer again.",
+            id: "installers", category: .installers, title: String(localized: "Old installers"),
+            explanation: String(localized: "Disk images and installer packages in Downloads that are more than 30 days old. Once an app is installed, you rarely need its installer again."),
             preselected: true,
             candidates: installers.map { Candidate(path: downloads + "/" + $0.name, name: $0.name) }
         ))
@@ -265,8 +265,8 @@ public struct JunkFinder: Sendable {
             trashItems = []
         }
         groups.append(CandidateGroup(
-            id: "trash", category: .trash, title: "Trash",
-            explanation: "Items you already moved to the Trash. Emptying it erases them for good: you cannot put them back.",
+            id: "trash", category: .trash, title: String(localized: "Trash"),
+            explanation: String(localized: "Items you already moved to the Trash. Emptying it erases them for good: you cannot put them back."),
             preselected: false, isPermanent: true, candidates: trashItems
         ))
         return groups

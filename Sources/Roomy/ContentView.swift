@@ -80,7 +80,7 @@ struct ContentColumn: View {
 
         VStack(spacing: 0) {
             Picker("View", selection: $model.tab) {
-                ForEach(ContentTab.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(ContentTab.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -272,7 +272,7 @@ struct DetailColumn: View {
                         .animation(Motion.smooth.unless(reduceMotion), value: tree.size(model.currentFolder))
                     Picker("Map", selection: $model.mapStyle) {
                         ForEach(MapStyle.allCases) { style in
-                            Label(style.rawValue, systemImage: style.symbol).tag(style)
+                            Label(style.label, systemImage: style.symbol).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -415,8 +415,8 @@ struct ScanStatusNote: View {
     }
 
     private var updatingText: String {
-        guard let progress = model.refreshProgress else { return "Updating…" }
-        return "Updating · \(progress.files.formatted()) files…"
+        guard let progress = model.refreshProgress else { return String(localized: "Updating…") }
+        return String(format: String(localized: "Updating · %@ files…"), progress.files.formatted())
     }
 }
 

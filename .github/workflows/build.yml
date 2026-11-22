@@ -39,6 +39,13 @@ jobs:
           plutil -lint build/RoomyDisk.app/Contents/Info.plist
           test -f build/RoomyDisk.app/Contents/Resources/AppIcon.icns
 
+      - name: Check the translations
+        run: |
+          shopt -s nullglob
+          files=(build/RoomyDisk.app/Contents/Resources/*.lproj/Localizable.strings)
+          test ${#files[@]} -gt 0 || { echo "::error::No Localizable.strings in the bundle"; exit 1; }
+          plutil -lint "${files[@]}"
+
       - name: Launch the app and check it stays up
         run: |
           build/RoomyDisk.app/Contents/MacOS/RoomyDisk > "$RUNNER_TEMP/launch.log" 2>&1 &

@@ -10,6 +10,10 @@ cp "$BIN" "$APP/Contents/MacOS/RoomyDisk"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [[ -f Resources/AppIcon.icns ]] || swift scripts/make-icon.swift
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# Translations: one <lang>.lproj folder per language, read by SwiftUI and AppKit from the main bundle.
+for lproj in Localization/*.lproj; do
+    [[ -d "$lproj" ]] && cp -R "$lproj" "$APP/Contents/Resources/"
+done
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 # Optional version stamping, used by the release workflow: VERSION=1.2.3 BUILD_NUMBER=42 ./scripts/build-app.sh
 if [[ -n "${VERSION:-}" ]]; then

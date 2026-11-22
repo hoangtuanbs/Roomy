@@ -118,7 +118,7 @@ public struct CloudLocations: Sendable {
         return (first, provider.rootPath + "/" + first)
     }
 
-    public static let topLevel = "Top level"
+    public static let topLevel = String(localized: "Top level")
 
     /// A readable name for an app's iCloud folder: "iCloud~com~apple~Pages" becomes "Pages".
     public static func appName(container: String) -> String {
@@ -179,8 +179,8 @@ public enum CloudVerdict: Sendable, Equatable {
 
     public var note: String? {
         switch self {
-        case .notUploaded: return "Not uploaded yet — kept"
-        case .conflicted: return "Has conflicting versions — kept"
+        case .notUploaded: return String(localized: "Not uploaded yet — kept")
+        case .conflicted: return String(localized: "Has conflicting versions — kept")
         default: return nil
         }
     }
@@ -529,11 +529,11 @@ public struct CloudEvictionService: Sendable {
 
     private func evictOne(_ item: CloudItem) -> CloudEvictionResult {
         guard CloudLocations.provider(containing: item.path, in: providers) != nil else {
-            return CloudEvictionResult(path: item.path, bytes: item.bytes, error: "Not in a cloud folder")
+            return CloudEvictionResult(path: item.path, bytes: item.bytes, error: String(localized: "Not in a cloud folder"))
         }
         let verdict = CloudRule.verdict(status.status(of: item.path))
         guard verdict == .evictable else {
-            let reason = verdict.note ?? (verdict == .notLocal ? "Already only in the cloud" : "Not a cloud file — kept")
+            let reason = verdict.note ?? (verdict == .notLocal ? String(localized: "Already only in the cloud") : String(localized: "Not a cloud file — kept"))
             return CloudEvictionResult(path: item.path, bytes: verdict == .notLocal ? 0 : item.bytes, error: reason)
         }
         do {

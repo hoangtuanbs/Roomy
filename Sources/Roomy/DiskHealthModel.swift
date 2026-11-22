@@ -80,8 +80,8 @@ enum DiskHealthNotifier {
         Task {
             guard await LowSpaceNotifier.requestPermission() else { return }
             let content = UNMutableNotificationContent()
-            content.title = "\(disk.name) is failing"
-            content.body = "The disk reports that it is failing. Back up now with Time Machine. Click for details."
+            content.title = String(format: String(localized: "%@ is failing"), disk.name)
+            content.body = String(localized: "The disk reports that it is failing. Back up now with Time Machine. Click for details.")
             content.sound = .default
             try? await UNUserNotificationCenter.current().add(
                 UNNotificationRequest(identifier: identifier, content: content, trigger: nil))

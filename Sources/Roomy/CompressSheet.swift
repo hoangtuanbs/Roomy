@@ -27,12 +27,13 @@ struct CompressSheet: View {
         // While compressing, canCompress is false for everything, so use the queue fixed at the start.
         let compressible = model.isCompressing ? model.compressQueue : targets.filter { model.canCompress($0) }
         let count = compressible.count
-        let noun = count == 1 ? "item" : "items"
+        let noun = Plural.word(count, "item", "items")
+        let title = count == 1 && targets.count == 1
+            ? String(format: String(localized: "Compress “%@” and move the original to the Trash?"), tree.name(targets[0]))
+            : String(format: String(localized: "Compress %lld %@ and move the originals to the Trash?"), count, noun)
 
         return VStack(alignment: .leading, spacing: 14) {
-            Text(count == 1 && targets.count == 1
-                 ? "Compress “\(tree.name(targets[0]))” and move the original to the Trash?"
-                 : "Compress \(count) \(noun) and move the originals to the Trash?")
+            Text(title)
                 .font(.title2.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -96,7 +97,7 @@ private struct CompressTargetRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if skipped {
-                    Label(model.verdict(for: node).message ?? "This item cannot be compressed. It will be skipped.", systemImage: "minus.circle")
+                    Label(model.verdict(for: node).message ?? String(localized: "This item cannot be compressed. It will be skipped."), systemImage: "minus.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -148,14 +149,14 @@ private struct CompressResultView: View {
                 } else {
                     FreedSpaceCelebration(
                         bytes: saved,
-                        message: "Compressed \(succeeded.count) \(succeeded.count == 1 ? "item" : "items") and moved the originals to the Trash. The space is freed when you empty the Trash.",
+                        message: String(format: String(localized: "Compressed %lld %@ and moved the originals to the Trash. The space is freed when you empty the Trash."), succeeded.count, Plural.word(succeeded.count, "item", "items")),
                         compact: true
                     )
                     .frame(maxWidth: .infinity)
                 }
             }
             if skipped > 0 {
-                Text("\(skipped) \(skipped == 1 ? "item was" : "items were") skipped and left as they were.")
+                Text("\(skipped) \(Plural.word(skipped, "item", "items")) skipped and left as they were.")
                     .foregroundStyle(.secondary)
             }
 
@@ -170,7 +171,7 @@ private struct CompressResultView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
-                            Text(result.error ?? "Unknown error")
+                            Text(result.error ?? String(localized: "Unknown error"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)

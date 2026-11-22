@@ -54,15 +54,15 @@ public struct CompressionService: Sendable {
         }
 
         if case .blocked(let reason) = policy.verdict(for: path) { return failure(reason) }
-        guard let entry = DirectoryReader.entry(atPath: path) else { return failure("This item no longer exists.") }
+        guard let entry = DirectoryReader.entry(atPath: path) else { return failure(String(localized: "This item no longer exists.")) }
         guard entry.kind == .file || entry.kind == .directory else {
-            return failure("Only files and folders can be compressed.")
+            return failure(String(localized: "Only files and folders can be compressed."))
         }
-        guard originalBytes > 0 else { return failure("This item is empty.") }
+        guard originalBytes > 0 else { return failure(String(localized: "This item is empty.")) }
 
         let parent = (path as NSString).deletingLastPathComponent
         if let available = Self.availableBytes(at: parent), available < originalBytes {
-            return failure("There is not enough free space to make the archive. It can need up to \(ByteFormat.string(originalBytes)).")
+            return failure(String(format: String(localized: "There is not enough free space to make the archive. It can need up to %@."), ByteFormat.string(originalBytes)))
         }
 
         #if os(macOS)
@@ -73,24 +73,24 @@ public struct CompressionService: Sendable {
             let zipped = try await Self.run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", path, archive])
             guard zipped == 0 else {
                 discardArchive()
-                return failure("The archive could not be created (ditto exit code \(zipped)). The original was not changed.")
+                return failure(String(format: String(localized: "The archive could not be created (ditto exit code %lld). The original was not changed."), Int64(zipped)))
             }
             let tested = try await Self.run("/usr/bin/unzip", ["-tqq", archive])
             guard tested == 0 else {
                 discardArchive()
-                return failure("The archive did not pass its check, so it was removed. The original was not changed.")
+                return failure(String(localized: "The archive did not pass its check, so it was removed. The original was not changed."))
             }
         } catch {
             discardArchive()
-            if error is CancellationError { return failure("Cancelled. The original was not changed.") }
-            return failure("\(error.localizedDescription) The original was not changed.")
+            if error is CancellationError { return failure(String(localized: "Cancelled. The original was not changed.")) }
+            return failure(String(format: String(localized: "%@ The original was not changed."), error.localizedDescription))
         }
 
         let archiveBytes = DirectoryReader.entry(atPath: archive)?.allocated ?? 0
         if Double(archiveBytes) > Double(originalBytes) * (1 - minimumSaving) {
             discardArchive()
             let percent = Int((minimumSaving * 100).rounded())
-            return failure("Compressing would save less than \(percent)%, so RoomyDisk kept the original and removed the archive.")
+            return failure(String(format: String(localized: "Compressing would save less than %lld%%, so RoomyDisk kept the original and removed the archive."), percent))
         }
 
         do {
@@ -101,11 +101,11 @@ public struct CompressionService: Sendable {
             try? history?.append(CleanupReport(date: Date(), results: [record]))
             return result
         } catch {
-            return failure("The archive was created, but the original could not be moved to the Trash: \(error.localizedDescription)",
+            return failure(String(format: String(localized: "The archive was created, but the original could not be moved to the Trash: %@"), error.localizedDescription),
                            archive: archive, archiveBytes: archiveBytes)
         }
         #else
-        return failure("Compression is only available on macOS.")
+        return failure(String(localized: "Compression is only available on macOS."))
         #endif
     }
 

@@ -52,7 +52,7 @@ struct FreedSpaceCelebration<Extra: View>: View {
     var compact = false
     var maxWidth: CGFloat = 460
     /// Said after the big number, such as " freed".
-    var suffix = " freed"
+    var suffix = String(localized: " freed")
     @ViewBuilder var extra: () -> Extra
     @State private var shown = false
 
@@ -118,7 +118,7 @@ struct FailedItemsList: View {
                     ForEach(failed, id: \.path) { result in
                         VStack(alignment: .leading, spacing: 1) {
                             Text((result.path as NSString).lastPathComponent)
-                            Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
+                            Text(result.error ?? String(localized: "Unknown error")).font(.caption).foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

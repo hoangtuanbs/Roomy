@@ -114,7 +114,7 @@ private struct SmartCleanHeader: View {
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(clean.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: clean.selectedBytes)
-                    Text("\(clean.selectedItems.count) \(clean.selectedItems.count == 1 ? "item" : "items") selected")
+                    Text("\(clean.selectedItems.count) \(Plural.word(clean.selectedItems.count, "item", "items")) selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -133,7 +133,7 @@ private struct SmartCleanScanning: View {
     var body: some View {
         let step: String = {
             if case .scanning(let text) = model.smartClean.phase { return text }
-            return "Looking for junk…"
+            return String(localized: "Looking for junk…")
         }()
         VStack(spacing: 18) {
             BusyRing(gradient: .smartClean, period: 1) {
@@ -306,14 +306,14 @@ private struct FindingCard: View {
             Button("Empty Trash", role: .destructive) { clean.emptyTrash() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This erases \(finding.items.count) \(finding.items.count == 1 ? "item" : "items") (\(finding.bytes.bytes)) for good. You cannot undo this or put them back.")
+            Text("This erases \(finding.items.count) \(Plural.word(finding.items.count, "item", "items")) (\(finding.bytes.bytes)) for good. You cannot undo this or put them back.")
         }
     }
 
     private func subtitle(state: JunkSelection.State) -> String {
-        let count = "\(finding.items.count) \(finding.items.count == 1 ? "item" : "items")"
+        let count = "\(finding.items.count) \(Plural.word(finding.items.count, "item", "items"))"
         guard !finding.isPermanent, state == .some else { return count }
-        return "\(model.smartClean.selection.selectedBytes(in: finding).bytes) of \(count)"
+        return String(format: String(localized: "%@ of %@"), model.smartClean.selection.selectedBytes(in: finding).bytes, count)
     }
 
 }
@@ -385,7 +385,7 @@ struct SelectionBox: View {
 }
 
 struct Badge: View {
-    let text: String
+    let text: LocalizedStringKey
     let color: Color
 
     var body: some View {
@@ -406,7 +406,7 @@ private struct TrashResultBanner: View {
             Image(systemName: result.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(result.failed.isEmpty ? Color.green : Color.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Erased \(result.erased.count) \(result.erased.count == 1 ? "item" : "items") from the Trash, \(result.freedBytes.bytes) freed.")
+                Text("Erased \(result.erased.count) \(Plural.word(result.erased.count, "item", "items")) from the Trash, \(result.freedBytes.bytes) freed.")
                 if !result.failed.isEmpty {
                     Text("\(result.failed.count) could not be erased. RoomyDisk may need Full Disk Access.")
                         .font(.caption)
@@ -439,7 +439,7 @@ private struct SmartCleanDone: View {
         let moved = clean.report?.succeeded.count ?? 0
         FreedSpaceCelebration(
             bytes: clean.cleanedBytes,
-            message: "Moved \(moved) \(moved == 1 ? "item" : "items") to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+            message: Plural.movedToTrash(moved),
             failed: clean.report?.failed ?? [],
             maxWidth: 440
         )

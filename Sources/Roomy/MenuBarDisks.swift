@@ -45,7 +45,7 @@ final class MenuBarDiskModel {
     static func readDisks() -> [MenuBarDisk] {
         var result: [MenuBarDisk] = []
         if let space = DiskSpace.read(forPath: "/", scanned: 0) {
-            result.append(MenuBarDisk(path: "/", name: volumeName(URL(fileURLWithPath: "/")) ?? "Startup disk",
+            result.append(MenuBarDisk(path: "/", name: volumeName(URL(fileURLWithPath: "/")) ?? String(localized: "Startup disk"),
                                       isStartup: true, space: space))
         }
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey],

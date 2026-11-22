@@ -47,9 +47,9 @@ final class CloudSpaceModel {
     static func names(_ providers: [CloudProvider]) -> String {
         let names = providers.map(\.name).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         switch names.count {
-        case 0: return "the cloud"
+        case 0: return String(localized: "the cloud")
         case 1: return names[0]
-        default: return names.dropLast().joined(separator: ", ") + " and " + names.last!
+        default: return names.dropLast().joined(separator: ", ") + String(localized: " and ") + names.last!
         }
     }
 

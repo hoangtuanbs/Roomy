@@ -94,7 +94,7 @@ struct MenuBarQuickClean: View {
                 Text("Move \(check.quickCleanBytes.bytes) of \(summary.phrase) to the Trash?")
                     .font(.system(size: 12, weight: .semibold))
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(check.quickCleanItems.count) items. Apps make these again when needed, and you can put them back from the Trash.")
+                Text("\(check.quickCleanItems.count) \(Plural.word(check.quickCleanItems.count, "item", "items")). Apps make these again when needed, and you can put them back from the Trash.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -123,7 +123,7 @@ struct MenuBarQuickClean: View {
     private var result: some View {
         VStack(spacing: 8) {
             FreedSpaceCelebration(bytes: check.cleanedBytes,
-                                  message: "Moved to the Trash. You can put anything back from there.",
+                                  message: String(localized: "Moved to the Trash. You can put anything back from there."),
                                   failed: check.report?.failed ?? [],
                                   succeeded: (check.report?.succeeded.isEmpty == false),
                                   confetti: false, compact: true, maxWidth: 240)
@@ -135,10 +135,10 @@ struct MenuBarQuickClean: View {
 
     /// "Checked just now", "Checked 2 hr. ago".
     static func checkedText(_ date: Date, now: Date) -> String {
-        if now.timeIntervalSince(date) < 60 { return "Checked just now" }
+        if now.timeIntervalSince(date) < 60 { return String(localized: "Checked just now") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        return "Checked " + formatter.localizedString(for: date, relativeTo: now)
+        return String(localized: "Checked ") + formatter.localizedString(for: date, relativeTo: now)
     }
 }
 
@@ -170,7 +170,7 @@ private struct CategoryBar: View {
 
 /// The wide gradient button of the popover.
 private struct QuickCleanButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

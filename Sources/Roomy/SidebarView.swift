@@ -169,11 +169,11 @@ private struct SmartCleanButton: View {
 /// A lighter entry below Smart Clean, such as Duplicates or the Uninstaller, with the same hover motion.
 private struct ToolButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let gradient: LinearGradient
     let stroke: Color
-    let help: String
+    let help: LocalizedStringKey
     let action: () -> Void
     @State private var hovering = false
 

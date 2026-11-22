@@ -139,7 +139,7 @@ struct MenuBarDiskRow: View {
 
 /// A plain menu row that highlights when hovered.
 struct MenuBarAction: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

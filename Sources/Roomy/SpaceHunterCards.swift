@@ -100,18 +100,18 @@ struct HunterCard: View {
 
     private var subtitle: String {
         let hunters = model.spaceHunters
-        if hunters.isEmpty(hunter) { return "Nothing found" }
+        if hunters.isEmpty(hunter) { return String(localized: "Nothing found") }
         let selected = hunters.selectedBytes(hunter)
         switch hunter {
         case .backups:
-            if hunters.backupsNeedAccess { return "Could not look" }
-            return selected > 0 ? "\(selected.bytes) ticked" : "\(hunters.backups.count) \(hunters.backups.count == 1 ? "backup" : "backups")"
+            if hunters.backupsNeedAccess { return String(localized: "Could not look") }
+            return selected > 0 ? String(format: String(localized: "%@ ticked"), selected.bytes) : String(format: String(localized: "%lld %@"), hunters.backups.count, Plural.word(hunters.backups.count, "backup", "backups"))
         case .downloads:
-            return selected > 0 ? "\(selected.bytes) ticked" : "\(hunters.downloads.count) unused \(hunters.downloads.count == 1 ? "item" : "items")"
+            return selected > 0 ? String(format: String(localized: "%@ ticked"), selected.bytes) : String(format: String(localized: "%lld unused %@"), hunters.downloads.count, Plural.word(hunters.downloads.count, "item", "items"))
         case .mail:
-            return selected > 0 ? "\(selected.bytes) ticked" : "\(hunters.mail.storeBytes.bytes) only in Mail"
+            return selected > 0 ? String(format: String(localized: "%@ ticked"), selected.bytes) : String(format: String(localized: "%@ only in Mail"), hunters.mail.storeBytes.bytes)
         case .photos:
-            return selected > 0 ? "\(selected.bytes) ticked" : "\(hunters.photoGroups.count) \(hunters.photoGroups.count == 1 ? "group" : "groups") · can be freed"
+            return selected > 0 ? String(format: String(localized: "%@ ticked"), selected.bytes) : String(format: String(localized: "%lld %@ · can be freed"), hunters.photoGroups.count, Plural.word(hunters.photoGroups.count, "group", "groups"))
         }
     }
 }
@@ -232,8 +232,8 @@ private struct BackupsList: View {
     private func detail(_ backup: DeviceBackup) -> String {
         var parts: [String] = []
         if let type = backup.info.productType { parts.append(type) }
-        if let version = backup.info.osVersion { parts.append((backup.isIPad ? "iPadOS " : "iOS ") + version) }
-        parts.append("backed up " + backup.date.formatted(.relative(presentation: .named)))
+        if let version = backup.info.osVersion { parts.append((backup.isIPad ? String(localized: "iPadOS ") : String(localized: "iOS ")) + version) }
+        parts.append(String(localized: "backed up ") + backup.date.formatted(.relative(presentation: .named)))
         return parts.joined(separator: " · ")
     }
 }
@@ -276,7 +276,7 @@ private struct DownloadsList: View {
         VStack(spacing: 0) {
             ForEach(hunters.downloads.prefix(shownRows)) { item in
                 HunterRow(path: item.path, title: item.name,
-                          detail: "Last used " + item.lastActivity.formatted(.relative(presentation: .named)),
+                          detail: String(localized: "Last used ") + item.lastActivity.formatted(.relative(presentation: .named)),
                           bytes: item.bytes, color: SpaceHuntersModel.Hunter.downloads.color) {
                     FileThumbnail(path: item.path, size: 28)
                 } badges: {
@@ -336,7 +336,7 @@ private struct MailList: View {
                     .padding(.top, 6)
                 ForEach(hunters.mail.downloads.prefix(shownRows)) { item in
                     HunterRow(path: item.path, title: item.name,
-                              detail: "Opened " + item.modified.formatted(.relative(presentation: .named)),
+                              detail: String(localized: "Opened ") + item.modified.formatted(.relative(presentation: .named)),
                               bytes: item.bytes, color: SpaceHuntersModel.Hunter.mail.color) {
                         FileThumbnail(path: item.path, size: 28)
                     } badges: {

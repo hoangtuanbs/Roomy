@@ -52,7 +52,7 @@ struct RoomyApp: App {
                     .disabled(model.selection == nil)
                 Divider()
                 Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
-                    ForEach(MapStyle.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(MapStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.inline)
             }

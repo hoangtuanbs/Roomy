@@ -35,8 +35,8 @@ public enum ScanError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .notFound(let path): return "\(path) does not exist."
-        case .notADirectory(let path): return "\(path) is not a folder."
+        case .notFound(let path): return String(format: String(localized: "%@ does not exist."), path)
+        case .notADirectory(let path): return String(format: String(localized: "%@ is not a folder."), path)
         }
     }
 }

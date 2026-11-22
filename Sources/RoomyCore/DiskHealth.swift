@@ -33,10 +33,10 @@ public enum SMARTStatus: String, Sendable, Equatable {
     /// How the status reads in a list, such as "Verified".
     public var title: String {
         switch self {
-        case .verified: return "Verified"
-        case .failing: return "Failing"
-        case .notSupported: return "Not supported by this disk"
-        case .unknown: return "Not reported"
+        case .verified: return String(localized: "Verified")
+        case .failing: return String(localized: "Failing")
+        case .notSupported: return String(localized: "Not supported by this disk")
+        case .unknown: return String(localized: "Not reported")
         }
     }
 }
@@ -50,10 +50,10 @@ public enum DiskHealthVerdict: String, Sendable, Equatable, CaseIterable {
 
     public var title: String {
         switch self {
-        case .good: return "Good"
-        case .warning: return "Warning"
-        case .failing: return "Failing"
-        case .unknown: return "Unknown"
+        case .good: return String(localized: "Good")
+        case .warning: return String(localized: "Warning")
+        case .failing: return String(localized: "Failing")
+        case .unknown: return String(localized: "Unknown")
         }
     }
 }
@@ -90,7 +90,7 @@ public struct DiskHealthReport: Sendable, Equatable, Identifiable {
     /// The model, or a plain name when the disk didn't give one.
     public var name: String {
         if let model, !model.isEmpty { return model }
-        return isInternal == false ? "External disk" : "Disk"
+        return isInternal == false ? String(localized: "External disk") : String(localized: "Disk")
     }
 
     /// The serial with all but its last four characters hidden, such as "••••••••5XYZ".
@@ -102,17 +102,17 @@ public struct DiskHealthReport: Sendable, Equatable, Identifiable {
 
     /// "Solid state", "Hard disk", or nil when unknown.
     public var mediumTitle: String? {
-        isSolidState.map { $0 ? "Solid state (SSD)" : "Spinning hard disk" }
+        isSolidState.map { $0 ? String(localized: "Solid state (SSD)") : String(localized: "Spinning hard disk") }
     }
 
     /// Why the disk gets a Warning; empty when nothing is worrying.
     public var warnings: [String] {
         var result: [String] = []
         if let percentageUsed, percentageUsed >= 80 {
-            result.append("It reports \(percentageUsed)% of its rated life used.")
+            result.append(String(format: String(localized: "It reports %lld%% of its rated life used."), percentageUsed))
         }
         if let temperatureCelsius, temperatureCelsius >= 70 {
-            result.append("It runs hot (\(temperatureCelsius) °C).")
+            result.append(String(format: String(localized: "It runs hot (%lld °C)."), temperatureCelsius))
         }
         return result
     }
@@ -129,26 +129,26 @@ public struct DiskHealthReport: Sendable, Equatable, Identifiable {
     public var explanation: String {
         switch verdict {
         case .good:
-            return "The disk checks itself and tells macOS it is healthy (S.M.A.R.T. status verified)."
+            return String(localized: "The disk checks itself and tells macOS it is healthy (S.M.A.R.T. status verified).")
         case .warning:
-            return "The disk still works, but something is worth watching. " + warnings.joined(separator: " ")
+            return String(localized: "The disk still works, but something is worth watching. ") + warnings.joined(separator: " ")
         case .failing:
-            return "The disk itself reports that it is failing. It can stop working at any moment, and files on it can be lost."
+            return String(localized: "The disk itself reports that it is failing. It can stop working at any moment, and files on it can be lost.")
         case .unknown:
             if smart == .notSupported {
-                return "This disk doesn't report its health to macOS. That is normal for many USB drives, card readers and virtual disks."
+                return String(localized: "This disk doesn't report its health to macOS. That is normal for many USB drives, card readers and virtual disks.")
             }
-            return "macOS didn't say how this disk is doing, so RoomyDisk can't tell."
+            return String(localized: "macOS didn't say how this disk is doing, so RoomyDisk can't tell.")
         }
     }
 
     /// What to do about it.
     public var advice: String {
         switch verdict {
-        case .good: return "Nothing to do. Keep your Time Machine backups going anyway."
-        case .warning: return "Make sure your Time Machine backup is current, and plan to replace this disk."
-        case .failing: return "Back up now with Time Machine, then replace this disk."
-        case .unknown: return "Keep a current backup of anything on it that matters."
+        case .good: return String(localized: "Nothing to do. Keep your Time Machine backups going anyway.")
+        case .warning: return String(localized: "Make sure your Time Machine backup is current, and plan to replace this disk.")
+        case .failing: return String(localized: "Back up now with Time Machine, then replace this disk.")
+        case .unknown: return String(localized: "Keep a current backup of anything on it that matters.")
         }
     }
 

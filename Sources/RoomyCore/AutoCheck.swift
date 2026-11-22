@@ -18,10 +18,10 @@ public enum AutoCheckInterval: String, CaseIterable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .off: return "Off"
-        case .hourly: return "Every hour"
-        case .sixHours: return "Every 6 hours"
-        case .daily: return "Once a day"
+        case .off: return String(localized: "Off")
+        case .hourly: return String(localized: "Every hour")
+        case .sixHours: return String(localized: "Every 6 hours")
+        case .daily: return String(localized: "Once a day")
         }
     }
 }
@@ -77,12 +77,12 @@ extension JunkCategory: Codable {
     /// A short plural name for sentences such as "caches and logs".
     public var plainName: String {
         switch self {
-        case .caches: return "caches"
-        case .logs: return "logs"
-        case .developer: return "build data"
-        case .packages: return "package caches"
-        case .installers: return "installers"
-        case .trash: return "Trash"
+        case .caches: return String(localized: "caches")
+        case .logs: return String(localized: "logs")
+        case .developer: return String(localized: "build data")
+        case .packages: return String(localized: "package caches")
+        case .installers: return String(localized: "installers")
+        case .trash: return String(localized: "Trash")
         }
     }
 }
@@ -143,10 +143,10 @@ public struct JunkSummary: Codable, Sendable, Equatable {
     public var phrase: String {
         let names = parts.map(\.category.plainName)
         switch names.count {
-        case 0: return "junk"
+        case 0: return String(localized: "junk")
         case 1: return names[0]
-        case 2, 3: return names.dropLast().joined(separator: ", ") + " and " + names[names.count - 1]
-        default: return names.prefix(3).joined(separator: ", ") + " and more"
+        case 2, 3: return names.dropLast().joined(separator: ", ") + String(localized: " and ") + names[names.count - 1]
+        default: return names.prefix(3).joined(separator: ", ") + String(localized: " and more")
         }
     }
 

@@ -10,7 +10,7 @@ public enum CleanupError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .trashUnavailable: return "The Trash is not available on this system."
+        case .trashUnavailable: return String(localized: "The Trash is not available on this system.")
         case .blocked(let reason): return reason
         }
     }

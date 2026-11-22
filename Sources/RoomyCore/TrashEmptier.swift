@@ -31,7 +31,7 @@ public struct TrashEmptier: Sendable {
         var failed: [String: String] = [:]
         for item in items {
             guard canErase(item.path) else {
-                failed[item.path] = "This is not in the Trash."
+                failed[item.path] = String(localized: "This is not in the Trash.")
                 continue
             }
             do {

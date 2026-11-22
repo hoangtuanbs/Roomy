@@ -39,8 +39,8 @@ enum LowSpaceNotifier {
     private static func post(free: Int64, at date: Date) async {
         guard await requestPermission() else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Your disk is almost full"
-        content.body = "\(ByteFormat.string(free)) free. Open RoomyDisk to free up space."
+        content.title = String(localized: "Your disk is almost full")
+        content.body = String(format: String(localized: "%@ free. Open RoomyDisk to free up space."), ByteFormat.string(free))
         content.sound = .default
         let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
         do {
@@ -55,8 +55,8 @@ enum LowSpaceNotifier {
     static func postReclaimable(_ summary: JunkSummary, at date: Date) async {
         guard await requestPermission() else { return }
         let content = UNMutableNotificationContent()
-        content.title = "RoomyDisk can free \(ByteFormat.string(summary.totalBytes)) of \(summary.phrase)"
-        content.body = "Click to see what Smart Clean found. Nothing is removed until you choose."
+        content.title = String(format: String(localized: "RoomyDisk can free %@ of %@"), ByteFormat.string(summary.totalBytes), summary.phrase)
+        content.body = String(localized: "Click to see what Smart Clean found. Nothing is removed until you choose.")
         let request = UNNotificationRequest(identifier: reclaimableIdentifier, content: content, trigger: nil)
         do {
             try await UNUserNotificationCenter.current().add(request)

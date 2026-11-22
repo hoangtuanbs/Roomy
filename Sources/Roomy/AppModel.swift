@@ -7,12 +7,14 @@ enum ContentTab: String, CaseIterable, Identifiable {
     case folders = "Folders"
     case files = "Biggest Files"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 }
 
 enum MapStyle: String, CaseIterable, Identifiable {
     case treemap = "Treemap"
     case rings = "Rings"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 
     var symbol: String { self == .treemap ? "square.grid.2x2" : "circle.circle" }
 }
@@ -45,6 +47,7 @@ enum AgeFilter: String, CaseIterable, Identifiable {
     case halfYear = "Older than 6 months"
     case year = "Older than 1 year"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 
     var cutoff: Date? {
         let day: TimeInterval = 86_400
@@ -195,7 +198,7 @@ final class AppModel {
             Task {
                 try? await Task.sleep(for: .seconds(1))
                 let window = NSWindow(contentViewController: NSHostingController(rootView: DonateView()))
-                window.title = "Donate"
+                window.title = String(localized: "Donate")
                 window.makeKeyAndOrderFront(nil)
                 try? await Task.sleep(for: .seconds(1))
                 Self.saveSnapshot(of: window, to: output)
@@ -282,7 +285,7 @@ final class AppModel {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Scan"
+        panel.prompt = String(localized: "Scan")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         pin(url.path)
         scan(path: url.path)
@@ -551,10 +554,10 @@ final class AppModel {
     }
 
     func verdict(for node: ScanTree.Index) -> SafetyVerdict {
-        guard let tree else { return .blocked("No scan") }
+        guard let tree else { return .blocked(String(localized: "No scan")) }
         let flags = tree.flags(node)
-        if flags.contains(.otherVolume) { return .blocked("This is another disk.") }
-        if flags.contains(.removed) { return .blocked("Already moved to the Trash.") }
+        if flags.contains(.otherVolume) { return .blocked(String(localized: "This is another disk.")) }
+        if flags.contains(.removed) { return .blocked(String(localized: "Already moved to the Trash.")) }
         return policy.verdict(for: tree.path(of: node))
     }
 
@@ -654,7 +657,7 @@ final class AppModel {
         guard let tree, !isInBasket(node) else { return false }
         let verdict = verdict(for: node)
         if verdict.isBlocked {
-            showTrayNotice("\(tree.name(node)) can’t be added. \(verdict.message ?? "")")
+            showTrayNotice(String(format: String(localized: "%@ can’t be added. %@"), tree.name(node), verdict.message ?? ""))
             return false
         }
         basket = basket.filter { !tree.isAncestor(node, of: $0) }
@@ -693,14 +696,14 @@ final class AppModel {
         var out: [String] = []
         if let message = verdict(for: node).message { out.append(message) }
         if tree.kind(node).isContainer && tree.containsDescendant(named: ".git", under: node) {
-            out.append("Contains a Git repository. Check for work you have not pushed.")
+            out.append(String(localized: "Contains a Git repository. Check for work you have not pushed."))
         }
         let path = tree.path(of: node)
         let running = NSWorkspace.shared.runningApplications.contains { app in
             guard let bundle = app.bundleURL?.path else { return false }
             return bundle == path || bundle.hasPrefix(path + "/")
         }
-        if running { out.append("This app is running. Quit it first.") }
+        if running { out.append(String(localized: "This app is running. Quit it first.")) }
         return out
     }
 
@@ -863,7 +866,7 @@ final class AppModel {
             var results: [CompressionResult] = []
             for (i, item) in items.enumerated() {
                 if Task.isCancelled { break }
-                self?.compressStatus = "Compressing \((item.path as NSString).lastPathComponent) (\(i + 1) of \(items.count))…"
+                self?.compressStatus = String(format: String(localized: "Compressing %@ (%lld of %lld)…"), (item.path as NSString).lastPathComponent, i + 1, items.count)
                 let result = await service.compressAndTrash(path: item.path, originalBytes: item.size)
                 results.append(result)
                 self?.applyCompression(result, node: item.node, in: tree)

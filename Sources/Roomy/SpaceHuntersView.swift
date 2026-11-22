@@ -12,19 +12,19 @@ extension LinearGradient {
 extension SpaceHuntersModel.Hunter {
     var title: String {
         switch self {
-        case .backups: return "iPhone & iPad backups"
-        case .downloads: return "Old downloads"
-        case .mail: return "Mail attachments"
-        case .photos: return "Similar photos"
+        case .backups: return String(localized: "iPhone & iPad backups")
+        case .downloads: return String(localized: "Old downloads")
+        case .mail: return String(localized: "Mail attachments")
+        case .photos: return String(localized: "Similar photos")
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .backups: return "Backups"
+        case .backups: return String(localized: "Backups")
         case .downloads: return "Downloads"
-        case .mail: return "Mail"
-        case .photos: return "Photos"
+        case .mail: return String(localized: "Mail")
+        case .photos: return String(localized: "Photos")
         }
     }
 
@@ -49,23 +49,23 @@ extension SpaceHuntersModel.Hunter {
     /// Said on the card when nothing was found.
     var emptyNote: String {
         switch self {
-        case .backups: return "No iPhone or iPad backups on this Mac."
-        case .downloads: return "Everything in Downloads was used in the last 90 days."
-        case .mail: return "Mail keeps no attachments on this Mac."
-        case .photos: return "No look-alike pictures were found."
+        case .backups: return String(localized: "No iPhone or iPad backups on this Mac.")
+        case .downloads: return String(localized: "Everything in Downloads was used in the last 90 days.")
+        case .mail: return String(localized: "Mail keeps no attachments on this Mac.")
+        case .photos: return String(localized: "No look-alike pictures were found.")
         }
     }
 
     var explanation: String {
         switch self {
         case .backups:
-            return "Backups Finder made of your iPhone and iPad. Older backups of a device you back up again are rarely needed. The newest backup of each device is never ticked."
+            return String(localized: "Backups Finder made of your iPhone and iPad. Older backups of a device you back up again are rarely needed. The newest backup of each device is never ticked.")
         case .downloads:
-            return "Files and folders in Downloads you have not opened, added or changed for 90 days or more. Nothing is ticked: look through them first."
+            return String(localized: "Files and folders in Downloads you have not opened, added or changed for 90 days or more. Nothing is ticked: look through them first.")
         case .mail:
-            return "Attachments Mail keeps in its own folder can only be removed in Mail. Copies of attachments you opened (Mail Downloads) can go to the Trash; Mail makes them again when needed."
+            return String(localized: "Attachments Mail keeps in its own folder can only be removed in Mail. Copies of attachments you opened (Mail Downloads) can go to the Trash; Mail makes them again when needed.")
         case .photos:
-            return "Pictures that look almost the same, such as several shots of one moment. The sharpest, newest one is suggested to keep. Nothing is ticked: pick what to remove."
+            return String(localized: "Pictures that look almost the same, such as several shots of one moment. The sharpest, newest one is suggested to keep. Nothing is ticked: pick what to remove.")
         }
     }
 }
@@ -108,7 +108,7 @@ struct SpaceHuntersView: View {
                     let moved = hunters.report?.succeeded.count ?? 0
                     FreedSpaceCelebration(
                         bytes: hunters.cleanedBytes,
-                        message: "Moved \(moved) \(moved == 1 ? "item" : "items") to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+                        message: Plural.movedToTrash(moved),
                         failed: hunters.report?.failed ?? []
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -121,7 +121,7 @@ struct SpaceHuntersView: View {
         }
         .frame(minWidth: 780, idealWidth: 860, minHeight: 600, idealHeight: 720)
         .interactiveDismissDisabled(hunters.isBusy)
-        .alert("Move \(hunters.selectedCount) \(hunters.selectedCount == 1 ? "item" : "items") to the Trash?",
+        .alert("Move \(hunters.selectedCount) \(Plural.word(hunters.selectedCount, "item", "items")) to the Trash?",
                isPresented: $confirmClean) {
             Button("Move to Trash") { hunters.clean() }
             Button("Cancel", role: .cancel) {}
@@ -209,7 +209,7 @@ private struct SpaceHuntersHeader: View {
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(hunters.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: hunters.selectedBytes)
-                    Text("\(hunters.selectedCount) \(hunters.selectedCount == 1 ? "item" : "items") selected")
+                    Text("\(hunters.selectedCount) \(Plural.word(hunters.selectedCount, "item", "items")) selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -277,7 +277,7 @@ private struct HuntingLine: View {
             Text(hunter.title)
             Spacer()
             if done {
-                Text(hunter == .backups && hunters.backupsNeedAccess ? "Needs access" : hunters.foundBytes(hunter).bytes)
+                Text(hunter == .backups && hunters.backupsNeedAccess ? String(localized: "Needs access") : hunters.foundBytes(hunter).bytes)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .transition(.opacity.combined(with: .move(edge: .trailing)))

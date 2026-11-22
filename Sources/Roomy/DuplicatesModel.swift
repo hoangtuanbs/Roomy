@@ -92,8 +92,8 @@ final class DuplicatesModel {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Find Duplicates"
-        panel.message = "Choose a folder to look for duplicate files in."
+        panel.prompt = String(localized: "Find Duplicates")
+        panel.message = String(localized: "Choose a folder to look for duplicate files in.")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         scan(tree: nil, folder: url.path)
     }

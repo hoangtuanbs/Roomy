@@ -91,9 +91,9 @@ struct CloudSpaceView: View {
                     let names = CloudSpaceModel.names(cloud.evictedProviders)
                     FreedSpaceCelebration(
                         bytes: cloud.evictedBytes,
-                        message: "Removed the local copies of \(count) \(count == 1 ? "file" : "files"). They stay in \(names) and download again when you open them.",
+                        message: String(format: String(localized: "Removed the local copies of %lld %@. They stay in %@ and download again when you open them."), count, Plural.word(count, "file", "files"), names),
                         succeeded: count > 0 || (report?.failed.isEmpty ?? true),
-                        suffix: " freed — still in the cloud"
+                        suffix: String(localized: " freed — still in the cloud")
                     ) {
                         if let failed = report?.failed, !failed.isEmpty {
                             KeptFilesList(results: failed).frame(maxWidth: 460)
@@ -109,7 +109,7 @@ struct CloudSpaceView: View {
         }
         .frame(minWidth: 780, idealWidth: 860, minHeight: 600, idealHeight: 720)
         .interactiveDismissDisabled(cloud.isBusy)
-        .alert("Remove the downloaded copies of \(cloud.selectedItems.count) \(cloud.selectedItems.count == 1 ? "file" : "files")?",
+        .alert("Remove the downloaded copies of \(cloud.selectedItems.count) \(Plural.word(cloud.selectedItems.count, "file", "files"))?",
                isPresented: $confirm) {
             Button("Remove Downloads") { cloud.removeDownloads() }
             Button("Cancel", role: .cancel) {}
@@ -202,7 +202,7 @@ private struct CloudSpaceHeader: View {
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(cloud.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: cloud.selectedBytes)
-                    Text("\(cloud.selectedItems.count) \(cloud.selectedItems.count == 1 ? "file" : "files") ticked")
+                    Text("\(cloud.selectedItems.count) \(Plural.word(cloud.selectedItems.count, "file", "files")) ticked")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -485,18 +485,18 @@ private struct ProviderCard: View {
     }
 
     private var note: String {
-        let base = "Files stay in \(provider.provider.name) and download again when you open them."
+        let base = String(format: String(localized: "Files stay in %@ and download again when you open them."), provider.provider.name)
         if provider.provider.kind == .iCloudDrive {
-            return base + " If Optimize Mac Storage is off in iCloud settings, macOS may download them again on its own."
+            return base + String(localized: " If Optimize Mac Storage is off in iCloud settings, macOS may download them again on its own.")
         }
         return base
     }
 
     private var subtitle: String {
         let selected = model.cloudSpace.selection.selectedBytes(in: CloudSpaceFinder.Findings(providers: [provider]))
-        if selected > 0 { return "\(selected.bytes) ticked" }
-        if provider.keptBytes > 0 { return "on this Mac · \(provider.keptBytes.bytes) kept" }
-        return "on this Mac"
+        if selected > 0 { return String(format: String(localized: "%@ ticked"), selected.bytes) }
+        if provider.keptBytes > 0 { return String(format: String(localized: "on this Mac · %@ kept"), provider.keptBytes.bytes) }
+        return String(localized: "on this Mac")
     }
 }
 
@@ -524,7 +524,7 @@ private struct FolderRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(group.name).lineLimit(1).truncationMode(.middle)
                 HStack(spacing: 6) {
-                    Text("\(group.evictable.count) \(group.evictable.count == 1 ? "file" : "files") downloaded")
+                    Text("\(group.evictable.count) \(Plural.word(group.evictable.count, "file", "files")) downloaded")
                     if !group.kept.isEmpty {
                         Text("·")
                         Label("\(group.kept.count) not uploaded yet — kept", systemImage: "icloud.and.arrow.up")
@@ -565,7 +565,7 @@ private struct KeptFilesList: View {
                     ForEach(results, id: \.path) { result in
                         VStack(alignment: .leading, spacing: 1) {
                             Text((result.path as NSString).lastPathComponent)
-                            Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
+                            Text(result.error ?? String(localized: "Unknown error")).font(.caption).foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

@@ -8,10 +8,10 @@ enum DiskPart: Int, CaseIterable, Identifiable {
 
     func title(wholeDisk: Bool) -> String {
         switch self {
-        case .scanned: return wholeDisk ? "Scanned" : "This folder"
-        case .hidden: return wholeDisk ? "Hidden" : "Rest of disk"
-        case .purgeable: return "Purgeable"
-        case .free: return "Free"
+        case .scanned: return wholeDisk ? String(localized: "Scanned") : String(localized: "This folder")
+        case .hidden: return wholeDisk ? String(localized: "Hidden") : String(localized: "Rest of disk")
+        case .purgeable: return String(localized: "Purgeable")
+        case .free: return String(localized: "Free")
         }
     }
 
@@ -89,8 +89,8 @@ struct DiskOverviewCard: View {
     }
 
     private var deleteTitle: String {
-        guard let date = confirmDelete?.date else { return "Delete this local snapshot?" }
-        return "Delete the local snapshot from \(date.formatted(date: .abbreviated, time: .shortened))?"
+        guard let date = confirmDelete?.date else { return String(localized: "Delete this local snapshot?") }
+        return String(format: String(localized: "Delete the local snapshot from %@?"), date.formatted(date: .abbreviated, time: .shortened))
     }
 
     private func header(_ space: DiskSpace) -> some View {
@@ -115,7 +115,7 @@ struct DiskOverviewCard: View {
             } label: {
                 HStack(spacing: 4) {
                     if !expanded, !disk.snapshots.isEmpty {
-                        Text("\(disk.snapshots.count) \(disk.snapshots.count == 1 ? "snapshot" : "snapshots")")
+                        Text("\(disk.snapshots.count) \(Plural.word(disk.snapshots.count, "snapshot", "snapshots"))")
                             .font(.caption)
                     }
                     Image(systemName: "chevron.down")
@@ -263,16 +263,16 @@ private struct PartExplanation: View {
             switch part {
             case .scanned:
                 Text(whole ? "Files and folders this scan found on the disk. They are listed below."
-                           : "Files and folders this scan found in \(model.tree?.rootPath ?? "the folder"). They are listed below.")
+                           : "Files and folders this scan found in \(model.tree?.rootPath ?? String(localized: "the folder")). They are listed below.")
                     .fixedSize(horizontal: false, vertical: true)
             case .hidden:
                 if whole {
                     Text("Space the disk counts as used that the scan could not find. It is usually:")
                         .fixedSize(horizontal: false, vertical: true)
                     VStack(alignment: .leading, spacing: 4) {
-                        bullet("Files RoomyDisk cannot read without Full Disk Access, such as Mail, Messages and other apps' data.")
-                        bullet("macOS system files in hidden volumes: the swap file, sleep image, updates and the recovery system.")
-                        bullet("Local snapshots, the part macOS cannot free on its own.")
+                        bullet(String(localized: "Files RoomyDisk cannot read without Full Disk Access, such as Mail, Messages and other apps' data."))
+                        bullet(String(localized: "macOS system files in hidden volumes: the swap file, sleep image, updates and the recovery system."))
+                        bullet(String(localized: "Local snapshots, the part macOS cannot free on its own."))
                     }
                     if !model.hasFullDiskAccess {
                         HStack(spacing: 6) {
@@ -446,9 +446,9 @@ private struct SnapshotRow: View {
     }
 
     private var subtitle: String {
-        guard snapshot.isTimeMachine else { return "Made by macOS, which removes it on its own" }
-        guard let date = snapshot.date else { return "Time Machine" }
-        return "Time Machine · " + date.formatted(.relative(presentation: .named))
+        guard snapshot.isTimeMachine else { return String(localized: "Made by macOS, which removes it on its own") }
+        guard let date = snapshot.date else { return String(localized: "Time Machine") }
+        return String(format: String(localized: "Time Machine · %@"), date.formatted(.relative(presentation: .named)))
     }
 }
 
@@ -494,7 +494,7 @@ private struct FreedPill: View {
             Image(systemName: "checkmark.circle.fill")
                 .symbolEffect(.bounce, value: bytes)
             if bytes > 0 {
-                CountingBytes(bytes, suffix: " freed")
+                CountingBytes(bytes, suffix: String(localized: " freed"))
             } else {
                 Text("Done")
             }

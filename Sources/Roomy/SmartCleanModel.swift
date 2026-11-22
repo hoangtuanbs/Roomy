@@ -45,7 +45,7 @@ final class SmartCleanModel {
     func scan(tree: ScanTree?) {
         guard phase != .cleaning, !isEmptyingTrash else { return }
         scanTask?.cancel()
-        phase = .scanning("Looking for junk…")
+        phase = .scanning(String(localized: "Looking for junk…"))
         findings = []
         selection = JunkSelection()
         expanded = []
@@ -58,7 +58,7 @@ final class SmartCleanModel {
             let found = await finder.find(tree: tree) { step in
                 Task { @MainActor in
                     guard case .scanning = self.phase else { return }
-                    self.phase = .scanning("Measuring \(step.lowercased())…")
+                    self.phase = .scanning(String(format: String(localized: "Measuring %@…"), step.lowercased()))
                 }
             }
             guard !Task.isCancelled else { return }

@@ -84,7 +84,7 @@ struct BiggestFilesView: View {
                 }
                 .fixedSize()
                 Picker("Age", selection: $model.ageFilter) {
-                    ForEach(AgeFilter.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(AgeFilter.allCases) { Text($0.label).tag($0) }
                 }
                 .fixedSize()
                 Spacer()
@@ -131,7 +131,7 @@ struct ItemRow: View {
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .disabled(verdict.isBlocked)
-                .help(verdict.message ?? "Collect in the tray for cleaning")
+                .help(verdict.message ?? String(localized: "Collect in the tray for cleaning"))
 
                 Image(systemName: category.symbol)
                     .foregroundStyle(category.color)

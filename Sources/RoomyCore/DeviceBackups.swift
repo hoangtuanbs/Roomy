@@ -84,7 +84,7 @@ public struct DeviceBackup: Sendable, Identifiable, Equatable {
 
     public var folderName: String { (path as NSString).lastPathComponent }
     public var date: Date { info.lastBackup ?? folderModified }
-    public var deviceName: String { info.deviceName ?? "Unknown device" }
+    public var deviceName: String { info.deviceName ?? String(localized: "Unknown device") }
     /// Groups backups of one device. Folders of the same device usually start with its identifier.
     public var deviceKey: String {
         if let id = info.deviceID { return id.uppercased() }

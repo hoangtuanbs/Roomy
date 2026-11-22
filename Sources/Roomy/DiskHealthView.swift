@@ -102,18 +102,18 @@ private struct DiskHealthHeader: View {
 
     private func summary(_ overall: DiskHealthVerdict, count: Int) -> String {
         switch overall {
-        case .good: return count == 1 ? "Looks good" : "All look good"
-        case .warning: return "Worth a look"
-        case .failing: return "Back up now"
-        case .unknown: return "Can't tell"
+        case .good: return count == 1 ? String(localized: "Looks good") : String(localized: "All look good")
+        case .warning: return String(localized: "Worth a look")
+        case .failing: return String(localized: "Back up now")
+        case .unknown: return String(localized: "Can't tell")
         }
     }
 
     private func checked(_ health: DiskHealthModel) -> String {
-        let disks = "\(health.reports.count) \(health.reports.count == 1 ? "disk" : "disks")"
-        if health.isBusy { return "\(disks) · checking…" }
+        let disks = "\(health.reports.count) \(Plural.word(health.reports.count, "disk", "disks"))"
+        if health.isBusy { return String(format: String(localized: "%@ · checking…"), disks) }
         guard let readAt = health.readAt else { return disks }
-        return "\(disks) · checked \(readAt.formatted(date: .omitted, time: .shortened))"
+        return String(format: String(localized: "%@ · checked %@"), disks, readAt.formatted(date: .omitted, time: .shortened))
     }
 }
 
@@ -140,7 +140,7 @@ private struct DiskHealthCard: View {
     let report: DiskHealthReport
     let index: Int
 
-    private static let adminOnly = "Not available without admin rights"
+    private static let adminOnly = String(localized: "Not available without admin rights")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -205,9 +205,9 @@ private struct DiskHealthCard: View {
     private var subtitle: String {
         var parts: [String] = []
         if !report.volumeNames.isEmpty { parts.append(report.volumeNames.joined(separator: ", ")) }
-        if let isInternal = report.isInternal { parts.append(isInternal ? "Internal" : "External") }
+        if let isInternal = report.isInternal { parts.append(isInternal ? String(localized: "Internal") : String(localized: "External")) }
         if let interconnect = report.interconnect { parts.append(interconnect) }
-        if let solid = report.isSolidState { parts.append(solid ? "SSD" : "Hard disk") }
+        if let solid = report.isSolidState { parts.append(solid ? String(localized: "SSD") : String(localized: "Hard disk")) }
         return parts.isEmpty ? report.id : parts.joined(separator: " · ")
     }
 
@@ -238,22 +238,22 @@ private struct DiskHealthCard: View {
         case let (bus?, place?): return "\(bus), \(place)"
         case let (bus?, nil): return bus
         case let (nil, place?): return place.prefix(1).uppercased() + place.dropFirst()
-        case (nil, nil): return "Not reported"
+        case (nil, nil): return String(localized: "Not reported")
         }
     }
 
     private var details: [(String, String)] {
         [
-            ("Model", report.model ?? "Not reported"),
-            ("Serial number", report.maskedSerial ?? "Not reported"),
-            ("Firmware", report.revision ?? "Not reported"),
-            ("Connection", connection),
-            ("Type", report.mediumTitle ?? "Not reported"),
-            ("S.M.A.R.T. status", report.smart.title),
-            ("Life used", report.percentageUsed.map { "\($0)%" } ?? Self.adminOnly),
-            ("Power-on hours", report.powerOnHours.map { $0.formatted() } ?? Self.adminOnly),
-            ("Temperature", report.temperatureCelsius.map { "\($0) °C" } ?? Self.adminOnly),
-            ("Device", report.id),
+            (String(localized: "Model"), report.model ?? String(localized: "Not reported")),
+            (String(localized: "Serial number"), report.maskedSerial ?? String(localized: "Not reported")),
+            (String(localized: "Firmware"), report.revision ?? String(localized: "Not reported")),
+            (String(localized: "Connection"), connection),
+            (String(localized: "Type"), report.mediumTitle ?? String(localized: "Not reported")),
+            (String(localized: "S.M.A.R.T. status"), report.smart.title),
+            (String(localized: "Life used"), report.percentageUsed.map { "\($0)%" } ?? Self.adminOnly),
+            (String(localized: "Power-on hours"), report.powerOnHours.map { $0.formatted() } ?? Self.adminOnly),
+            (String(localized: "Temperature"), report.temperatureCelsius.map { "\($0) °C" } ?? Self.adminOnly),
+            (String(localized: "Device"), report.id),
         ]
     }
 }
