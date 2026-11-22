@@ -78,14 +78,9 @@ enum ScreenTour {
         print("tour: saved \(path) (\(image.width)x\(image.height)\(window.attachedSheet == nil ? "" : ", with sheet"))")
     }
 
+    /// Draws the window's views into a bitmap. This doesn't go through the window server, so it works on
+    /// build machines where screen capture returns blank images.
     private static func capture(_ window: NSWindow) -> CGImage? {
-        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-        if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage"),
-           let image = unsafeBitCast(symbol, to: CreateImage.self)(
-               .null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]
-           )?.takeRetainedValue() {
-            return image
-        }
         guard let frameView = window.contentView?.superview,
               let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return nil }
         frameView.cacheDisplay(in: frameView.bounds, to: rep)
