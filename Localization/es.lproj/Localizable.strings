@@ -585,3 +585,10 @@
 "snapshot" = "instantánea";
 "snapshots" = "instantáneas";
 "the cloud" = "la nube";
+"Caches" = "Cachés";
+"Logs" = "Registros";
+"caches" = "cachés";
+"installers" = "instaladores";
+"junk" = "archivos basura";
+"logs" = "registros";
+"the folder" = "la carpeta";
