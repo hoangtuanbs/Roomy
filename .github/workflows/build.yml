@@ -56,10 +56,10 @@ jobs:
         run: |
           sample="$RUNNER_TEMP/sample"
           mkdir -p "$sample/Photos" "$sample/Projects/app" "$sample/Downloads"
-          mkfile -n 30m "$sample/Photos/holiday.mov"
+          mkfile 30m "$sample/Photos/holiday.mov"
           cp "$sample/Photos/holiday.mov" "$sample/Downloads/holiday copy.mov"
-          mkfile -n 12m "$sample/Projects/app/build.dmg"
-          mkfile -n 4m "$sample/Projects/app/notes.txt"
+          mkfile 12m "$sample/Projects/app/build.dmg"
+          mkfile 4m "$sample/Projects/app/notes.txt"
           out="$RUNNER_TEMP/screenshots"
           build/Roomy.app/Contents/MacOS/Roomy --scan "$sample" --tour "$out" &
           pid=$!
@@ -70,11 +70,10 @@ jobs:
             exit 1
           fi
           wait "$pid" || { echo "::error::Roomy exited with an error during the tour"; exit 1; }
-          screencapture -x "$out/0-whole-screen.png" || true
           ls -l "$out"
           count=$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$count" -lt 7 ]; then
-            echo "::error::Expected 7 screenshots, got $count (is there a window session on this runner?)"
+          if [ "$count" -lt 6 ]; then
+            echo "::error::Expected 6 screenshots, got $count (is there a window session on this runner?)"
             exit 1
           fi
 

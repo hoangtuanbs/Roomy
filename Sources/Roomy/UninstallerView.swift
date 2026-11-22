@@ -267,6 +267,16 @@ private struct AppTile: View {
                     .font(.callout.weight(.medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                // Apps in a subfolder (e.g. several "Python 3.x" folders each with "IDLE") show the folder, so
+                // tiles with the same name can be told apart.
+                let folder = ((app.path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+                if folder != "Applications" {
+                    Text(folder)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 ZStack {
                     if isMeasured {
                         CountingBytes(appeared ? app.bytes : 0)
