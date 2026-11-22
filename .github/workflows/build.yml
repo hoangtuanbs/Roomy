@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: avrea-macos-latest
     steps:
       - uses: actions/checkout@v4
 
