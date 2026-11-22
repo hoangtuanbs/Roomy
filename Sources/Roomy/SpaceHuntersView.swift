@@ -46,6 +46,16 @@ extension SpaceHuntersModel.Hunter {
         }
     }
 
+    /// Said on the card when nothing was found.
+    var emptyNote: String {
+        switch self {
+        case .backups: return "No iPhone or iPad backups on this Mac."
+        case .downloads: return "Everything in Downloads was used in the last 90 days."
+        case .mail: return "Mail keeps no attachments on this Mac."
+        case .photos: return "No look-alike pictures were found."
+        }
+    }
+
     var explanation: String {
         switch self {
         case .backups:
@@ -186,7 +196,7 @@ private struct SpaceHuntersHeader: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Space Hunters").font(.title2.weight(.semibold))
-                Text("Big things you may have forgotten: old backups, downloads, attachments and look-alike photos.")
+                Text("Big things you may have forgotten about.")
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)

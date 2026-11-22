@@ -37,14 +37,15 @@ struct HunterCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(hunter.title).font(.headline)
-                        if hunter == .downloads || hunter == .photos {
+                        if (hunter == .downloads || hunter == .photos) && !isEmpty {
                             Badge(text: "Review first", color: .orange)
                         }
                         if hunter == .backups && hunters.backupsNeedAccess {
                             Badge(text: "Needs Full Disk Access", color: .orange)
                         }
                     }
-                    Text(hunter.explanation)
+                    // An empty card stays short, so the cards that found something stand out.
+                    Text(isEmpty ? hunter.emptyNote : hunter.explanation)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -67,7 +68,7 @@ struct HunterCard: View {
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .padding(.top, 8)
             }
-            .padding(14)
+            .padding(isEmpty ? 10 : 14)
             .contentShape(Rectangle())
             .onTapGesture {
                 guard !isEmpty else { return }
