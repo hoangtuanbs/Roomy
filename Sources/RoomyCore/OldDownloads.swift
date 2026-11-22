@@ -94,7 +94,7 @@ public struct OldDownloadsFinder: Sendable {
             guard entry.kind == .file || entry.kind == .directory else { continue }
             let path = DiskScanner.join(downloadsPath, entry.name)
             if policy.verdict(for: path).isBlocked { continue }
-            let walked = entry.kind == .directory ? Self.walk(path) : (entry.allocated, entry.modified)
+            let walked: (bytes: Int64, newest: Int64) = entry.kind == .directory ? Self.walk(path) : (entry.allocated, entry.modified)
             var dates = self.dates(path)
             dates.modified = Date(timeIntervalSince1970: TimeInterval(walked.newest))
             guard OldDownloadRule.isOld(dates, now: now, age: age),
