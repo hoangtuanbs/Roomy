@@ -1,11 +1,14 @@
 import AppKit
+import SwiftUI
 
-/// Developer option for CI: `Roomy --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
-/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Disk overview) and quits.
+/// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
+/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk Health, Disk overview,
+/// the menu bar popover with Quick Clean, and Settings) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
 enum ScreenTour {
     static func run(model: AppModel, into directory: String) {
+        watchMainThread()
         Task { @MainActor in
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
             @MainActor func shot(_ name: String, wait seconds: Double = 2) async {
@@ -46,15 +49,99 @@ enum ScreenTour {
             await shot("5-uninstaller", wait: 3)
             model.showUninstaller = false
 
+            try? await Task.sleep(for: .seconds(1))
+            model.openSpaceHunters()
+            await waitWhile({ model.spaceHunters.isBusy }, limit: 40)
+            await shot("7-space-hunters", wait: 2.5)
+            model.showSpaceHunters = false
+
+            try? await Task.sleep(for: .seconds(1))
+            model.openCloudSpace()
+            await waitWhile({ model.cloudSpace.isBusy }, limit: 40)
+            await shot("8-cloud-space", wait: 2)
+            model.showCloudSpace = false
+
+            try? await Task.sleep(for: .seconds(1))
+            model.openDiskHealth()
+            await waitWhile({ model.diskHealth.isBusy }, limit: 40)
+            for report in model.diskHealth.reports {
+                print("tour: disk health \(report.id) \(report.name): \(report.verdict.title), SMART \(report.smart.title), "
+                      + "\(report.interconnect ?? "?"), internal \(report.isInternal.map { $0 ? "yes" : "no" } ?? "?"), volumes \(report.volumeNames)")
+            }
+            await shot("12-disk-health", wait: 2.5)
+            model.showDiskHealth = false
+
+            await menuBarShots(model: model, directory: directory)
+
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
         }
     }
 
+    /// The menu bar popover after one background check, its Quick Clean confirmation, and Settings, each shown in a
+    /// plain window because the menu bar can't be captured. The confirmation is only shown and then cancelled.
+    private static func menuBarShots(model: AppModel, directory: String) async {
+        try? await Task.sleep(for: .seconds(1))
+        model.autoCheck.check()
+        let start = Date()
+        while model.autoCheck.isChecking && Date().timeIntervalSince(start) < 40 {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        print("tour: background check found \(model.autoCheck.reclaimable) bytes in \(model.autoCheck.quickCleanItems.count) items")
+        func path(_ name: String) -> String { (directory as NSString).appendingPathComponent(name + ".png") }
+
+        let popover = hostingWindow(MenuBarView().environment(model).environment(MenuBarDiskModel()), title: "RoomyDisk menu bar")
+        try? await Task.sleep(for: .seconds(2))
+        save(to: path("9-menu-bar"), window: popover)
+        if !model.autoCheck.quickCleanItems.isEmpty {
+            model.autoCheck.askToClean()
+            try? await Task.sleep(for: .seconds(1.5))
+            save(to: path("10-menu-bar-confirm"), window: popover)
+            model.autoCheck.cancelClean()
+        }
+        popover.close()
+
+        // A grouped form has no height of its own, so the Settings window gets one.
+        let settings = hostingWindow(AlertSettingsView().environment(model), title: "Settings",
+                                     size: NSSize(width: 420, height: 660))
+        try? await Task.sleep(for: .seconds(1.5))
+        save(to: path("11-settings"), window: settings)
+        settings.close()
+        try? await Task.sleep(for: .seconds(0.5))
+    }
+
+    private static func hostingWindow<Content: View>(_ view: Content, title: String, size: NSSize? = nil) -> NSWindow {
+        let controller = NSHostingController(rootView: view)
+        if size != nil { controller.sizingOptions = [] }
+        let window = NSWindow(contentViewController: controller)
+        if let size { window.setContentSize(size) }
+        window.title = title
+        window.isReleasedWhenClosed = false
+        window.styleMask.remove(.resizable)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
+    /// Logs when the main thread stops answering for 5 seconds, so a hang on a build machine shows in the log.
+    private static func watchMainThread() {
+        let thread = Thread {
+            while true {
+                Thread.sleep(forTimeInterval: 10)
+                let answered = DispatchSemaphore(value: 0)
+                DispatchQueue.main.async { answered.signal() }
+                if answered.wait(timeout: .now() + 5) == .timedOut {
+                    FileHandle.standardError.write(Data("tour: the main thread has not answered for 5 seconds\n".utf8))
+                }
+            }
+        }
+        thread.start()
+    }
+
     /// Captures the main window by its window number (no screen recording permission is needed for the app's own
     /// windows), and draws an attached sheet on top of it where it sits on screen.
-    private static func save(to path: String) {
-        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
+    private static func save(to path: String, window chosen: NSWindow? = nil) {
+        guard let window = chosen ?? NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
               let base = capture(window) else {
             FileHandle.standardError.write(Data("tour: could not capture \(path)\n".utf8))
             return

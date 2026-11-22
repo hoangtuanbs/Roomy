@@ -59,17 +59,17 @@ public enum LeftoverKind: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .applicationSupport: return "App data"
-        case .caches: return "Caches"
-        case .preferences: return "Settings"
-        case .savedState: return "Saved window state"
-        case .containers: return "Sandbox container"
-        case .groupContainers: return "Shared container"
-        case .applicationScripts: return "Scripts"
-        case .httpStorages: return "Web storage"
-        case .webKit: return "WebKit data"
+        case .applicationSupport: return String(localized: "App data")
+        case .caches: return String(localized: "Caches")
+        case .preferences: return String(localized: "Settings")
+        case .savedState: return String(localized: "Saved window state")
+        case .containers: return String(localized: "Sandbox container")
+        case .groupContainers: return String(localized: "Shared container")
+        case .applicationScripts: return String(localized: "Scripts")
+        case .httpStorages: return String(localized: "Web storage")
+        case .webKit: return String(localized: "WebKit data")
         case .logs: return "Logs"
-        case .launchAgents: return "Launch agents"
+        case .launchAgents: return String(localized: "Launch agents")
         case .cookies: return "Cookies"
         }
     }
@@ -214,9 +214,9 @@ public struct AppUninstaller: Sendable {
 
     /// Why an app cannot be uninstalled here, or nil when it can. `running` holds the bundle paths of open apps.
     public func blockReason(for app: InstalledApp, runningPaths: Set<String> = []) -> String? {
-        if app.isApple { return "This app comes with macOS." }
-        if SafetyPolicy.isSameOrInside(app.path, "/System") { return "This app is part of macOS." }
-        if runningPaths.contains(app.path) { return "This app is open. Quit it first." }
+        if app.isApple { return String(localized: "This app comes with macOS.") }
+        if SafetyPolicy.isSameOrInside(app.path, "/System") { return String(localized: "This app is part of macOS.") }
+        if runningPaths.contains(app.path) { return String(localized: "This app is open. Quit it first.") }
         if case .blocked(let reason) = policy.verdict(for: app.path) { return reason }
         return nil
     }

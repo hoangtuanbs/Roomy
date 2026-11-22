@@ -5,15 +5,15 @@ public enum FileCategory: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .folder: return "Folders"
-        case .video: return "Video"
-        case .audio: return "Audio"
-        case .image: return "Images"
-        case .archive: return "Archives and disk images"
-        case .application: return "Apps"
-        case .developer: return "Developer files"
+        case .folder: return String(localized: "Folders")
+        case .video: return String(localized: "Video")
+        case .audio: return String(localized: "Audio")
+        case .image: return String(localized: "Images")
+        case .archive: return String(localized: "Archives and disk images")
+        case .application: return String(localized: "Apps")
+        case .developer: return String(localized: "Developer files")
         case .document: return "Documents"
-        case .other: return "Other"
+        case .other: return String(localized: "Other")
         }
     }
 
@@ -54,7 +54,7 @@ public enum FileCategory: String, CaseIterable, Sendable {
 public enum ByteFormat {
     public static func string(_ bytes: Int64) -> String {
         let units = ["bytes", "KB", "MB", "GB", "TB", "PB"]
-        if bytes < 1000 { return bytes == 1 ? "1 byte" : "\(bytes) bytes" }
+        if bytes < 1000 { return bytes == 1 ? String(localized: "1 byte") : String(format: String(localized: "%lld bytes"), bytes) }
         var value = Double(bytes)
         var unit = 0
         while value >= 999.5 && unit < units.count - 1 {

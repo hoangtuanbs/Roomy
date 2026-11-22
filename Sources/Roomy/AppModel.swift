@@ -7,12 +7,14 @@ enum ContentTab: String, CaseIterable, Identifiable {
     case folders = "Folders"
     case files = "Biggest Files"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 }
 
 enum MapStyle: String, CaseIterable, Identifiable {
     case treemap = "Treemap"
     case rings = "Rings"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 
     var symbol: String { self == .treemap ? "square.grid.2x2" : "circle.circle" }
 }
@@ -45,6 +47,7 @@ enum AgeFilter: String, CaseIterable, Identifiable {
     case halfYear = "Older than 6 months"
     case year = "Older than 1 year"
     var id: Self { self }
+    var label: String { NSLocalizedString(rawValue, comment: "") }
 
     var cutoff: Date? {
         let day: TimeInterval = 86_400
@@ -120,6 +123,15 @@ final class AppModel {
     var showDuplicates = false
     let uninstaller = UninstallerModel()
     var showUninstaller = false
+    let spaceHunters = SpaceHuntersModel()
+    var showSpaceHunters = false
+    let cloudSpace = CloudSpaceModel()
+    var showCloudSpace = false
+    /// What each disk reports about its own health, shown in Disk Health and as dots in the menu bar.
+    let diskHealth = DiskHealthModel()
+    var showDiskHealth = false
+    /// The background junk check behind the menu bar's Quick Clean.
+    let autoCheck = AutoCheckModel()
 
     /// When the shown results were scanned. Older than now when they came from the cache.
     private(set) var scannedAt: Date?
@@ -146,13 +158,16 @@ final class AppModel {
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
+        autoCheck.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
         installKeyMonitor()
         QuickLook.shared.onMove = { [weak self] delta in self?.moveSelection(by: delta) }
 
-        // `Roomy --scan <folder>` starts scanning that folder right away.
+        // `RoomyDisk --scan <folder>` starts scanning that folder right away.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--scan"), i + 1 < args.count {
             showOnboarding = false
@@ -183,7 +198,7 @@ final class AppModel {
             Task {
                 try? await Task.sleep(for: .seconds(1))
                 let window = NSWindow(contentViewController: NSHostingController(rootView: DonateView()))
-                window.title = "Donate"
+                window.title = String(localized: "Donate")
                 window.makeKeyAndOrderFront(nil)
                 try? await Task.sleep(for: .seconds(1))
                 Self.saveSnapshot(of: window, to: output)
@@ -192,6 +207,9 @@ final class AppModel {
         }
         if let i = args.firstIndex(of: "--tour"), i + 1 < args.count {
             ScreenTour.run(model: self, into: (args[i + 1] as NSString).expandingTildeInPath)
+        } else if !args.contains("--snapshot") {
+            // The tour runs its own check; snapshots don't need one.
+            autoCheck.start()
         }
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             let output = (args[i + 1] as NSString).expandingTildeInPath
@@ -267,7 +285,7 @@ final class AppModel {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Scan"
+        panel.prompt = String(localized: "Scan")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         pin(url.path)
         scan(path: url.path)
@@ -536,10 +554,10 @@ final class AppModel {
     }
 
     func verdict(for node: ScanTree.Index) -> SafetyVerdict {
-        guard let tree else { return .blocked("No scan") }
+        guard let tree else { return .blocked(String(localized: "No scan")) }
         let flags = tree.flags(node)
-        if flags.contains(.otherVolume) { return .blocked("This is another disk.") }
-        if flags.contains(.removed) { return .blocked("Already moved to the Trash.") }
+        if flags.contains(.otherVolume) { return .blocked(String(localized: "This is another disk.")) }
+        if flags.contains(.removed) { return .blocked(String(localized: "Already moved to the Trash.")) }
         return policy.verdict(for: tree.path(of: node))
     }
 
@@ -593,7 +611,8 @@ final class AppModel {
     }
 
     private var anySheetOpen: Bool {
-        showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showOnboarding
+        showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
+            || showCloudSpace || showDiskHealth || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -638,7 +657,7 @@ final class AppModel {
         guard let tree, !isInBasket(node) else { return false }
         let verdict = verdict(for: node)
         if verdict.isBlocked {
-            showTrayNotice("\(tree.name(node)) can’t be added. \(verdict.message ?? "")")
+            showTrayNotice(String(format: String(localized: "%@ can’t be added. %@"), tree.name(node), verdict.message ?? ""))
             return false
         }
         basket = basket.filter { !tree.isAncestor(node, of: $0) }
@@ -677,14 +696,14 @@ final class AppModel {
         var out: [String] = []
         if let message = verdict(for: node).message { out.append(message) }
         if tree.kind(node).isContainer && tree.containsDescendant(named: ".git", under: node) {
-            out.append("Contains a Git repository. Check for work you have not pushed.")
+            out.append(String(localized: "Contains a Git repository. Check for work you have not pushed."))
         }
         let path = tree.path(of: node)
         let running = NSWorkspace.shared.runningApplications.contains { app in
             guard let bundle = app.bundleURL?.path else { return false }
             return bundle == path || bundle.hasPrefix(path + "/")
         }
-        if running { out.append("This app is running. Quit it first.") }
+        if running { out.append(String(localized: "This app is running. Quit it first.")) }
         return out
     }
 
@@ -751,8 +770,42 @@ final class AppModel {
         if !uninstaller.isBusy && uninstaller.phase != .done { uninstaller.load() }
     }
 
+    /// Opens Space Hunters and hunts again, unless it is busy.
+    func openSpaceHunters() {
+        showSpaceHunters = true
+        if !spaceHunters.isBusy { huntSpace() }
+    }
+
+    /// Hunts for old backups, downloads, Mail attachments and similar photos. Photos are looked for in the
+    /// finished scan, or in ~/Pictures without one.
+    func huntSpace() {
+        spaceHunters.hunt(tree: state.isScanning ? nil : tree)
+    }
+
+    /// Opens Cloud Space and looks for downloaded cloud files again, unless it is busy.
+    func openCloudSpace() {
+        showCloudSpace = true
+        if !cloudSpace.isBusy { cloudSpace.find() }
+    }
+
+    /// Opens Disk Health and reads the disks again, unless a read is already running.
+    func openDiskHealth() {
+        showDiskHealth = true
+        diskHealth.refresh()
+    }
+
+    /// Closes Space Hunters and shows the Full Disk Access guide; only one sheet can be open at a time.
+    private func showAccessHelpFromHunters() {
+        showSpaceHunters = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            showOnboarding = true
+        }
+    }
+
     /// Drops items that Smart Clean, Duplicates or the Uninstaller removed from the current scan.
     private func applyRemoved(_ paths: [String]) {
+        autoCheck.drop(paths)
         if let tree, !paths.isEmpty {
             for path in paths {
                 if let node = tree.index(ofPath: path) { tree.detach(node) }
@@ -813,7 +866,7 @@ final class AppModel {
             var results: [CompressionResult] = []
             for (i, item) in items.enumerated() {
                 if Task.isCancelled { break }
-                self?.compressStatus = "Compressing \((item.path as NSString).lastPathComponent) (\(i + 1) of \(items.count))…"
+                self?.compressStatus = String(format: String(localized: "Compressing %@ (%lld of %lld)…"), (item.path as NSString).lastPathComponent, i + 1, items.count)
                 let result = await service.compressAndTrash(path: item.path, originalBytes: item.size)
                 results.append(result)
                 self?.applyCompression(result, node: item.node, in: tree)

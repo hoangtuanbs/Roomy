@@ -69,7 +69,7 @@ final class DiskOverviewModel {
                 snapshots.removeAll { $0.id == snapshot.id }
                 finishChange(path: path, scanned: scanned, availableBefore: before)
             } catch {
-                errorMessage = "Could not delete the snapshot. \(error.localizedDescription)"
+                errorMessage = String(format: String(localized: "Could not delete the snapshot. %@"), error.localizedDescription)
             }
             deleting.remove(snapshot.id)
             loadSnapshots()
@@ -87,7 +87,7 @@ final class DiskOverviewModel {
                 try await LocalSnapshots.thin(mountPoint: mount, bytes: space.purgeable)
                 finishChange(path: path, scanned: scanned, availableBefore: before)
             } catch {
-                errorMessage = "Could not free purgeable space. \(error.localizedDescription)"
+                errorMessage = String(format: String(localized: "Could not free purgeable space. %@"), error.localizedDescription)
             }
             isThinning = false
             loadSnapshots()

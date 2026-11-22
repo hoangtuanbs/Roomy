@@ -1,10 +1,10 @@
-<p align="center"><img src="Resources/AppIcon-1024.png" width="160" alt="Roomy icon"></p>
+<p align="center"><img src="Resources/AppIcon-1024.png" width="160" alt="RoomyDisk icon"></p>
 
-# Roomy
+# RoomyDisk
 
 A macOS app that shows what is using space on your disk and helps you free it up safely.
 
-![Roomy main view](docs/screenshot.png)
+![RoomyDisk main view](docs/screenshot.png)
 
 *Folders sorted by size on the left and a treemap of the same folder on the right, with two items ticked for cleanup.*
 
@@ -29,7 +29,7 @@ A macOS app that shows what is using space on your disk and helps you free it up
   single items. **Clean** moves the ticked items to the Trash. Caches of macOS and of apps that are open are left alone.
   The Trash is shown on its own card, and emptying it, the one thing that cannot be undone, asks first.
 - **Disk overview** above the results shows where the disk's space goes, like DaisyDisk: a bar with what the scan
-  found, **hidden** space (used, but not found: files Roomy cannot read without Full Disk Access, macOS system files and
+  found, **hidden** space (used, but not found: files RoomyDisk cannot read without Full Disk Access, macOS system files and
   snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
   Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
   snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
@@ -51,19 +51,63 @@ A macOS app that shows what is using space on your disk and helps you free it up
   may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
   items to the Trash. Apps of macOS are not listed, and an app
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
-  Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
+  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
   no longer installed. They are guesses, so nothing there is ticked until you review it.
+- **Space Hunters** (below the Uninstaller in the sidebar, the toolbar, or ⇧⌘H) hunts for big things you may have
+  forgotten, each on its own card with a total that counts up:
+  - **iPhone & iPad backups** in `~/Library/Application Support/MobileSync/Backup`, with the device's name, model,
+    iOS version, date and whether the backup is encrypted. Only an older backup of a device that has a newer one, made
+    90 days ago or more, starts ticked; the newest backup of each device never does. Backups are only ever moved whole.
+    macOS protects this folder, so RoomyDisk needs Full Disk Access to see them and says so.
+  - **Old downloads**: items in Downloads you have not opened (Spotlight's last-used date), added or changed for 90
+    days, largest first. Nothing is ticked; preview them with Quick Look first.
+  - **Mail attachments**: the attachments in Mail's own folder are only shown, with **Open in Finder** and how to
+    remove them in Mail (Message > Remove Attachments), because removing them in Finder can damage Mail. Copies of
+    attachments you opened (Mail Downloads) can go to the Trash; they start unticked, since you may have edited one.
+  - **Similar photos**: JPEG, HEIC and PNG pictures in the current scan (or `~/Pictures`) that look almost the same,
+    compared with Vision and by when they were taken, up to the 3,000 largest. Pictures in Photos libraries are never
+    touched. The one with the most pixels, then the newest, is suggested to keep; nothing is ticked, and one picture of
+    each group always stays.
+- **Cloud Space** (below Space Hunters in the sidebar, the toolbar, or ⇧⌘L, "Free Up Cloud Space…") frees space
+  without deleting anything: it removes the downloaded copies of files kept in **iCloud Drive** (and apps' iCloud
+  folders in `~/Library/Mobile Documents`) and in **Dropbox, OneDrive, Google Drive and Box** (`~/Library/CloudStorage`).
+  Each service gets a card with its folders, the space their local copies take, and a tick for each folder; nothing
+  starts ticked. **Remove Downloads** asks macOS to evict each file (`FileManager.evictUbiquitousItem`), the same as
+  Finder's **Remove Download**: the files stay in the cloud and download again when you open them. Files are never moved
+  or deleted. A file whose changes have not reached the cloud yet, that is still uploading, whose state is unknown, or
+  that has conflicting versions is kept and labelled ("Not uploaded yet — kept"); each file is checked again just
+  before. If **Optimize Mac Storage** is off for iCloud Drive, macOS may download files again on its own. Very large
+  cloud folders are checked up to 250,000 files each.
+- **Disk Health** (below Cloud Space in the sidebar, the toolbar, the menu bar popover, or ⇧⌘I) shows a card for every
+  internal and external disk: its model, connection (Apple Fabric, PCI Express, USB, Thunderbolt, SATA), whether it is
+  an SSD, its size and how much of it is used, the firmware, the serial number (mostly hidden) and its **S.M.A.R.T.**
+  status. Each disk gets a verdict, **Good**, **Warning**, **Failing** or **Unknown**, with what it means and what to do
+  ("Back up now with Time Machine, then replace this disk"). It is strictly read-only and needs no admin rights: it reads
+  the I/O Registry and asks `diskutil info` and `system_profiler`, each with a 10-second limit, away from the main
+  thread. Wear, power-on hours and temperature are only given to admin tools on macOS, so they say "Not available
+  without admin rights" instead of a made-up number. Many USB drives, card readers and virtual disks don't report
+  their health; they show **Unknown**. The menu bar popover shows a dot in the health's colour next to each disk.
+  RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**.
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
-  external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
-  **Open Roomy**, **Smart Clean…** and **Quit** are a click away. Roomy keeps running in the menu bar after its window closes.
-- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), Roomy sends one
-  notification a day, "Your disk is almost full". Clicking it opens Roomy. Roomy asks for notification permission only
+  external disks with a bar for how full they are, their free space and a health dot, refreshed every minute and when you open it.
+  **Open RoomyDisk**, **Smart Clean…**, **Disk Health…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
+- **Automatic checks and Quick Clean** (Settings): while RoomyDisk runs, it looks at the places Smart Clean knows
+  (never the whole disk) every 6 hours, a minute after launch and after the Mac wakes; choose every hour, once a day or
+  Off. Checks run at low priority and wait while the Mac is on a battery below 20% or in Low Power Mode. The menu bar
+  popover shows **Can be freed**: the total, a bar per kind of junk and when it last looked. **Quick Clean** moves only
+  what Smart Clean ticks by itself (app caches, logs, Xcode build data, package caches, old installers) to the Trash, after you confirm
+  ("Move 3.2 GB of caches and logs to the Trash?") right in the popover. Nothing is ever removed without that click.
+  Above 1 GB the amount also shows next to the menu bar icon ("3.2G"; turn it off or raise it in Settings). When more
+  than 5 GB can be freed (2 to 20 GB), RoomyDisk sends at most one notification every 3 days, "RoomyDisk can free
+  7.4 GB of caches and logs"; clicking it opens Smart Clean.
+- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), RoomyDisk sends one
+  notification a day, "Your disk is almost full". Clicking it opens RoomyDisk. RoomyDisk asks for notification permission only
   when you turn the alert on, and it does nothing if you say no.
 - **Export as CSV…** (File menu, ⇧⌘E, or the toolbar's CSV button) saves the current folder as a CSV file: path, name,
   kind, category, size in bytes and as text, modified date (ISO 8601) and item count for folders. Choose to include the
   folders inside it down to 2, 3 or 5 levels.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
-- **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
+- **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives, Photos libraries, Mail's own folder and parts of device backups, and warn about Library, Git repositories and running apps.
 - **Motion**: lists, the treemap, the rings and every clean move with short spring animations. Treemap tiles slide into place when items are removed, the scan shows a turning ring with a live file count, and each clean ends with the same "space freed" moment. Turn on Reduce Motion in System Settings > Accessibility > Display to keep everything still.
 
 ## Requirements
@@ -73,14 +117,14 @@ macOS 14 or later, and Swift 5.10 or later (Xcode or the Command Line Tools).
 ## Build
 
 ```sh
-./scripts/build-app.sh            # builds build/Roomy.app and build/Roomy.zip
+./scripts/build-app.sh            # builds build/RoomyDisk.app and build/RoomyDisk.zip
 ./scripts/build-app.sh --install  # also copies it to /Applications
-open build/Roomy.app
+open build/RoomyDisk.app
 ```
 
 The app is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time.
 
-For complete sizes, give Roomy Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
+For complete sizes, give RoomyDisk Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
 
 There is also a command-line scanner:
 
@@ -88,13 +132,17 @@ There is also a command-line scanner:
 swift run roomy-scan ~ --top 20
 ```
 
+## Language
+
+RoomyDisk follows the language of your Mac. It is translated into Vietnamese, Spanish and German, and the translations are kept in `Localization/`. To change the language, open System Settings › General › Language & Region › Applications, choose RoomyDisk and pick a language, then reopen the app.
+
 ## Releases
 
 Each push to `main` and each pull request is built by the **Build** workflow; the app zip is attached to the run.
 
 To publish a version, open **Actions → Release → Run workflow** on GitHub and pick `patch`, `minor` or `major`.
 The workflow takes the latest `vX.Y.Z` tag, bumps it, stamps the number into the app, builds it and publishes a
-GitHub Release with `Roomy-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
+GitHub Release with `RoomyDisk-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
 
 ```sh
 git tag v1.0.0 && git push origin v1.0.0
@@ -102,14 +150,14 @@ git tag v1.0.0 && git push origin v1.0.0
 
 Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a version number.
 
-`build/Roomy.app/Contents/MacOS/Roomy --scan <folder>` opens Roomy already scanning a folder. Adding
+`build/RoomyDisk.app/Contents/MacOS/RoomyDisk --scan <folder>` opens RoomyDisk already scanning a folder. Adding
 `--snapshot <file.png>` saves the window as an image and quits, which is how `docs/screenshot.png` is made.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule and CSV export. No UI. |
+| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule, the disk health reader and CSV export. No UI. |
 | `Tests/RoomyCoreTests` | Unit tests, run with `swift test`. They only use temporary folders. |
 | `Sources/Roomy` | The SwiftUI app. |
 | `Sources/roomy-scan` | Command-line scanner. |
@@ -124,7 +172,7 @@ Bugs and ideas are also welcome as [GitHub issues](https://github.com/hoangtuanb
 
 ## Support the project
 
-Roomy is free. If it helped you, you can donate in Ethereum (also in the app under **Help → Donate…**):
+RoomyDisk is free. If it helped you, you can donate in Ethereum (also in the app under **Help → Donate…**):
 
 <img src="docs/donate-qr.png" width="180" alt="QR code for the Ethereum donation address">
 

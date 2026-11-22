@@ -40,7 +40,7 @@ public enum LocalSnapshotError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .cannotDelete(let name): return "\(name) was not made by Time Machine, so Roomy leaves it alone."
+        case .cannotDelete(let name): return String(format: String(localized: "%@ was not made by Time Machine, so RoomyDisk leaves it alone."), name)
         case .failed(let message): return message
         }
     }
@@ -156,7 +156,7 @@ public enum LocalSnapshots {
     /// Lets Time Machine remove local snapshots until up to `bytes` are free. This cannot be undone.
     public static func thin(mountPoint: String, bytes: Int64) async throws {
         guard let arguments = thinArguments(mountPoint: mountPoint, bytes: bytes) else {
-            throw LocalSnapshotError.failed("There is nothing to free.")
+            throw LocalSnapshotError.failed(String(localized: "There is nothing to free."))
         }
         let result = await run(arguments)
         guard result.succeeded else { throw LocalSnapshotError.failed(message(from: result)) }
@@ -164,7 +164,7 @@ public enum LocalSnapshots {
 
     static func message(from result: CommandOutput) -> String {
         let text = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? "tmutil stopped with code \(result.status)." : text
+        return text.isEmpty ? String(format: String(localized: "tmutil stopped with code %lld."), Int64(result.status)) : text
     }
 
     /// Runs tmutil directly (no shell) and collects what it prints.

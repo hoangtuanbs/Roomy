@@ -20,8 +20,8 @@ enum About {
         components.scheme = "mailto"
         components.path = supportEmail
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Roomy \(version) support"),
-            URLQueryItem(name: "body", value: "Describe the problem here:\n\n\n---\nRoomy \(version)\nmacOS \(os)"),
+            URLQueryItem(name: "subject", value: "RoomyDisk \(version) support"),
+            URLQueryItem(name: "body", value: "Describe the problem here:\n\n\n---\nRoomyDisk \(version)\nmacOS \(os)"),
         ]
         return components.url
     }
@@ -56,10 +56,10 @@ enum About {
 
     static func showSupportAddress() {
         let alert = NSAlert()
-        alert.messageText = "Email us at \(supportEmail)"
-        alert.informativeText = "Roomy could not open an email app. Copy the address and write to us from your email."
-        alert.addButton(withTitle: "Copy Address")
-        alert.addButton(withTitle: "OK")
+        alert.messageText = String(format: String(localized: "Email us at %@"), supportEmail)
+        alert.informativeText = String(localized: "RoomyDisk could not open an email app. Copy the address and write to us from your email.")
+        alert.addButton(withTitle: String(localized: "Copy Address"))
+        alert.addButton(withTitle: String(localized: "OK"))
         if alert.runModal() == .alertFirstButtonReturn {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(supportEmail, forType: .string)
@@ -85,16 +85,16 @@ enum About {
         strong[.font] = NSFont.systemFont(ofSize: 11, weight: .semibold)
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: "Made by \(author)\n", attributes: strong))
+        text.append(NSAttributedString(string: String(format: String(localized: "Made by %@"), author) + "\n", attributes: strong))
         text.append(NSAttributedString(string: companies.joined(separator: "\n") + "\n\n", attributes: body))
-        text.append(NSAttributedString(string: "Released under the MIT License\n", attributes: body))
+        text.append(NSAttributedString(string: String(localized: "Released under the MIT License") + "\n", attributes: body))
         var link = body
         link[.link] = projectURL
         text.append(NSAttributedString(string: "github.com/hoangtuanbs/Roomy\n\n", attributes: link))
         // Plain text: a mailto link here would go to the default handler, which may be a browser that ignores it.
         // Help > Email Us… picks a real mail app.
-        text.append(NSAttributedString(string: "Help: \(supportEmail)\n", attributes: body))
-        text.append(NSAttributedString(string: "Donate: Help → Donate…", attributes: body))
+        text.append(NSAttributedString(string: String(format: String(localized: "Help: %@"), supportEmail) + "\n", attributes: body))
+        text.append(NSAttributedString(string: String(localized: "Donate: Help → Donate…"), attributes: body))
         return text
     }
 }

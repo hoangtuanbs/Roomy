@@ -30,7 +30,7 @@ struct ReviewSheet: View {
         let items = model.basketItems
 
         return VStack(alignment: .leading, spacing: 14) {
-            Text("Move \(items.count) \(items.count == 1 ? "item" : "items") to the Trash?")
+            Text("Move \(items.count) \(Plural.word(items.count, "item", "items")) to the Trash?")
                 .font(.title2.weight(.semibold))
             Text("This frees up to \(model.basketBytes.bytes). Nothing is deleted yet: you can restore items from the Trash with Put Back until you empty it.")
                 .foregroundStyle(.secondary)
@@ -111,8 +111,8 @@ private struct ResultView: View {
             FreedSpaceCelebration(
                 bytes: report.freedBytes,
                 message: moved == 0
-                    ? "Nothing could be moved to the Trash."
-                    : "Moved \(moved) \(moved == 1 ? "item" : "items") to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+                    ? String(localized: "Nothing could be moved to the Trash.")
+                    : Plural.movedToTrash(moved),
                 failed: report.failed,
                 succeeded: moved > 0,
                 confetti: moved > 0,

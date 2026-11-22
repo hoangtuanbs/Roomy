@@ -20,6 +20,7 @@ final class UninstallerModel {
         case name = "Name"
         case lastUsed = "Last Used"
         var id: String { rawValue }
+        var label: String { NSLocalizedString(rawValue, comment: "") }
     }
 
     /// What the detail panel shows.
@@ -343,7 +344,7 @@ final class UninstallerModel {
         let removed = Set(report.succeeded.map(\.path))
 
         if let app = removingApp, let failure = report.failed.first(where: { $0.path == app.path }) {
-            appFailure = "\(app.name) could not be moved to the Trash: \(failure.error ?? "unknown error"). Apps from the App Store or installed for all users can need an administrator: drag the app to the Trash in Finder, which asks for your password."
+            appFailure = String(format: String(localized: "%@ could not be moved to the Trash: %@. Apps from the App Store or installed for all users can need an administrator: drag the app to the Trash in Finder, which asks for your password."), app.name, failure.error ?? String(localized: "unknown error"))
         }
         apps.removeAll { removed.contains($0.path) }
         allApps.removeAll { removed.contains($0.path) }

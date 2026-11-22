@@ -106,7 +106,7 @@ private struct UninstallerHeader: View {
                     CountingBytes(un.totalAppBytes)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .animation(Motion.quick.unless(reduceMotion), value: un.totalAppBytes)
-                    Text("in \(un.apps.count) \(un.apps.count == 1 ? "app" : "apps")")
+                    Text("in \(un.apps.count) \(Plural.word(un.apps.count, "app", "apps"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -208,7 +208,7 @@ private struct AppGrid: View {
 
                 Spacer()
                 Picker("Sort by", selection: $un.sort) {
-                    ForEach(UninstallerModel.SortOrder.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(UninstallerModel.SortOrder.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 240)
@@ -469,7 +469,7 @@ private struct AppDetail: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    LeftoverSection(title: "App", symbol: "app.fill", color: .accentColor,
+                    LeftoverSection(title: String(localized: "App"), symbol: "app.fill", color: .accentColor,
                                     rows: [LeftoverRow(path: app.path, name: "\(app.name).app", bytes: app.bytes)],
                                     disabled: blocked != nil)
                     if un.isFindingLeftovers {
@@ -505,7 +505,7 @@ private struct AppDetail: View {
                     CountingBytes(un.tickedBytes)
                         .font(.title3.weight(.bold))
                         .animation(Motion.quick.unless(reduceMotion), value: un.tickedBytes)
-                    Text("\(un.tickedCount) \(un.tickedCount == 1 ? "item" : "items") ticked")
+                    Text("\(un.tickedCount) \(Plural.word(un.tickedCount, "item", "items")) ticked")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -531,7 +531,7 @@ private struct AppDetail: View {
             Button("Move to Trash", role: .destructive) { un.uninstall() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("\(un.tickedCount) \(un.tickedCount == 1 ? "item" : "items") (\(un.tickedBytes.bytes)) will be moved to the Trash. You can put them back from the Trash until you empty it.")
+            Text("\(un.tickedCount) \(Plural.word(un.tickedCount, "item", "items")) (\(un.tickedBytes.bytes)) will be moved to the Trash. You can put them back from the Trash until you empty it.")
         }
         .onAppear {
             withAnimation(Motion.bouncy.unless(reduceMotion)) { appeared = true }
@@ -746,7 +746,7 @@ private struct OrphansDetail: View {
             }
             .padding(14)
         }
-        .alert("Move \(un.orphanTickedItems.count) \(un.orphanTickedItems.count == 1 ? "item" : "items") to the Trash?",
+        .alert("Move \(un.orphanTickedItems.count) \(Plural.word(un.orphanTickedItems.count, "item", "items")) to the Trash?",
                isPresented: $confirm) {
             Button("Move to Trash", role: .destructive) { un.removeOrphans() }
             Button("Cancel", role: .cancel) {}
@@ -904,10 +904,10 @@ private struct UninstallerDone: View {
     }
 
     private func summary(moved: Int, appGone: Bool) -> String {
-        let things = "\(moved) \(moved == 1 ? "item" : "items")"
+        let things = "\(moved) \(Plural.word(moved, "item", "items"))"
         if appGone, let app = model.uninstaller.removingApp {
-            return "\(app.name) and its leftovers are in the Trash (\(things)). Empty the Trash to get the space back for good, or use Put Back in Finder to restore it."
+            return String(format: String(localized: "%@ and its leftovers are in the Trash (%@). Empty the Trash to get the space back for good, or use Put Back in Finder to restore it."), app.name, things)
         }
-        return "Moved \(things) to the Trash. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything."
+        return Plural.movedToTrash(moved)
     }
 }

@@ -10,7 +10,7 @@ struct RoomyApp: App {
     @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
 
     var body: some Scene {
-        WindowGroup("Roomy", id: "main") {
+        WindowGroup("RoomyDisk", id: "main") {
             ContentView()
                 .environment(model)
                 .frame(minWidth: 960, minHeight: 600)
@@ -18,7 +18,7 @@ struct RoomyApp: App {
         .defaultSize(width: 1280, height: 800)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Roomy") { About.show() }
+                Button("About RoomyDisk") { About.show() }
             }
             HelpCommands()
             CommandGroup(after: .newItem) {
@@ -37,6 +37,12 @@ struct RoomyApp: App {
                     .keyboardShortcut("d", modifiers: [.command, .shift])
                 Button("Uninstall Apps…") { model.openUninstaller() }
                     .keyboardShortcut("u", modifiers: [.command, .shift])
+                Button("Space Hunters…") { model.openSpaceHunters() }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                Button("Free Up Cloud Space…") { model.openCloudSpace() }
+                    .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button("Disk Health…") { model.openDiskHealth() }
+                    .keyboardShortcut("i", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }
@@ -46,7 +52,7 @@ struct RoomyApp: App {
                     .disabled(model.selection == nil)
                 Divider()
                 Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
-                    ForEach(MapStyle.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(MapStyle.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.inline)
             }
@@ -63,11 +69,13 @@ struct RoomyApp: App {
                 .environment(menuDisks)
         } label: {
             MenuBarLabel()
+                .environment(model)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
             AlertSettingsView()
+                .environment(model)
         }
     }
 }
@@ -80,7 +88,7 @@ struct HelpCommands: Commands {
             Button("Email Us…") { About.emailSupport() }
             Button("Donate…") { openWindow(id: "donate") }
             Divider()
-            Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
+            Button("RoomyDisk on GitHub") { NSWorkspace.shared.open(About.projectURL) }
         }
     }
 }
@@ -97,11 +105,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         !MenuBarSettings.isShown
     }
 
-    /// A click on the low-space notification brings Roomy forward.
+    /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean,
+    /// and one on the failing disk notice opens Disk Health.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        NotificationCenter.default.post(name: .roomyShowMain, object: nil)
+        let name: Notification.Name
+        switch response.notification.request.identifier {
+        case LowSpaceNotifier.reclaimableIdentifier: name = .roomyShowSmartClean
+        case DiskHealthNotifier.identifier: name = .roomyShowDiskHealth
+        default: name = .roomyShowMain
+        }
+        NotificationCenter.default.post(name: name, object: nil)
         completionHandler()
     }
 

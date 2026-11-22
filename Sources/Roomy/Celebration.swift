@@ -51,6 +51,8 @@ struct FreedSpaceCelebration<Extra: View>: View {
     var confetti = true
     var compact = false
     var maxWidth: CGFloat = 460
+    /// Said after the big number, such as " freed".
+    var suffix = String(localized: " freed")
     @ViewBuilder var extra: () -> Extra
     @State private var shown = false
 
@@ -66,8 +68,10 @@ struct FreedSpaceCelebration<Extra: View>: View {
                     .scaleEffect(shown ? 1 : 0.3)
                     .opacity(shown ? 1 : 0)
                     .symbolEffect(.bounce, value: shown)
-                CountingBytes(shown ? bytes : 0, suffix: " freed")
+                CountingBytes(shown ? bytes : 0, suffix: suffix)
                     .font(.system(size: compact ? 32 : 44, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Text(message)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -114,7 +118,7 @@ struct FailedItemsList: View {
                     ForEach(failed, id: \.path) { result in
                         VStack(alignment: .leading, spacing: 1) {
                             Text((result.path as NSString).lastPathComponent)
-                            Text(result.error ?? "Unknown error").font(.caption).foregroundStyle(.secondary)
+                            Text(result.error ?? String(localized: "Unknown error")).font(.caption).foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

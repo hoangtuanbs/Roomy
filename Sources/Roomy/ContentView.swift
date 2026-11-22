@@ -43,6 +43,15 @@ struct ContentView: View {
         .sheet(isPresented: $model.showUninstaller) {
             UninstallerView().environment(model)
         }
+        .sheet(isPresented: $model.showSpaceHunters) {
+            SpaceHuntersView().environment(model)
+        }
+        .sheet(isPresented: $model.showCloudSpace) {
+            CloudSpaceView().environment(model)
+        }
+        .sheet(isPresented: $model.showDiskHealth) {
+            DiskHealthView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -71,7 +80,7 @@ struct ContentColumn: View {
 
         VStack(spacing: 0) {
             Picker("View", selection: $model.tab) {
-                ForEach(ContentTab.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(ContentTab.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -148,6 +157,30 @@ struct ContentColumn: View {
                     Label("Uninstaller", systemImage: "xmark.bin")
                 }
                 .help("Remove apps together with the files they leave behind")
+            }
+            ToolbarItem {
+                Button {
+                    model.openSpaceHunters()
+                } label: {
+                    Label("Space Hunters", systemImage: "scope")
+                }
+                .help("Find old backups, downloads, Mail attachments and similar photos")
+            }
+            ToolbarItem {
+                Button {
+                    model.openCloudSpace()
+                } label: {
+                    Label("Cloud Space", systemImage: "icloud")
+                }
+                .help("Free space by removing downloaded copies of cloud files; they stay in the cloud")
+            }
+            ToolbarItem {
+                Button {
+                    model.openDiskHealth()
+                } label: {
+                    Label("Disk Health", systemImage: "stethoscope")
+                }
+                .help("See what your disks report about their own health")
             }
             ToolbarItem {
                 Menu {
@@ -239,7 +272,7 @@ struct DetailColumn: View {
                         .animation(Motion.smooth.unless(reduceMotion), value: tree.size(model.currentFolder))
                     Picker("Map", selection: $model.mapStyle) {
                         ForEach(MapStyle.allCases) { style in
-                            Label(style.rawValue, systemImage: style.symbol).tag(style)
+                            Label(style.label, systemImage: style.symbol).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -382,8 +415,8 @@ struct ScanStatusNote: View {
     }
 
     private var updatingText: String {
-        guard let progress = model.refreshProgress else { return "Updating…" }
-        return "Updating · \(progress.files.formatted()) files…"
+        guard let progress = model.refreshProgress else { return String(localized: "Updating…") }
+        return String(format: String(localized: "Updating · %@ files…"), progress.files.formatted())
     }
 }
 

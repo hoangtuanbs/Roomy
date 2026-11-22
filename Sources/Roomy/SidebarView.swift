@@ -30,6 +30,27 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.top, 6)
+            ToolButton(title: "Space Hunters", symbol: "scope", gradient: .spaceHunters,
+                       stroke: Color(red: 0.70, green: 0.70, blue: 0.30),
+                       help: "Find old backups, downloads, Mail attachments and similar photos") {
+                model.openSpaceHunters()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            ToolButton(title: "Cloud Space", symbol: "icloud.fill", gradient: .cloudSpace,
+                       stroke: Color(red: 0.38, green: 0.58, blue: 0.93),
+                       help: "Free space by removing downloaded copies of cloud files; they stay in the cloud") {
+                model.openCloudSpace()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            ToolButton(title: "Disk Health", symbol: "stethoscope", gradient: .diskHealth,
+                       stroke: Color(red: 0.22, green: 0.67, blue: 0.58),
+                       help: "See what your disks report about their own health") {
+                model.openDiskHealth()
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
             .padding(.bottom, 4)
 
             List(selection: selection) {
@@ -148,11 +169,11 @@ private struct SmartCleanButton: View {
 /// A lighter entry below Smart Clean, such as Duplicates or the Uninstaller, with the same hover motion.
 private struct ToolButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let gradient: LinearGradient
     let stroke: Color
-    let help: String
+    let help: LocalizedStringKey
     let action: () -> Void
     @State private var hovering = false
 

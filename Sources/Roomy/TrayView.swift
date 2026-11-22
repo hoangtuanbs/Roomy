@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    /// An item of the current scan dragged inside Roomy. Declared in Info.plist.
+    /// An item of the current scan dragged inside RoomyDisk. Declared in Info.plist.
     static let roomyItem = UTType(exportedAs: "io.github.hoangtuanbs.Roomy.item")
 }
 
@@ -122,7 +122,7 @@ struct TrayView: View {
                     CountingBytes(model.basketBytes)
                         .font(.headline)
                         .animation(Motion.smooth.unless(reduceMotion), value: model.basketBytes)
-                    Text("\(items.count) \(items.count == 1 ? "item" : "items")")
+                    Text("\(items.count) \(Plural.word(items.count, "item", "items"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())

@@ -73,8 +73,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          codesign --verify --deep --strict build/Roomy.app
-          STAMPED=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/Roomy.app/Contents/Info.plist)
+          codesign --verify --deep --strict build/RoomyDisk.app
+          STAMPED=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/RoomyDisk.app/Contents/Info.plist)
           test "$STAMPED" = "$VERSION"
 
       - name: Package
@@ -82,9 +82,9 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          ZIP="build/Roomy-$VERSION.zip"
-          mv build/Roomy.zip "$ZIP"
-          (cd build && shasum -a 256 "Roomy-$VERSION.zip" > "Roomy-$VERSION.zip.sha256")
+          ZIP="build/RoomyDisk-$VERSION.zip"
+          mv build/RoomyDisk.zip "$ZIP"
+          (cd build && shasum -a 256 "RoomyDisk-$VERSION.zip" > "RoomyDisk-$VERSION.zip.sha256")
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
       - name: Publish the release
@@ -95,13 +95,13 @@ jobs:
           ZIP: ${{ steps.package.outputs.zip }}
         run: |
           cat > notes.md <<EOF
-          Download **Roomy-$VERSION.zip**, unzip it and move **Roomy.app** to Applications.
+          Download **RoomyDisk-$VERSION.zip**, unzip it and move **RoomyDisk.app** to Applications.
 
-          Roomy is not notarized by Apple, so the first time you open it, right-click the app and choose **Open**.
+          RoomyDisk is not notarized by Apple, so the first time you open it, right-click the app and choose **Open**.
           Requires macOS 14 or later.
           EOF
           gh release create "$TAG" "$ZIP" "$ZIP.sha256" \
-            --title "Roomy $VERSION" \
+            --title "RoomyDisk $VERSION" \
             --target "$GITHUB_SHA" \
             --notes-file notes.md \
             --generate-notes

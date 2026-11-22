@@ -43,7 +43,7 @@ struct DuplicatesView: View {
         }
         .frame(minWidth: 760, idealWidth: 820, minHeight: 580, idealHeight: 700)
         .interactiveDismissDisabled(dups.isBusy)
-        .alert("Move \(dups.selectedFiles.count) \(dups.selectedFiles.count == 1 ? "duplicate" : "duplicates") to the Trash?",
+        .alert("Move \(dups.selectedFiles.count) \(Plural.word(dups.selectedFiles.count, "duplicate", "duplicates")) to the Trash?",
                isPresented: $confirmClean) {
             Button("Move to Trash") { dups.clean() }
             Button("Cancel", role: .cancel) {}
@@ -138,7 +138,7 @@ private struct DuplicatesHeader: View {
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(dups.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: dups.selectedBytes)
-                    Text("\(dups.selectedFiles.count) \(dups.selectedFiles.count == 1 ? "copy" : "copies") selected")
+                    Text("\(dups.selectedFiles.count) \(Plural.word(dups.selectedFiles.count, "copy", "copies")) selected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
@@ -225,17 +225,17 @@ private struct DuplicatesScanning: View {
 
     private func title(_ progress: DuplicateProgress) -> String {
         switch progress.stage {
-        case .listing: return "Reading the folder…"
-        case .comparing: return "Comparing files of the same size…"
-        case .hashing: return "Checking that the contents match…"
+        case .listing: return String(localized: "Reading the folder…")
+        case .comparing: return String(localized: "Comparing files of the same size…")
+        case .hashing: return String(localized: "Checking that the contents match…")
         }
     }
 
     private func detail(_ progress: DuplicateProgress) -> String {
         switch progress.stage {
-        case .listing: return "\(progress.done.formatted()) files found"
-        case .comparing: return "\(progress.done.formatted()) of \(progress.total.formatted()) files"
-        case .hashing: return "\(progress.done.bytes) of \(progress.total.bytes)"
+        case .listing: return String(format: String(localized: "%@ files found"), progress.done.formatted())
+        case .comparing: return String(format: String(localized: "%@ of %@ files"), progress.done.formatted(), progress.total.formatted())
+        case .hashing: return String(format: String(localized: "%@ of %@"), progress.done.bytes, progress.total.bytes)
         }
     }
 }
@@ -280,8 +280,8 @@ private struct DuplicatesSummary: View {
         let dups = model.duplicates
         let copies = dups.groups.reduce(0) { $0 + $1.files.count }
         HStack(spacing: 16) {
-            stat(value: "\(dups.groups.count)", label: dups.groups.count == 1 ? "file with copies" : "files with copies")
-            stat(value: "\(copies)", label: "copies in all")
+            stat(value: "\(dups.groups.count)", label: dups.groups.count == 1 ? String(localized: "file with copies") : String(localized: "files with copies"))
+            stat(value: "\(copies)", label: String(localized: "copies in all"))
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
                 CountingBytes(appeared ? dups.wastedBytes : 0)
@@ -576,7 +576,7 @@ private struct DuplicatesDone: View {
         let moved = dups.report?.succeeded.count ?? 0
         FreedSpaceCelebration(
             bytes: dups.cleanedBytes,
-            message: "Moved \(moved) \(moved == 1 ? "duplicate" : "duplicates") to the Trash and kept one copy of each file. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything.",
+            message: String(format: String(localized: "Moved %lld %@ to the Trash and kept one copy of each file. Empty the Trash to get the space back for good, or use Put Back in Finder to restore anything."), moved, Plural.word(moved, "duplicate", "duplicates")),
             failed: dups.report?.failed ?? []
         )
     }
