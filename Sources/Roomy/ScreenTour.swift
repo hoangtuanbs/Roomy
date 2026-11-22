@@ -91,15 +91,20 @@ enum ScreenTour {
         }
         popover.close()
 
-        let settings = hostingWindow(AlertSettingsView().environment(model), title: "Settings")
+        // A grouped form has no height of its own, so the Settings window gets one.
+        let settings = hostingWindow(AlertSettingsView().environment(model), title: "Settings",
+                                     size: NSSize(width: 420, height: 660))
         try? await Task.sleep(for: .seconds(1.5))
         save(to: path("11-settings"), window: settings)
         settings.close()
         try? await Task.sleep(for: .seconds(0.5))
     }
 
-    private static func hostingWindow<Content: View>(_ view: Content, title: String) -> NSWindow {
-        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+    private static func hostingWindow<Content: View>(_ view: Content, title: String, size: NSSize? = nil) -> NSWindow {
+        let controller = NSHostingController(rootView: view)
+        if size != nil { controller.sizingOptions = [] }
+        let window = NSWindow(contentViewController: controller)
+        if let size { window.setContentSize(size) }
         window.title = title
         window.isReleasedWhenClosed = false
         window.styleMask.remove(.resizable)
