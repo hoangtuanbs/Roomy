@@ -16,15 +16,15 @@ struct AlertSettingsView: View {
     var body: some View {
         TabView(selection: $tab) {
             GeneralSettings()
-                .frame(width: 480, height: 190)
+                .frame(width: 480, height: 160)
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(Tab.general)
             CheckSettings()
-                .frame(width: 480, height: 430)
+                .frame(width: 480, height: 370)
                 .tabItem { Label("Checks & Alerts", systemImage: "bell.badge") }
                 .tag(Tab.checks)
             UpdateSettings()
-                .frame(width: 480, height: 190)
+                .frame(width: 480, height: 160)
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
                 .tag(Tab.updates)
         }
