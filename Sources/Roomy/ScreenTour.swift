@@ -1,7 +1,9 @@
 import AppKit
+import SwiftUI
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
-/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk overview) and quits.
+/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk overview,
+/// the menu bar popover with Quick Clean, and Settings) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
 enum ScreenTour {
@@ -59,9 +61,51 @@ enum ScreenTour {
             await shot("8-cloud-space", wait: 2)
             model.showCloudSpace = false
 
+            await menuBarShots(model: model, directory: directory)
+
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
         }
+    }
+
+    /// The menu bar popover after one background check, its Quick Clean confirmation, and Settings, each shown in a
+    /// plain window because the menu bar can't be captured. The confirmation is only shown and then cancelled.
+    private static func menuBarShots(model: AppModel, directory: String) async {
+        try? await Task.sleep(for: .seconds(1))
+        model.autoCheck.check()
+        let start = Date()
+        while model.autoCheck.isChecking && Date().timeIntervalSince(start) < 40 {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        print("tour: background check found \(model.autoCheck.reclaimable) bytes in \(model.autoCheck.quickCleanItems.count) items")
+        func path(_ name: String) -> String { (directory as NSString).appendingPathComponent(name + ".png") }
+
+        let popover = hostingWindow(MenuBarView().environment(model).environment(MenuBarDiskModel()), title: "RoomyDisk menu bar")
+        try? await Task.sleep(for: .seconds(2))
+        save(to: path("9-menu-bar"), window: popover)
+        if !model.autoCheck.quickCleanItems.isEmpty {
+            model.autoCheck.askToClean()
+            try? await Task.sleep(for: .seconds(1.5))
+            save(to: path("10-menu-bar-confirm"), window: popover)
+            model.autoCheck.cancelClean()
+        }
+        popover.close()
+
+        let settings = hostingWindow(AlertSettingsView().environment(model), title: "Settings")
+        try? await Task.sleep(for: .seconds(1.5))
+        save(to: path("11-settings"), window: settings)
+        settings.close()
+        try? await Task.sleep(for: .seconds(0.5))
+    }
+
+    private static func hostingWindow<Content: View>(_ view: Content, title: String) -> NSWindow {
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.title = title
+        window.isReleasedWhenClosed = false
+        window.styleMask.remove(.resizable)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        return window
     }
 
     /// Logs when the main thread stops answering for 5 seconds, so a hang on a build machine shows in the log.
@@ -81,8 +125,8 @@ enum ScreenTour {
 
     /// Captures the main window by its window number (no screen recording permission is needed for the app's own
     /// windows), and draws an attached sheet on top of it where it sits on screen.
-    private static func save(to path: String) {
-        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
+    private static func save(to path: String, window chosen: NSWindow? = nil) {
+        guard let window = chosen ?? NSApplication.shared.windows.first(where: { $0.isVisible && $0.canBecomeMain }),
               let base = capture(window) else {
             FileHandle.standardError.write(Data("tour: could not capture \(path)\n".utf8))
             return

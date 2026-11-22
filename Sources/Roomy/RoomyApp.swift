@@ -67,11 +67,13 @@ struct RoomyApp: App {
                 .environment(menuDisks)
         } label: {
             MenuBarLabel()
+                .environment(model)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
             AlertSettingsView()
+                .environment(model)
         }
     }
 }
@@ -101,11 +103,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         !MenuBarSettings.isShown
     }
 
-    /// A click on the low-space notification brings RoomyDisk forward.
+    /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        NotificationCenter.default.post(name: .roomyShowMain, object: nil)
+        let smartClean = response.notification.request.identifier == LowSpaceNotifier.reclaimableIdentifier
+        NotificationCenter.default.post(name: smartClean ? .roomyShowSmartClean : .roomyShowMain, object: nil)
         completionHandler()
     }
 

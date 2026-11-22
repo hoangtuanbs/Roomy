@@ -124,6 +124,8 @@ final class AppModel {
     var showSpaceHunters = false
     let cloudSpace = CloudSpaceModel()
     var showCloudSpace = false
+    /// The background junk check behind the menu bar's Quick Clean.
+    let autoCheck = AutoCheckModel()
 
     /// When the shown results were scanned. Older than now when they came from the cache.
     private(set) var scannedAt: Date?
@@ -152,6 +154,7 @@ final class AppModel {
         uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
+        autoCheck.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
 
@@ -198,6 +201,9 @@ final class AppModel {
         }
         if let i = args.firstIndex(of: "--tour"), i + 1 < args.count {
             ScreenTour.run(model: self, into: (args[i + 1] as NSString).expandingTildeInPath)
+        } else if !args.contains("--snapshot") {
+            // The tour runs its own check; snapshots don't need one.
+            autoCheck.start()
         }
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             let output = (args[i + 1] as NSString).expandingTildeInPath
@@ -787,6 +793,7 @@ final class AppModel {
 
     /// Drops items that Smart Clean, Duplicates or the Uninstaller removed from the current scan.
     private func applyRemoved(_ paths: [String]) {
+        autoCheck.drop(paths)
         if let tree, !paths.isEmpty {
             for path in paths {
                 if let node = tree.index(ofPath: path) { tree.detach(node) }

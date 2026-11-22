@@ -81,6 +81,15 @@ A macOS app that shows what is using space on your disk and helps you free it up
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
   external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
   **Open RoomyDisk**, **Smart Clean…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
+- **Automatic checks and Quick Clean** (Settings): while RoomyDisk runs, it looks at the places Smart Clean knows
+  (never the whole disk) every 6 hours, a minute after launch and after the Mac wakes; choose every hour, once a day or
+  Off. Checks run at low priority and wait while the Mac is on a battery below 20% or in Low Power Mode. The menu bar
+  popover shows **Can be freed**: the total, a bar per kind of junk and when it last looked. **Quick Clean** moves only
+  what Smart Clean ticks by itself (app caches, logs, Xcode build data, package caches, old installers) to the Trash, after you confirm
+  ("Move 3.2 GB of caches and logs to the Trash?") right in the popover. Nothing is ever removed without that click.
+  Above 1 GB the amount also shows next to the menu bar icon ("3.2G"; turn it off or raise it in Settings). When more
+  than 5 GB can be freed (2 to 20 GB), RoomyDisk sends at most one notification every 3 days, "RoomyDisk can free
+  7.4 GB of caches and logs"; clicking it opens Smart Clean.
 - **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), RoomyDisk sends one
   notification a day, "Your disk is almost full". Clicking it opens RoomyDisk. RoomyDisk asks for notification permission only
   when you turn the alert on, and it does nothing if you say no.
