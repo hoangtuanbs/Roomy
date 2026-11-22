@@ -188,7 +188,7 @@ final class SpaceHuntersModel {
             while next < min(4, chosen.count) {
                 let file = chosen[next]
                 next += 1
-                group.addTask { PhotoPrint.make(path: file.path, bytes: file.bytes, modified: file.modified) }
+                group.addTask { await PhotoPrint.makeOffPool(file) }
             }
             var checked = 0
             while let result = await group.next() {
@@ -204,7 +204,7 @@ final class SpaceHuntersModel {
                 if next < chosen.count {
                     let file = chosen[next]
                     next += 1
-                    group.addTask { PhotoPrint.make(path: file.path, bytes: file.bytes, modified: file.modified) }
+                    group.addTask { await PhotoPrint.makeOffPool(file) }
                 }
             }
             return made

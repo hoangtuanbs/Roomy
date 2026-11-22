@@ -6,6 +6,7 @@ import AppKit
 @MainActor
 enum ScreenTour {
     static func run(model: AppModel, into directory: String) {
+        watchMainThread()
         Task { @MainActor in
             try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
             @MainActor func shot(_ name: String, wait seconds: Double = 2) async {
@@ -55,6 +56,21 @@ enum ScreenTour {
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
         }
+    }
+
+    /// Logs when the main thread stops answering for 5 seconds, so a hang on a build machine shows in the log.
+    private static func watchMainThread() {
+        let thread = Thread {
+            while true {
+                Thread.sleep(forTimeInterval: 10)
+                let answered = DispatchSemaphore(value: 0)
+                DispatchQueue.main.async { answered.signal() }
+                if answered.wait(timeout: .now() + 5) == .timedOut {
+                    FileHandle.standardError.write(Data("tour: the main thread has not answered for 5 seconds\n".utf8))
+                }
+            }
+        }
+        thread.start()
     }
 
     /// Captures the main window by its window number (no screen recording permission is needed for the app's own

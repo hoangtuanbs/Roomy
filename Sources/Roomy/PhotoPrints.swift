@@ -28,6 +28,8 @@ struct PhotoPrint: @unchecked Sendable {
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         request.revision = VNGenerateImageFeaturePrintRequestRevision2
+        // The CPU is quick enough for a small picture, and works on machines without a usable GPU.
+        request.usesCPUOnly = true
         do {
             try VNImageRequestHandler(cgImage: thumbnail, options: [:]).perform([request])
         } catch {
@@ -37,6 +39,23 @@ struct PhotoPrint: @unchecked Sendable {
         let candidate = PhotoCandidate(path: path, bytes: bytes, pixelWidth: width, pixelHeight: height,
                                        taken: taken, modified: modified)
         return PhotoPrint(candidate: candidate, print: observation)
+    }
+
+    /// Seconds one picture may take before it is skipped.
+    static let timeout: Double = 15
+
+    /// `make` on a dispatch queue, so a slow picture never holds up Swift's shared threads, and given up after
+    /// `timeout` so one bad file cannot stall the hunt.
+    static func makeOffPool(_ file: PhotoSource.File) async -> PhotoPrint? {
+        await withCheckedContinuation { continuation in
+            let once = ResumeOnce(continuation)
+            DispatchQueue.global(qos: .utility).async {
+                once.resume(make(path: file.path, bytes: file.bytes, modified: file.modified))
+            }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
+                once.resume(nil)
+            }
+        }
     }
 
     func distance(to other: PhotoPrint) -> Float? {
@@ -58,6 +77,24 @@ struct PhotoPrint: @unchecked Sendable {
 
     static func exifDate(_ text: String) -> Date? {
         exifFormatter.date(from: text)
+    }
+}
+
+/// Resumes a continuation the first time only.
+private final class ResumeOnce: @unchecked Sendable {
+    private var continuation: CheckedContinuation<PhotoPrint?, Never>?
+    private let lock = NSLock()
+
+    init(_ continuation: CheckedContinuation<PhotoPrint?, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: PhotoPrint?) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: value)
     }
 }
 
