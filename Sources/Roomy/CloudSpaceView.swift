@@ -134,6 +134,10 @@ struct CloudSpaceView: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+            case .ready where !cloud.hasProviders:
+                Spacer()
+                Button("Close") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             case .ready:
                 Label("Files stay in \(CloudSpaceModel.names(cloud.selectedProviders)) and download again when you open them.",
                       systemImage: "icloud.and.arrow.down")
@@ -143,21 +147,17 @@ struct CloudSpaceView: View {
                     .contentTransition(.opacity)
                     .animation(Motion.quick.unless(reduceMotion), value: cloud.selectedProviders)
                 Spacer()
-                if cloud.hasProviders {
-                    Button("Look Again") { cloud.find() }
-                }
+                Button("Look Again") { cloud.find() }
                 Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                if cloud.hasProviders {
-                    Button {
-                        confirm = true
-                    } label: {
-                        Label("Remove Downloads", systemImage: "icloud.and.arrow.up").padding(.horizontal, 6)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(cloud.selectedItems.isEmpty)
+                Button {
+                    confirm = true
+                } label: {
+                    Label("Remove Downloads", systemImage: "icloud.and.arrow.up").padding(.horizontal, 6)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(cloud.selectedItems.isEmpty)
             case .evicting:
                 Spacer()
                 Text("Please wait…").foregroundStyle(.secondary)
