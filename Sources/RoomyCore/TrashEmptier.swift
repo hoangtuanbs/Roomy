@@ -7,7 +7,7 @@ public struct TrashEraseResult: Sendable, Equatable {
     public let failed: [String: String]
 }
 
-/// Erases items in the user's Trash for good. This is the only thing in Roomy that cannot be undone,
+/// Erases items in the user's Trash for good. This is the only thing in RoomyDisk that cannot be undone,
 /// so it only ever touches items directly inside `~/.Trash`, one by one, never the Trash folder itself.
 public struct TrashEmptier: Sendable {
     public let trashPath: String

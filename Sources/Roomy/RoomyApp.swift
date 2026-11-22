@@ -10,7 +10,7 @@ struct RoomyApp: App {
     @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
 
     var body: some Scene {
-        WindowGroup("Roomy", id: "main") {
+        WindowGroup("RoomyDisk", id: "main") {
             ContentView()
                 .environment(model)
                 .frame(minWidth: 960, minHeight: 600)
@@ -18,7 +18,7 @@ struct RoomyApp: App {
         .defaultSize(width: 1280, height: 800)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Roomy") { About.show() }
+                Button("About RoomyDisk") { About.show() }
             }
             HelpCommands()
             CommandGroup(after: .newItem) {
@@ -80,7 +80,7 @@ struct HelpCommands: Commands {
             Button("Email Us…") { About.emailSupport() }
             Button("Donate…") { openWindow(id: "donate") }
             Divider()
-            Button("Roomy on GitHub") { NSWorkspace.shared.open(About.projectURL) }
+            Button("RoomyDisk on GitHub") { NSWorkspace.shared.open(About.projectURL) }
         }
     }
 }
@@ -97,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         !MenuBarSettings.isShown
     }
 
-    /// A click on the low-space notification brings Roomy forward.
+    /// A click on the low-space notification brings RoomyDisk forward.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         NSApplication.shared.activate(ignoringOtherApps: true)

@@ -23,7 +23,7 @@ struct AlertSettingsView: View {
                 }
                 .disabled(!alertEnabled)
                 if permissionDenied {
-                    Text("Notifications for Roomy are off. Turn them on in System Settings, under Notifications.")
+                    Text("Notifications for RoomyDisk are off. Turn them on in System Settings, under Notifications.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .transition(.opacity)

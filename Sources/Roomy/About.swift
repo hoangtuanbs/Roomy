@@ -20,8 +20,8 @@ enum About {
         components.scheme = "mailto"
         components.path = supportEmail
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Roomy \(version) support"),
-            URLQueryItem(name: "body", value: "Describe the problem here:\n\n\n---\nRoomy \(version)\nmacOS \(os)"),
+            URLQueryItem(name: "subject", value: "RoomyDisk \(version) support"),
+            URLQueryItem(name: "body", value: "Describe the problem here:\n\n\n---\nRoomyDisk \(version)\nmacOS \(os)"),
         ]
         return components.url
     }
@@ -57,7 +57,7 @@ enum About {
     static func showSupportAddress() {
         let alert = NSAlert()
         alert.messageText = "Email us at \(supportEmail)"
-        alert.informativeText = "Roomy could not open an email app. Copy the address and write to us from your email."
+        alert.informativeText = "RoomyDisk could not open an email app. Copy the address and write to us from your email."
         alert.addButton(withTitle: "Copy Address")
         alert.addButton(withTitle: "OK")
         if alert.runModal() == .alertFirstButtonReturn {

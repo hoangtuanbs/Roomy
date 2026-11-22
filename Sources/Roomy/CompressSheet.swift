@@ -36,7 +36,7 @@ struct CompressSheet: View {
                 .font(.title2.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Roomy makes a .zip next to each item and checks that it reads back correctly. Only then is the original moved to the Trash. If a zip saves less than 10%, Roomy keeps that original and removes the zip. The space is freed when you empty the Trash.")
+            Text("RoomyDisk makes a .zip next to each item and checks that it reads back correctly. Only then is the original moved to the Trash. If a zip saves less than 10%, RoomyDisk keeps that original and removes the zip. The space is freed when you empty the Trash.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 

@@ -152,7 +152,7 @@ final class AppModel {
         installKeyMonitor()
         QuickLook.shared.onMove = { [weak self] delta in self?.moveSelection(by: delta) }
 
-        // `Roomy --scan <folder>` starts scanning that folder right away.
+        // `RoomyDisk --scan <folder>` starts scanning that folder right away.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--scan"), i + 1 < args.count {
             showOnboarding = false

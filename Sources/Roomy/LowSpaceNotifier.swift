@@ -38,7 +38,7 @@ enum LowSpaceNotifier {
         guard await requestPermission() else { return }
         let content = UNMutableNotificationContent()
         content.title = "Your disk is almost full"
-        content.body = "\(ByteFormat.string(free)) free. Open Roomy to free up space."
+        content.body = "\(ByteFormat.string(free)) free. Open RoomyDisk to free up space."
         content.sound = .default
         let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
         do {

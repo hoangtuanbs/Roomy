@@ -1,10 +1,10 @@
-<p align="center"><img src="Resources/AppIcon-1024.png" width="160" alt="Roomy icon"></p>
+<p align="center"><img src="Resources/AppIcon-1024.png" width="160" alt="RoomyDisk icon"></p>
 
-# Roomy
+# RoomyDisk
 
 A macOS app that shows what is using space on your disk and helps you free it up safely.
 
-![Roomy main view](docs/screenshot.png)
+![RoomyDisk main view](docs/screenshot.png)
 
 *Folders sorted by size on the left and a treemap of the same folder on the right, with two items ticked for cleanup.*
 
@@ -29,7 +29,7 @@ A macOS app that shows what is using space on your disk and helps you free it up
   single items. **Clean** moves the ticked items to the Trash. Caches of macOS and of apps that are open are left alone.
   The Trash is shown on its own card, and emptying it, the one thing that cannot be undone, asks first.
 - **Disk overview** above the results shows where the disk's space goes, like DaisyDisk: a bar with what the scan
-  found, **hidden** space (used, but not found: files Roomy cannot read without Full Disk Access, macOS system files and
+  found, **hidden** space (used, but not found: files RoomyDisk cannot read without Full Disk Access, macOS system files and
   snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
   Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
   snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
@@ -51,13 +51,13 @@ A macOS app that shows what is using space on your disk and helps you free it up
   may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
   items to the Trash. Apps of macOS are not listed, and an app
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
-  Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
+  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
   no longer installed. They are guesses, so nothing there is ticked until you review it.
 - **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
   external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
-  **Open Roomy**, **Smart Clean…** and **Quit** are a click away. Roomy keeps running in the menu bar after its window closes.
-- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), Roomy sends one
-  notification a day, "Your disk is almost full". Clicking it opens Roomy. Roomy asks for notification permission only
+  **Open RoomyDisk**, **Smart Clean…** and **Quit** are a click away. RoomyDisk keeps running in the menu bar after its window closes.
+- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), RoomyDisk sends one
+  notification a day, "Your disk is almost full". Clicking it opens RoomyDisk. RoomyDisk asks for notification permission only
   when you turn the alert on, and it does nothing if you say no.
 - **Export as CSV…** (File menu, ⇧⌘E, or the toolbar's CSV button) saves the current folder as a CSV file: path, name,
   kind, category, size in bytes and as text, modified date (ISO 8601) and item count for folders. Choose to include the
@@ -73,14 +73,14 @@ macOS 14 or later, and Swift 5.10 or later (Xcode or the Command Line Tools).
 ## Build
 
 ```sh
-./scripts/build-app.sh            # builds build/Roomy.app and build/Roomy.zip
+./scripts/build-app.sh            # builds build/RoomyDisk.app and build/RoomyDisk.zip
 ./scripts/build-app.sh --install  # also copies it to /Applications
-open build/Roomy.app
+open build/RoomyDisk.app
 ```
 
 The app is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time.
 
-For complete sizes, give Roomy Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
+For complete sizes, give RoomyDisk Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
 
 There is also a command-line scanner:
 
@@ -94,7 +94,7 @@ Each push to `main` and each pull request is built by the **Build** workflow; th
 
 To publish a version, open **Actions → Release → Run workflow** on GitHub and pick `patch`, `minor` or `major`.
 The workflow takes the latest `vX.Y.Z` tag, bumps it, stamps the number into the app, builds it and publishes a
-GitHub Release with `Roomy-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
+GitHub Release with `RoomyDisk-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
 
 ```sh
 git tag v1.0.0 && git push origin v1.0.0
@@ -102,7 +102,7 @@ git tag v1.0.0 && git push origin v1.0.0
 
 Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a version number.
 
-`build/Roomy.app/Contents/MacOS/Roomy --scan <folder>` opens Roomy already scanning a folder. Adding
+`build/RoomyDisk.app/Contents/MacOS/RoomyDisk --scan <folder>` opens RoomyDisk already scanning a folder. Adding
 `--snapshot <file.png>` saves the window as an image and quits, which is how `docs/screenshot.png` is made.
 
 ## Layout
@@ -124,7 +124,7 @@ Bugs and ideas are also welcome as [GitHub issues](https://github.com/hoangtuanb
 
 ## Support the project
 
-Roomy is free. If it helped you, you can donate in Ethereum (also in the app under **Help → Donate…**):
+RoomyDisk is free. If it helped you, you can donate in Ethereum (also in the app under **Help → Donate…**):
 
 <img src="docs/donate-qr.png" width="180" alt="QR code for the Ethereum donation address">
 

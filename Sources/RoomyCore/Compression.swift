@@ -90,7 +90,7 @@ public struct CompressionService: Sendable {
         if Double(archiveBytes) > Double(originalBytes) * (1 - minimumSaving) {
             discardArchive()
             let percent = Int((minimumSaving * 100).rounded())
-            return failure("Compressing would save less than \(percent)%, so Roomy kept the original and removed the archive.")
+            return failure("Compressing would save less than \(percent)%, so RoomyDisk kept the original and removed the archive.")
         }
 
         do {

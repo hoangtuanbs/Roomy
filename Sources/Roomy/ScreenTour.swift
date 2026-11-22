@@ -1,6 +1,6 @@
 import AppKit
 
-/// Developer option for CI: `Roomy --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
+/// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
 /// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Disk overview) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor

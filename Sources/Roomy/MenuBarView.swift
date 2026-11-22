@@ -3,7 +3,7 @@ import RoomyCore
 import SwiftUI
 
 extension Notification.Name {
-    /// Posted when the user clicks a Roomy notification. The menu bar label opens the main window.
+    /// Posted when the user clicks a RoomyDisk notification. The menu bar label opens the main window.
     static let roomyShowMain = Notification.Name("roomyShowMain")
 }
 
@@ -42,7 +42,7 @@ struct MenuBarView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
             Divider()
-            MenuBarAction(title: "Open Roomy", symbol: "macwindow") { openMain() }
+            MenuBarAction(title: "Open RoomyDisk", symbol: "macwindow") { openMain() }
             MenuBarAction(title: "Smart Clean…", symbol: "sparkles") {
                 model.openSmartClean()
                 openMain()

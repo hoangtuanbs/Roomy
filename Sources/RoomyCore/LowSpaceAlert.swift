@@ -1,6 +1,6 @@
 import Foundation
 
-/// When Roomy should warn that the startup disk is almost full.
+/// When RoomyDisk should warn that the startup disk is almost full.
 public enum LowSpaceAlert {
     /// At most one alert per this interval.
     public static let repeatInterval: TimeInterval = 24 * 60 * 60

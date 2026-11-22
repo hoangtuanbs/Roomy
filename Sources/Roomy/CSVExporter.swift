@@ -26,6 +26,6 @@ enum CSVExporter {
 
     private static func fileName(for tree: ScanTree, folder: ScanTree.Index) -> String {
         let base = (tree.name(folder) as NSString).lastPathComponent
-        return (base.isEmpty || base == "/" ? "Roomy" : base) + ".csv"
+        return (base.isEmpty || base == "/" ? "RoomyDisk" : base) + ".csv"
     }
 }

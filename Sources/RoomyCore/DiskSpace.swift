@@ -33,7 +33,7 @@ public struct DiskSpace: Sendable, Equatable {
     /// Purgeable space that is not already part of what the scan found.
     public var purgeableShown: Int64 { min(purgeable, used - scanned) }
 
-    /// Used space that is neither found by the scan nor purgeable: files Roomy cannot read,
+    /// Used space that is neither found by the scan nor purgeable: files RoomyDisk cannot read,
     /// system files in hidden volumes, and snapshots.
     public var hidden: Int64 { max(0, used - scanned - purgeableShown) }
 

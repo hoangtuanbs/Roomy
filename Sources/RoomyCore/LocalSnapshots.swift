@@ -40,7 +40,7 @@ public enum LocalSnapshotError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .cannotDelete(let name): return "\(name) was not made by Time Machine, so Roomy leaves it alone."
+        case .cannotDelete(let name): return "\(name) was not made by Time Machine, so RoomyDisk leaves it alone."
         case .failed(let message): return message
         }
     }

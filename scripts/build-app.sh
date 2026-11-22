@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-APP="build/Roomy.app"
+APP="build/RoomyDisk.app"
 swift build -c release --product Roomy
 BIN="$(swift build -c release --show-bin-path)/Roomy"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Roomy"
+cp "$BIN" "$APP/Contents/MacOS/RoomyDisk"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [[ -f Resources/AppIcon.icns ]] || swift scripts/make-icon.swift
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
@@ -20,10 +20,10 @@ if [[ -n "${BUILD_NUMBER:-}" ]]; then
 fi
 codesign --force --sign - --identifier io.github.hoangtuanbs.Roomy "$APP"
 touch "$APP"
-rm -f build/Roomy.zip
-ditto -c -k --keepParent "$APP" build/Roomy.zip
-echo "Built $APP and build/Roomy.zip"
+rm -f build/RoomyDisk.zip
+ditto -c -k --keepParent "$APP" build/RoomyDisk.zip
+echo "Built $APP and build/RoomyDisk.zip"
 if [[ "${1:-}" == "--install" ]]; then
-    rm -rf /Applications/Roomy.app
-    cp -R "$APP" /Applications/Roomy.app
+    rm -rf /Applications/RoomyDisk.app
+    cp -R "$APP" /Applications/RoomyDisk.app
 fi

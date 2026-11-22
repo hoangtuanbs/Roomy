@@ -408,7 +408,7 @@ private struct TrashResultBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Erased \(result.erased.count) \(result.erased.count == 1 ? "item" : "items") from the Trash, \(result.freedBytes.bytes) freed.")
                 if !result.failed.isEmpty {
-                    Text("\(result.failed.count) could not be erased. Roomy may need Full Disk Access.")
+                    Text("\(result.failed.count) could not be erased. RoomyDisk may need Full Disk Access.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

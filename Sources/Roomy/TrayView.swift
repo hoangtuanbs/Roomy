@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    /// An item of the current scan dragged inside Roomy. Declared in Info.plist.
+    /// An item of the current scan dragged inside RoomyDisk. Declared in Info.plist.
     static let roomyItem = UTType(exportedAs: "io.github.hoangtuanbs.Roomy.item")
 }
 

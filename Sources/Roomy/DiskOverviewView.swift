@@ -270,14 +270,14 @@ private struct PartExplanation: View {
                     Text("Space the disk counts as used that the scan could not find. It is usually:")
                         .fixedSize(horizontal: false, vertical: true)
                     VStack(alignment: .leading, spacing: 4) {
-                        bullet("Files Roomy cannot read without Full Disk Access, such as Mail, Messages and other apps' data.")
+                        bullet("Files RoomyDisk cannot read without Full Disk Access, such as Mail, Messages and other apps' data.")
                         bullet("macOS system files in hidden volumes: the swap file, sleep image, updates and the recovery system.")
                         bullet("Local snapshots, the part macOS cannot free on its own.")
                     }
                     if !model.hasFullDiskAccess {
                         HStack(spacing: 6) {
                             Image(systemName: "lock.trianglebadge.exclamationmark").foregroundStyle(.orange)
-                            Text("Full Disk Access is off, so some of this is files Roomy could not read.")
+                            Text("Full Disk Access is off, so some of this is files RoomyDisk could not read.")
                                 .font(.callout)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -291,7 +291,7 @@ private struct PartExplanation: View {
                         .buttonStyle(.borderedProminent)
                     }
                 } else {
-                    Text("Everything on this disk outside the scanned folder, plus files Roomy cannot see. Scan the whole disk to see where it goes.")
+                    Text("Everything on this disk outside the scanned folder, plus files RoomyDisk cannot see. Scan the whole disk to see where it goes.")
                         .fixedSize(horizontal: false, vertical: true)
                     if let volume = disk.volumePath {
                         Button("Scan \(disk.volumeName)") {
@@ -463,7 +463,7 @@ private struct ErrorBanner: View {
                 Text(message)
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("If macOS refused, turn on Full Disk Access for Roomy and try again.")
+                Text("If macOS refused, turn on Full Disk Access for RoomyDisk and try again.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
