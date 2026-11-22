@@ -8,6 +8,8 @@ struct RawEntry: Sendable {
     var name: String
     var kind: NodeKind
     var allocated: Int64
+    /// The file's length in bytes, as opposed to the space it takes on disk.
+    var length: Int64 = 0
     var device: UInt64
     var inode: UInt64
     var linkCount: UInt64
@@ -62,6 +64,7 @@ enum DirectoryReader {
             name: name,
             kind: kind,
             allocated: Int64(st.st_blocks) * 512,
+            length: Int64(st.st_size),
             device: UInt64(truncatingIfNeeded: st.st_dev),
             inode: UInt64(truncatingIfNeeded: st.st_ino),
             linkCount: UInt64(truncatingIfNeeded: st.st_nlink),

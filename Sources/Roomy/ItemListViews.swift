@@ -1,20 +1,66 @@
 import RoomyCore
 import SwiftUI
 
-struct FolderListView: View {
+/// The actions for one item, shared by the lists, the treemap, the rings and the tray.
+struct NodeMenu: View {
     @Environment(AppModel.self) private var model
+    let node: ScanTree.Index
 
     var body: some View {
+        if let tree = model.tree {
+            let kind = tree.kind(node)
+            if kind == .directory {
+                Button("Open Folder") { model.open(node) }
+            }
+            Button("Quick Look") { model.quickLook(node) }
+            Button("Reveal in Finder") { model.reveal(node) }
+            Button("Copy Path") { model.copyPath(node) }
+            if kind.isContainer {
+                Button("Rescan This Folder") { model.rescanSubtree(node) }
+                    .disabled(!model.canRescanSubtree)
+            }
+            Divider()
+            Button(model.isInBasket(node) ? "Remove from Tray" : "Add to Tray") {
+                if model.isInBasket(node) { model.toggleBasket(node) } else { model.addToTray(node) }
+            }
+            .disabled(model.verdict(for: node).isBlocked)
+            Button("Compress and Move Original to Trash…") { model.startCompress(node) }
+                .disabled(!model.canCompress(node))
+        }
+    }
+}
+
+extension View {
+    /// Selection, double-click and the context menu for a list of scan items.
+    @MainActor
+    func itemListActions(_ model: AppModel) -> some View {
+        contextMenu(forSelectionType: ScanTree.Index.self) { nodes in
+            if let node = nodes.first { NodeMenu(node: node) }
+        } primaryAction: { nodes in
+            if let node = nodes.first { model.activate(node) }
+        }
+    }
+}
+
+struct FolderListView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        @Bindable var model = model
         let children = model.visibleChildren
         if let tree = model.tree {
             if children.isEmpty {
                 ContentUnavailableView(model.searchText.isEmpty ? "This folder is empty" : "No matches", systemImage: "folder")
             } else {
                 let parentSize = max(1, tree.size(model.currentFolder))
-                List(children, id: \.self) { node in
+                List(children, id: \.self, selection: $model.selection) { node in
                     ItemRow(node: node, fraction: Double(tree.size(node)) / Double(parentSize), showsPath: false)
                 }
                 .listStyle(.inset)
+                .itemListActions(model)
+                // Only short lists animate their rows, so a folder with thousands of items stays quick.
+                .animation(Motion.list(children.count, reduceMotion), value: children)
             }
         }
     }
@@ -22,6 +68,7 @@ struct FolderListView: View {
 
 struct BiggestFilesView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var model = model
@@ -51,10 +98,12 @@ struct BiggestFilesView: View {
                     ContentUnavailableView("No files match", systemImage: "doc.text.magnifyingglass")
                 } else {
                     let largest = max(1, tree.size(files[0]))
-                    List(files, id: \.self) { node in
+                    List(files, id: \.self, selection: $model.selection) { node in
                         ItemRow(node: node, fraction: Double(tree.size(node)) / Double(largest), showsPath: true)
                     }
                     .listStyle(.inset)
+                    .itemListActions(model)
+                    .animation(Motion.list(files.count, reduceMotion), value: files)
                 }
             }
         }
@@ -82,7 +131,7 @@ struct ItemRow: View {
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .disabled(verdict.isBlocked)
-                .help(verdict.message ?? "Add to the cleanup list")
+                .help(verdict.message ?? "Collect in the tray for cleaning")
 
                 Image(systemName: category.symbol)
                     .foregroundStyle(category.color)
@@ -114,9 +163,17 @@ struct ItemRow: View {
 
                 Spacer(minLength: 8)
 
+                if model.rescanningNode == node {
+                    ProgressView()
+                        .controlSize(.small)
+                        .help("Scanning this folder again")
+                        .transition(.scale.combined(with: .opacity))
+                }
+
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(tree.size(node).bytes)
                         .monospacedDigit()
+                        .contentTransition(.numericText(value: Double(tree.size(node))))
                         .foregroundStyle(sizeColor(tree.size(node)))
                     if kind.isContainer {
                         Text("\(Int(tree.fileCount(node)).formatted()) files")
@@ -140,27 +197,11 @@ struct ItemRow: View {
             }
             .padding(.vertical, 3)
             .contentShape(Rectangle())
-            .listRowBackground(model.hovered == node ? Color.accentColor.opacity(0.12) : Color.clear)
             .onHover { inside in
                 if inside { model.hovered = node } else if model.hovered == node { model.hovered = nil }
             }
-            .onTapGesture(count: 2) {
-                if kind == .directory { model.open(node) } else { model.openItem(node) }
-            }
-            .contextMenu {
-                if kind == .directory {
-                    Button("Open Folder") { model.open(node) }
-                }
-                Button("Reveal in Finder") { model.reveal(node) }
-                Button("Copy Path") { model.copyPath(node) }
-                Divider()
-                Button(model.isInBasket(node) ? "Remove from Cleanup List" : "Add to Cleanup List") {
-                    model.toggleBasket(node)
-                }
-                .disabled(verdict.isBlocked)
-                Button("Compress and Move Original to Trash…") { model.startCompress(node) }
-                    .disabled(!model.canCompress(node))
-            }
+            .trayDraggable(node, model: model)
+            .motion(Motion.quick, value: model.rescanningNode == node)
         }
     }
 

@@ -9,6 +9,14 @@ enum ContentTab: String, CaseIterable, Identifiable {
     var id: Self { self }
 }
 
+enum MapStyle: String, CaseIterable, Identifiable {
+    case treemap = "Treemap"
+    case rings = "Rings"
+    var id: Self { self }
+
+    var symbol: String { self == .treemap ? "square.grid.2x2" : "circle.circle" }
+}
+
 enum ScanState {
     case idle
     case scanning(ScanProgress)
@@ -18,6 +26,16 @@ enum ScanState {
     var isScanning: Bool {
         if case .scanning = self { return true }
         return false
+    }
+
+    /// Which kind of state this is, without the progress, so a view can animate between them.
+    var phase: Int {
+        switch self {
+        case .idle: return 0
+        case .scanning: return 1
+        case .ready: return 2
+        case .failed: return 3
+        }
     }
 }
 
@@ -61,6 +79,15 @@ final class AppModel {
     private var scanTask: Task<Void, Never>?
 
     var currentFolder: ScanTree.Index = ScanTree.root
+    /// The item chosen in a list, the treemap or the rings. Space shows it in Quick Look.
+    var selection: ScanTree.Index? {
+        didSet { if selection != oldValue { updateQuickLook() } }
+    }
+    /// True while the last move went to an enclosing folder, so the map zooms out instead of in.
+    private(set) var zoomingOut = false
+    var mapStyle: MapStyle = MapStyle(rawValue: UserDefaults.standard.string(forKey: "mapStyle") ?? "") ?? .treemap {
+        didSet { UserDefaults.standard.set(mapStyle.rawValue, forKey: "mapStyle") }
+    }
     var tab: ContentTab = .folders
     var searchText = ""
     var hovered: ScanTree.Index?
@@ -68,7 +95,11 @@ final class AppModel {
     var ageFilter: AgeFilter = .any
     private(set) var biggestFiles: [ScanTree.Index] = []
 
+    /// The tray: items collected for cleaning, by dragging, the context menu or the tick boxes.
     var basket: Set<ScanTree.Index> = []
+    /// A short note shown in the tray, such as why an item could not be added.
+    var trayNotice: String?
+    private var trayNoticeTask: Task<Void, Never>?
     var showReview = false
     var lastReport: CleanupReport?
     var isCleaning = false
@@ -82,6 +113,28 @@ final class AppModel {
     var compressResults: [CompressionResult]?
     private var compressTask: Task<Void, Never>?
 
+    let smartClean = SmartCleanModel()
+    let diskOverview = DiskOverviewModel()
+    var showSmartClean = false
+    let duplicates = DuplicatesModel()
+    var showDuplicates = false
+    let uninstaller = UninstallerModel()
+    var showUninstaller = false
+
+    /// When the shown results were scanned. Older than now when they came from the cache.
+    private(set) var scannedAt: Date?
+    /// True while a fresh scan runs behind results that are already shown.
+    private(set) var isRefreshing = false
+    private(set) var refreshProgress: ScanProgress?
+    private(set) var refreshError: String?
+    /// Paths removed while a fresh scan ran; they are dropped from its result too.
+    private var removedDuringRefresh: [String] = []
+    /// The folder being scanned again on its own.
+    private(set) var rescanningNode: ScanTree.Index?
+    private var subtreeTask: Task<Void, Never>?
+    let scanCache = ScanCache.standard(bundleID: Bundle.main.bundleIdentifier ?? "io.github.hoangtuanbs.Roomy")
+    private var keyMonitor: Any?
+
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
 
@@ -90,14 +143,24 @@ final class AppModel {
 
     init() {
         refreshLocations()
+        smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
         showOnboarding = !hasFullDiskAccess && !dismissed
+
+        installKeyMonitor()
+        QuickLook.shared.onMove = { [weak self] delta in self?.moveSelection(by: delta) }
 
         // `Roomy --scan <folder>` starts scanning that folder right away.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--scan"), i + 1 < args.count {
             showOnboarding = false
-            scan(path: (args[i + 1] as NSString).expandingTildeInPath)
+            scan(path: (args[i + 1] as NSString).expandingTildeInPath, useCache: false)
+        } else if let last = UserDefaults.standard.string(forKey: "lastScanPath"),
+                  FileManager.default.fileExists(atPath: scanCache.filePath(forRoot: last)) {
+            // Show the last scan at once from the cache while a fresh one runs.
+            scan(path: last)
         }
         // Developer option for the README screenshot: `--snapshot <file.png>` (with --scan) waits for the
         // scan, ticks the two largest items, saves the window as a PNG and quits. Nothing is moved or changed.
@@ -127,10 +190,13 @@ final class AppModel {
                 NSApplication.shared.terminate(nil)
             }
         }
+        if let i = args.firstIndex(of: "--tour"), i + 1 < args.count {
+            ScreenTour.run(model: self, into: (args[i + 1] as NSString).expandingTildeInPath)
+        }
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             let output = (args[i + 1] as NSString).expandingTildeInPath
             Task { [weak self] in
-                while let self, self.state.isScanning { try? await Task.sleep(for: .milliseconds(200)) }
+                while let self, self.state.isScanning || self.isRefreshing { try? await Task.sleep(for: .milliseconds(200)) }
                 guard let self, let tree = self.tree else { return }
                 NSApplication.shared.appearance = NSAppearance(named: .aqua)
                 for node in tree.children(ScanTree.root).prefix(2) { self.toggleBasket(node) }
@@ -223,58 +289,214 @@ final class AppModel {
 
     func isPinned(_ path: String) -> Bool { pinnedPaths.contains(path) }
 
-    func scan(path: String) {
+    /// Shows `path`: its cached scan at once when there is one, while a fresh scan runs.
+    func scan(path: String, useCache: Bool = true) {
         scanTask?.cancel()
+        subtreeTask?.cancel()
+        rescanningNode = nil
         selectedPath = path
         state = .scanning(ScanProgress())
         tree = nil
         basket = []
         biggestFiles = []
         currentFolder = ScanTree.root
+        selection = nil
         hovered = nil
         lastReport = nil
+        scannedAt = nil
+        isRefreshing = false
+        refreshProgress = nil
+        refreshError = nil
+        removedDuringRefresh = []
+        UserDefaults.standard.set(path, forKey: "lastScanPath")
 
+        let cache = scanCache
         scanTask = Task { [weak self] in
-            do {
-                let result = try await DiskScanner().scan(root: path) { [weak self] progress in
-                    Task { @MainActor in
-                        guard let self, self.selectedPath == path, self.state.isScanning else { return }
+            if useCache {
+                let cached = await Task.detached(priority: .userInitiated) { () -> (tree: ScanTree, date: Date)? in
+                    cache.load(root: path).map { (tree: ScanTree(snapshot: $0), date: $0.scannedAt) }
+                }.value
+                guard let self, !Task.isCancelled, self.selectedPath == path else { return }
+                if let cached {
+                    self.install(cached.tree, scannedAt: cached.date, keepPlace: false)
+                    self.isRefreshing = true
+                }
+            }
+            await self?.runScan(path: path)
+        }
+    }
+
+    /// Scans `path` and shows the result. When results are shown already, they stay until the new ones are in.
+    private func runScan(path: String) async {
+        do {
+            let result = try await DiskScanner().scan(root: path) { [weak self] progress in
+                Task { @MainActor in
+                    guard let self, self.selectedPath == path else { return }
+                    if self.isRefreshing {
+                        self.refreshProgress = progress
+                    } else if self.state.isScanning {
                         self.state = .scanning(progress)
                     }
                 }
-                guard let self, !Task.isCancelled else { return }
-                self.tree = result
-                self.biggestFiles = result.largestFiles(limit: 500)
-                self.treeVersion += 1
-                self.state = .ready
-            } catch is CancellationError {
-            } catch {
-                self?.state = .failed(error.localizedDescription)
+            }
+            guard !Task.isCancelled, selectedPath == path else { return }
+            for removed in removedDuringRefresh {
+                if let node = result.index(ofPath: removed) { result.detach(node) }
+            }
+            let keep = isRefreshing
+            install(result, scannedAt: Date(), keepPlace: keep)
+            saveCache()
+        } catch is CancellationError {
+        } catch {
+            guard selectedPath == path else { return }
+            if isRefreshing {
+                refreshError = error.localizedDescription
+                isRefreshing = false
+                refreshProgress = nil
+            } else {
+                state = .failed(error.localizedDescription)
             }
         }
     }
 
+    /// Shows a new tree. With `keepPlace`, the open folder, the selection and the tray carry over by path.
+    private func install(_ new: ScanTree, scannedAt date: Date, keepPlace: Bool) {
+        subtreeTask?.cancel()
+        rescanningNode = nil
+        var folderPath: String?
+        var selectionPath: String?
+        var trayPaths: [String] = []
+        if keepPlace, let old = tree {
+            folderPath = old.path(of: currentFolder)
+            selectionPath = selection.map { old.path(of: $0) }
+            trayPaths = basket.map { old.path(of: $0) }
+        }
+        tree = new
+        biggestFiles = new.largestFiles(limit: 500)
+        currentFolder = folderPath.flatMap { new.index(ofPath: $0) } ?? ScanTree.root
+        selection = selectionPath.flatMap { new.index(ofPath: $0) }
+        basket = Set(trayPaths.compactMap { new.index(ofPath: $0) })
+        hovered = nil
+        scannedAt = date
+        isRefreshing = false
+        refreshProgress = nil
+        refreshError = nil
+        removedDuringRefresh = []
+        treeVersion += 1
+        state = .ready
+    }
+
+    /// Saves the shown tree for next time, off the main thread.
+    private func saveCache() {
+        guard let tree, let scannedAt else { return }
+        let snapshot = tree.snapshot(scannedAt: scannedAt)
+        let cache = scanCache
+        Task.detached(priority: .utility) { try? cache.save(snapshot) }
+    }
+
+    /// Notes paths that were moved to the Trash, so a fresh scan that is running leaves them out.
+    private func noteRemoved(_ paths: [String]) {
+        if isRefreshing { removedDuringRefresh.append(contentsOf: paths) }
+        saveCache()
+    }
+
+    var canRescanSubtree: Bool {
+        guard case .ready = state else { return false }
+        return !isRefreshing && rescanningNode == nil
+    }
+
+    /// Scans one folder again and puts the result in place of what the tree had for it.
+    func rescanSubtree(_ node: ScanTree.Index) {
+        guard let tree, canRescanSubtree, tree.kind(node).isContainer else { return }
+        if node == ScanTree.root {
+            rescan()
+            return
+        }
+        let path = tree.path(of: node)
+        rescanningNode = node
+        subtreeTask = Task { [weak self] in
+            let fresh = try? await DiskScanner().scan(root: path)
+            guard let self, !Task.isCancelled else { return }
+            self.rescanningNode = nil
+            // Skip it if a new scan replaced the tree meanwhile, or the folder went to the Trash.
+            guard let fresh, let current = self.tree, current === tree, !current.flags(node).contains(.removed) else { return }
+            current.replaceSubtree(node, with: fresh)
+            self.basket = self.basket.filter { !current.flags($0).contains(.removed) }
+            if let selection = self.selection, current.flags(selection).contains(.removed) { self.selection = nil }
+            if current.flags(self.currentFolder).contains(.removed) { self.currentFolder = node }
+            self.biggestFiles = current.largestFiles(limit: 500)
+            self.treeVersion += 1
+            self.saveCache()
+        }
+    }
+
+    /// What the current scan found, minus what was removed since.
+    var scannedBytes: Int64 { tree?.size(ScanTree.root) ?? 0 }
+
+    /// Reads the space of the scanned disk again, for the disk overview.
+    func refreshDiskOverview() {
+        guard let tree else { return }
+        diskOverview.refresh(scanRoot: tree.rootPath, scanned: tree.size(ScanTree.root))
+    }
+
     func cancelScan() {
+        if isRefreshing {
+            // Keep the results that are shown.
+            scanTask?.cancel()
+            scanTask = nil
+            isRefreshing = false
+            refreshProgress = nil
+            return
+        }
         scanTask?.cancel()
         scanTask = nil
         state = .idle
         selectedPath = nil
     }
 
+    /// Scans the shown folder again. The current results stay on screen until the new ones are in.
     func rescan() {
         guard let path = tree?.rootPath ?? selectedPath else { return }
-        scan(path: path)
+        guard tree != nil, case .ready = state else {
+            scan(path: path, useCache: false)
+            return
+        }
+        guard !isRefreshing else { return }
+        scanTask?.cancel()
+        subtreeTask?.cancel()
+        rescanningNode = nil
+        isRefreshing = true
+        refreshError = nil
+        removedDuringRefresh = []
+        scanTask = Task { [weak self] in await self?.runScan(path: path) }
     }
 
     func open(_ node: ScanTree.Index) {
         guard let tree, tree.kind(node) == .directory else { return }
+        zoomingOut = false
         currentFolder = node
         hovered = nil
     }
 
     func goUp() {
         guard let tree, let parent = tree.parent(currentFolder) else { return }
+        zoomingOut = true
         currentFolder = parent
+        hovered = nil
+    }
+
+    /// Shows `node`, from the path bar.
+    func go(to node: ScanTree.Index) {
+        guard let tree, node != currentFolder else { return }
+        zoomingOut = tree.isAncestor(node, of: currentFolder)
+        currentFolder = node
+        hovered = nil
+    }
+
+    /// Opens a folder, or opens a file in its app. Double-click and Return do this.
+    func activate(_ node: ScanTree.Index) {
+        guard let tree else { return }
+        if tree.kind(node) == .directory { open(node) } else { openItem(node) }
     }
 
     var breadcrumb: [ScanTree.Index] {
@@ -334,6 +556,64 @@ final class AppModel {
         NSPasteboard.general.setString(path(of: node), forType: .string)
     }
 
+    // MARK: Quick Look
+
+    /// The items the arrow keys move through: the list on screen when it holds the selection, otherwise its siblings.
+    private var selectionContext: [ScanTree.Index] {
+        guard let tree, let selection else { return [] }
+        let list = tab == .folders ? visibleChildren : filteredBiggestFiles
+        if list.contains(selection) { return list }
+        if let parent = tree.parent(selection) { return tree.children(parent) }
+        return [selection]
+    }
+
+    func moveSelection(by delta: Int) {
+        let list = selectionContext
+        guard let selection, let i = list.firstIndex(of: selection) else { return }
+        let next = min(max(0, i + delta), list.count - 1)
+        if next != i { self.selection = list[next] }
+    }
+
+    func quickLook(_ node: ScanTree.Index) {
+        selection = node
+        QuickLook.shared.show(URL(fileURLWithPath: path(of: node)))
+    }
+
+    func toggleQuickLook() {
+        if QuickLook.shared.isVisible {
+            QuickLook.shared.close()
+        } else if let selection {
+            quickLook(selection)
+        }
+    }
+
+    private func updateQuickLook() {
+        guard QuickLook.shared.isVisible, let selection, tree != nil else { return }
+        QuickLook.shared.show(URL(fileURLWithPath: path(of: selection)))
+    }
+
+    private var anySheetOpen: Bool {
+        showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showOnboarding
+    }
+
+    /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let self, event.keyCode == 49,
+                      event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+                      let window = event.window, !(window is NSPanel), window.attachedSheet == nil,
+                      !(window.firstResponder is NSText), !self.anySheetOpen,
+                      self.selection != nil, case .ready = self.state else { return false }
+                self.toggleQuickLook()
+                return true
+            }
+            return handled ? nil : event
+        }
+    }
+
+    // MARK: Tray
+
     func isInBasket(_ node: ScanTree.Index) -> Bool {
         guard let tree else { return false }
         if basket.contains(node) { return true }
@@ -350,6 +630,36 @@ final class AppModel {
         guard !verdict(for: node).isBlocked else { return }
         basket = basket.filter { !tree.isAncestor(node, of: $0) }
         basket.insert(node)
+    }
+
+    /// Adds an item to the tray. Returns false when it is there already or may not be removed.
+    @discardableResult
+    func addToTray(_ node: ScanTree.Index) -> Bool {
+        guard let tree, !isInBasket(node) else { return false }
+        let verdict = verdict(for: node)
+        if verdict.isBlocked {
+            showTrayNotice("\(tree.name(node)) can’t be added. \(verdict.message ?? "")")
+            return false
+        }
+        basket = basket.filter { !tree.isAncestor(node, of: $0) }
+        basket.insert(node)
+        return true
+    }
+
+    /// Adds dropped items to the tray by path. Returns how many were added.
+    func addToTray(paths: [String]) -> Int {
+        guard let tree else { return 0 }
+        return paths.compactMap { tree.index(ofPath: $0) }.filter { addToTray($0) }.count
+    }
+
+    private func showTrayNotice(_ text: String) {
+        trayNotice = text
+        trayNoticeTask?.cancel()
+        trayNoticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.trayNotice = nil
+        }
     }
 
     var basketBytes: Int64 {
@@ -405,7 +715,54 @@ final class AppModel {
         basket = []
         lastReport = report
         isCleaning = false
+        if let selection, tree?.flags(selection).contains(.removed) == true { self.selection = nil }
+        biggestFiles = tree?.largestFiles(limit: 500) ?? []
         treeVersion += 1
+        noteRemoved(report.succeeded.map(\.path))
+        refreshLocations()
+    }
+
+    /// Opens Smart Clean and looks for junk again, unless it is busy.
+    /// Saves the current folder as CSV. Depth 1 lists its children; larger depths add the folders inside them.
+    func exportCSV(depth: Int) {
+        guard let tree else { return }
+        CSVExporter.save(tree: tree, folder: currentFolder, depth: depth)
+    }
+
+    func openSmartClean() {
+        showSmartClean = true
+        if !smartClean.isBusy { smartClean.scan(tree: state.isScanning ? nil : tree) }
+    }
+
+    /// Opens Duplicates and looks in the current scan again, unless it is busy.
+    func openDuplicates() {
+        showDuplicates = true
+        if !duplicates.isBusy { findDuplicates() }
+    }
+
+    /// Looks for duplicates in the current scan. Without a finished scan, Duplicates asks for a folder.
+    func findDuplicates() {
+        duplicates.scan(tree: state.isScanning ? nil : tree, folder: nil)
+    }
+
+    /// Opens the Uninstaller and reads the installed apps again, unless it is busy.
+    func openUninstaller() {
+        showUninstaller = true
+        if !uninstaller.isBusy && uninstaller.phase != .done { uninstaller.load() }
+    }
+
+    /// Drops items that Smart Clean, Duplicates or the Uninstaller removed from the current scan.
+    private func applyRemoved(_ paths: [String]) {
+        if let tree, !paths.isEmpty {
+            for path in paths {
+                if let node = tree.index(ofPath: path) { tree.detach(node) }
+            }
+            basket = basket.filter { !tree.flags($0).contains(.removed) }
+            if let selection, tree.flags(selection).contains(.removed) { self.selection = nil }
+            biggestFiles = tree.largestFiles(limit: 500)
+            treeVersion += 1
+            noteRemoved(paths)
+        }
         refreshLocations()
     }
 
@@ -477,8 +834,10 @@ final class AppModel {
         tree.insertFile(named: (archive as NSString).lastPathComponent, in: parent,
                         size: result.archiveBytes, modified: Date())
         basket = basket.filter { !tree.flags($0).contains(.removed) }
+        if let selection, tree.flags(selection).contains(.removed) { self.selection = nil }
         biggestFiles = tree.largestFiles(limit: 500)
         treeVersion += 1
+        noteRemoved(result.succeeded ? [tree.path(of: node)] : [])
     }
 
     private func finishCompress(_ results: [CompressionResult]) {

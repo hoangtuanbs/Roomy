@@ -1,13 +1,16 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
 struct RoomyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
+    @State private var menuDisks = MenuBarDiskModel()
+    @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
 
     var body: some Scene {
-        WindowGroup("Roomy") {
+        WindowGroup("Roomy", id: "main") {
             ContentView()
                 .environment(model)
                 .frame(minWidth: 960, minHeight: 600)
@@ -24,10 +27,28 @@ struct RoomyApp: App {
                 Button("Rescan") { model.rescan() }
                     .keyboardShortcut("r")
                     .disabled(model.tree == nil)
+                Button("Export as CSV…") { model.exportCSV(depth: 1) }
+                    .keyboardShortcut("e", modifiers: [.command, .shift])
+                    .disabled(model.tree == nil)
+                Divider()
+                Button("Smart Clean…") { model.openSmartClean() }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
+                Button("Find Duplicates…") { model.openDuplicates() }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
+                Button("Uninstall Apps…") { model.openUninstaller() }
+                    .keyboardShortcut("u", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
+                Button("Quick Look") { model.toggleQuickLook() }
+                    .keyboardShortcut("y")
+                    .disabled(model.selection == nil)
+                Divider()
+                Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
+                    ForEach(MapStyle.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.inline)
             }
         }
 
@@ -35,6 +56,19 @@ struct RoomyApp: App {
             DonateView()
         }
         .windowResizability(.contentSize)
+
+        MenuBarExtra(isInserted: $showInMenuBar) {
+            MenuBarView()
+                .environment(model)
+                .environment(menuDisks)
+        } label: {
+            MenuBarLabel()
+        }
+        .menuBarExtraStyle(.window)
+
+        Settings {
+            AlertSettingsView()
+        }
     }
 }
 
@@ -51,13 +85,28 @@ struct HelpCommands: Commands {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        UNUserNotificationCenter.current().delegate = self
     }
 
+    // Keep running with the menu bar icon after the last window closes.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        !MenuBarSettings.isShown
+    }
+
+    /// A click on the low-space notification brings Roomy forward.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .roomyShowMain, object: nil)
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }

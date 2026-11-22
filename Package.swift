@@ -9,6 +9,7 @@ var products: [Product] = [
 var targets: [Target] = [
     .target(name: "RoomyCore"),
     .executableTarget(name: "roomy-scan", dependencies: ["RoomyCore"]),
+    .testTarget(name: "RoomyCoreTests", dependencies: ["RoomyCore"]),
 ]
 
 #if os(macOS)

@@ -10,9 +10,61 @@ A macOS app that shows what is using space on your disk and helps you free it up
 
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
-- **Clean up** by ticking items and choosing **Review and Clean…**. Items go to the Trash, so Put Back still works.
+- **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
+  open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
+  to zoom in and click the centre to go up.
+- **Quick Look**: select an item in a list, the treemap or the rings and press Space (or ⌘Y). The arrow keys move the
+  preview through the list.
+- **Collect** items in the **tray** at the bottom of the window: drag them there from any list, the treemap or the
+  rings, choose **Add to Tray** in the context menu, or tick them. The tray shows each item with its size and the total,
+  and **Review and Clean…** moves them to the Trash after you review them, so Put Back still works.
+- **Fast reopening**: each scan is cached in `~/Library/Caches/io.github.hoangtuanbs.Roomy/Scans`, so the last scan of
+  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while a fresh scan runs behind it. **Rescan This
+  Folder** in the context menu scans just that folder again and updates the totals around it.
+- **Smart Clean** (top of the sidebar, the toolbar, or ⇧⌘K) finds junk that is safe to remove: app caches, logs,
+  Xcode build data, device support files and simulator caches, package manager caches (npm, Yarn, pnpm, pip, Homebrew,
+  CocoaPods, Gradle, Cargo) and installers in Downloads older than 30 days. Xcode archives, simulators unused for
+  6 months and `node_modules` folders untouched for 30 days in the scanned folder are listed too, but start unticked
+  so you can review them. Each card says what the files are and what happens if you remove them; open a card to untick
+  single items. **Clean** moves the ticked items to the Trash. Caches of macOS and of apps that are open are left alone.
+  The Trash is shown on its own card, and emptying it, the one thing that cannot be undone, asks first.
+- **Disk overview** above the results shows where the disk's space goes, like DaisyDisk: a bar with what the scan
+  found, **hidden** space (used, but not found: files Roomy cannot read without Full Disk Access, macOS system files and
+  snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
+  Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
+  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
+  Space…** asks Time Machine to thin its snapshots (`tmutil thinlocalsnapshots`), or open Storage Settings instead.
+  Neither can be undone, so both ask first.
+- **Duplicates** (below Smart Clean in the sidebar, the toolbar, or ⇧⌘D) finds identical files of 1 MB or more in
+  the current scan, or in a folder you choose. Files of the same size are compared by their first and last 64 KB, and
+  only those that still match are read in full (SHA-256). Hard links, symbolic links, empty files, packages such as
+  apps and Photos libraries, Git folders and protected places are left out. Each set of copies is a card, largest
+  waste first, with thumbnails; one copy is kept (the oldest one with the plainest path, not one in Downloads or the
+  Trash or named like "photo copy.jpg"), and you can pick another with its **Keep** button. **Move Duplicates to
+  Trash** moves the rest to the Trash, never every copy.
+- **Uninstaller** (below Duplicates in the sidebar, the toolbar, or ⇧⌘U) lists the apps in `/Applications` and
+  `~/Applications` with their icons, sizes and when you last used them; search them and sort by size, name or last
+  use. Choose an app to see its bundle and the files it left in your Library, grouped (app data, caches, settings,
+  saved window state, sandbox and shared containers, web storage, WebKit data, cookies, logs and launch agents).
+  Only items named exactly by the app's bundle identifier or exact name count, never another app's files or a name
+  shared by a maker's apps. Items named by a longer, related identifier (such as `com.google.Chrome.canary` for Chrome)
+  may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
+  items to the Trash. Apps of macOS are not listed, and an app
+  that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
+  Roomy says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
+  no longer installed. They are guesses, so nothing there is ticked until you review it.
+- **Menu bar** (on by default, turn it off in Settings, ⌘,): an icon in the menu bar shows the startup disk and any
+  external disks with a bar for how full they are and their free space, refreshed every minute and when you open it.
+  **Open Roomy**, **Smart Clean…** and **Quit** are a click away. Roomy keeps running in the menu bar after its window closes.
+- **Low-space alert** (Settings): when the startup disk has less than 10 GB free (you choose 5 to 100 GB), Roomy sends one
+  notification a day, "Your disk is almost full". Clicking it opens Roomy. Roomy asks for notification permission only
+  when you turn the alert on, and it does nothing if you say no.
+- **Export as CSV…** (File menu, ⇧⌘E, or the toolbar's CSV button) saves the current folder as a CSV file: path, name,
+  kind, category, size in bytes and as text, modified date (ISO 8601) and item count for folders. Choose to include the
+  folders inside it down to 2, 3 or 5 levels.
 - **Compress and Clean…** zips items next to themselves, checks that each zip reads back, and only then moves the originals to the Trash. If an item would shrink by less than 10%, it is left alone.
 - **Safety rules** (`Sources/RoomyCore/SafetyPolicy.swift`) block system folders, your home folder, Keychains, iCloud Drive, cloud drives and Photos libraries, and warn about Library, Git repositories and running apps.
+- **Motion**: lists, the treemap, the rings and every clean move with short spring animations. Treemap tiles slide into place when items are removed, the scan shows a turning ring with a live file count, and each clean ends with the same "space freed" moment. Turn on Reduce Motion in System Settings > Accessibility > Display to keep everything still.
 
 ## Requirements
 
@@ -57,7 +109,8 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 
 | Path | What it is |
 | --- | --- |
-| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup and compression. No UI. |
+| `Sources/RoomyCore` | Scanner, scan tree, safety policy, cleanup, compression, the Smart Clean junk finder, the low-space alert rule and CSV export. No UI. |
+| `Tests/RoomyCoreTests` | Unit tests, run with `swift test`. They only use temporary folders. |
 | `Sources/Roomy` | The SwiftUI app. |
 | `Sources/roomy-scan` | Command-line scanner. |
 | `scripts/build-app.sh` | Builds and signs the app bundle. |

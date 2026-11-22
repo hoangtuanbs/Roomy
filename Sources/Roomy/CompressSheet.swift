@@ -5,15 +5,18 @@ struct CompressSheet: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Group {
+        ZStack {
             if let results = model.compressResults {
                 CompressResultView(results: results)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
             } else if let tree = model.tree {
                 confirm(tree: tree)
+                    .transition(.opacity)
             } else {
                 Button("Close") { model.closeCompress() }
             }
         }
+        .motion(Motion.smooth, value: model.compressResults != nil)
         .padding(22)
         .frame(width: 620, height: 540)
         .interactiveDismissDisabled(model.isCompressing)
@@ -41,11 +44,18 @@ struct CompressSheet: View {
                 CompressTargetRow(tree: tree, node: node, skipped: !compressible.contains(node))
             }
             .listStyle(.bordered)
+            .motion(Motion.spring, value: targets)
 
             HStack {
                 if let status = model.compressStatus {
                     ProgressView().controlSize(.small)
-                    Text(status).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .transition(.scale.combined(with: .opacity))
+                    Text(status)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .contentTransition(.numericText())
+                        .transition(.opacity)
                 }
                 Spacer()
                 if model.isCompressing {
@@ -59,6 +69,7 @@ struct CompressSheet: View {
                     // Not the default button, so Return alone never moves anything to the Trash.
                 }
             }
+            .motion(Motion.quick, value: model.compressStatus)
         }
     }
 }
@@ -129,15 +140,19 @@ private struct CompressResultView: View {
         let skipped = max(0, model.compressTargets.count - results.count)
 
         VStack(alignment: .leading, spacing: 14) {
-            Label(succeeded.isEmpty ? "Nothing was compressed"
-                  : "Compressed \(succeeded.count) \(succeeded.count == 1 ? "item" : "items") and moved the originals to the Trash",
-                  systemImage: succeeded.isEmpty ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(succeeded.isEmpty ? Color.orange : Color.green)
-                .fixedSize(horizontal: false, vertical: true)
-            if !succeeded.isEmpty {
-                Text("About \(saved.bytes) in total will be freed when you empty the Trash.")
-                    .foregroundStyle(.secondary)
+            Group {
+                if succeeded.isEmpty {
+                    Label("Nothing was compressed", systemImage: "exclamationmark.triangle.fill")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.orange)
+                } else {
+                    FreedSpaceCelebration(
+                        bytes: saved,
+                        message: "Compressed \(succeeded.count) \(succeeded.count == 1 ? "item" : "items") and moved the originals to the Trash. The space is freed when you empty the Trash.",
+                        compact: true
+                    )
+                    .frame(maxWidth: .infinity)
+                }
             }
             if skipped > 0 {
                 Text("\(skipped) \(skipped == 1 ? "item was" : "items were") skipped and left as they were.")
