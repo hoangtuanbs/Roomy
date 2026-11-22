@@ -49,6 +49,16 @@ final class SpaceHuntersModel {
     let home = NSHomeDirectory()
 
     var isBusy: Bool { phase == .hunting || phase == .cleaning }
+
+    /// The screen tour logs how long each hunt takes, so slow build machines can be told apart from hangs.
+    @ObservationIgnored private let logs = CommandLine.arguments.contains("--tour")
+    @ObservationIgnored private var huntStart = Date()
+
+    private func log(_ text: String) {
+        guard logs else { return }
+        let line = String(format: "hunters: %.1fs ", Date().timeIntervalSince(huntStart)) + text + "\n"
+        FileHandle.standardError.write(Data(line.utf8))
+    }
     var cleanFraction: Double { cleanTotal == 0 ? 0 : Double(cleanedCount) / Double(cleanTotal) }
 
     /// How far the hunt has got, from 0 to 1. Similar photos counts by the pictures it has checked.
@@ -77,6 +87,7 @@ final class SpaceHuntersModel {
         selected = []
         report = nil
         phase = .hunting
+        huntStart = Date()
 
         let home = self.home
         let pictures = home + "/Pictures"
@@ -129,30 +140,35 @@ final class SpaceHuntersModel {
             backupsNeedAccess = true
         }
         finished.insert(.backups)
+        log("backups done")
     }
 
     private func finishDownloads(_ found: [OldDownload]) {
         guard phase == .hunting else { return }
         downloads = found
         finished.insert(.downloads)
+        log("downloads done, \(found.count) found")
     }
 
     private func finishMail(_ found: MailAttachmentsFinder.Findings) {
         guard phase == .hunting else { return }
         mail = found
         finished.insert(.mail)
+        log("mail done")
     }
 
     private func finishPhotos(_ groups: [SimilarPhotoGroup]) {
         guard phase == .hunting else { return }
         photoGroups = groups
         finished.insert(.photos)
+        log("photos done, \(groups.count) groups")
     }
 
     private func setPhotoProgress(checked: Int, total: Int) {
         guard phase == .hunting else { return }
         photosChecked = checked
         photosToCheck = total
+        log("photos \(checked) of \(total)")
     }
 
     private func setPhotosCapped(_ capped: Bool) {

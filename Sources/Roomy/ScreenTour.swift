@@ -48,7 +48,7 @@ enum ScreenTour {
 
             try? await Task.sleep(for: .seconds(1))
             model.openSpaceHunters()
-            await waitWhile({ model.spaceHunters.isBusy }, limit: 90)
+            await waitWhile({ model.spaceHunters.isBusy }, limit: 40)
             await shot("7-space-hunters", wait: 2.5)
             model.showSpaceHunters = false
 
