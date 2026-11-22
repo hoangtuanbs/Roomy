@@ -154,6 +154,7 @@ final class AppModel {
     let home = NSHomeDirectory()
 
     init() {
+        MainWindow.model = self
         refreshLocations()
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
