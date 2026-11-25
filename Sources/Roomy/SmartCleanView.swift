@@ -10,9 +10,9 @@ struct SmartCleanView: View {
     var body: some View {
         let clean = model.smartClean
 
-        VStack(spacing: 0) {
+        ToolSheet {
             SmartCleanHeader()
-            Divider()
+        } content: {
             ZStack {
                 switch clean.phase {
                 case .idle, .scanning:
@@ -31,7 +31,7 @@ struct SmartCleanView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: clean.phase)
-            Divider()
+        } footer: {
             footer
         }
         .frame(minWidth: 720, idealWidth: 780, minHeight: 560, idealHeight: 680)
@@ -65,8 +65,7 @@ struct SmartCleanView: View {
                 } label: {
                     Label("Clean", systemImage: "sparkles").padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.smartClean))
                 .disabled(clean.selectedItems.isEmpty || clean.isBusy)
                 // Not the default button, so Return alone never moves anything.
             case .cleaning:
@@ -80,8 +79,6 @@ struct SmartCleanView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
     }
 }
 
@@ -91,26 +88,17 @@ private struct SmartCleanHeader: View {
 
     var body: some View {
         let clean = model.smartClean
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.smartClean)
+        ToolSheetHeader(title: "Smart Clean", subtitle: Text("Caches, logs and leftovers that are safe to remove."),
+                        gradient: .smartClean) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.pulse, isActive: clean.isBusy && !reduceMotion)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Smart Clean").font(.title2.weight(.semibold))
-                Text("Caches, logs and leftovers that are safe to remove.")
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
+        } accessory: {
             if clean.phase == .ready {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(clean.selectedBytes.bytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(clean.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: clean.selectedBytes)
@@ -122,7 +110,6 @@ private struct SmartCleanHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: clean.phase)
     }
 }
@@ -288,7 +275,7 @@ private struct FindingCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(finding.isPermanent ? Color.red.opacity(0.05) : Color.primary.opacity(0.04))
+                .fill(finding.isPermanent ? Color.red.opacity(0.05) : Palette.card)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

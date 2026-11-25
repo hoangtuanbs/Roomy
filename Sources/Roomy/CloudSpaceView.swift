@@ -54,9 +54,9 @@ struct CloudSpaceView: View {
     var body: some View {
         let cloud = model.cloudSpace
 
-        VStack(spacing: 0) {
+        ToolSheet {
             CloudSpaceHeader()
-            Divider()
+        } content: {
             ZStack {
                 switch cloud.phase {
                 case .idle:
@@ -64,7 +64,7 @@ struct CloudSpaceView: View {
                         Label("Ready to look", systemImage: "icloud")
                     } actions: {
                         Button("Find Downloaded Files") { cloud.find() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.primaryAction(.cloudSpace))
                     }
                     .transition(.opacity)
                 case .finding:
@@ -104,7 +104,7 @@ struct CloudSpaceView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: cloud.phase)
-            Divider()
+        } footer: {
             footer
         }
         .frame(minWidth: 780, idealWidth: 860, minHeight: 600, idealHeight: 720)
@@ -155,8 +155,7 @@ struct CloudSpaceView: View {
                 } label: {
                     Label("Remove Downloads", systemImage: "icloud.and.arrow.up").padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.cloudSpace))
                 .disabled(cloud.selectedItems.isEmpty)
             case .evicting:
                 Spacer()
@@ -168,8 +167,6 @@ struct CloudSpaceView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
     }
 }
 
@@ -179,26 +176,15 @@ private struct CloudSpaceHeader: View {
 
     var body: some View {
         let cloud = model.cloudSpace
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.cloudSpace)
+        ToolSheetHeader(title: "Cloud Space", subtitle: Text("Free space without deleting: remove local copies of files that are safe in the cloud."),
+                        gradient: .cloudSpace) {
                 FloatingCloud(size: 21, distance: 2)
                     .foregroundStyle(.white)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Cloud Space").font(.title2.weight(.semibold))
-                Text("Free space without deleting: remove local copies of files that are safe in the cloud.")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            Spacer()
+        } accessory: {
             if cloud.phase == .ready && !cloud.findings.providers.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(cloud.selectedBytes.bytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(cloud.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: cloud.selectedBytes)
@@ -211,7 +197,6 @@ private struct CloudSpaceHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: cloud.phase)
     }
 }
@@ -263,7 +248,7 @@ private struct EvictingRing: View {
                     FloatingCloud(symbol: "icloud.and.arrow.up", size: 22, distance: 3)
                         .foregroundStyle(LinearGradient.cloudSpace)
                     Text(cloud.bytesLeft.bytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(cloud.bytesLeft)))
                         .animation(Motion.quick.unless(reduceMotion), value: cloud.bytesLeft)
@@ -475,7 +460,7 @@ private struct ProviderCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(state == .none ? Color.primary.opacity(0.08) : kind.color.opacity(0.55), lineWidth: 1)

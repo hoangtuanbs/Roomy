@@ -13,8 +13,9 @@ struct RingsView: View {
                 .transition(MapZoom.transition(zoomingOut: model.zoomingOut, reduceMotion: reduceMotion))
         }
         .animation(Motion.spring.unless(reduceMotion), value: model.currentFolder)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).fill(Palette.well))
+        .overlay(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous).strokeBorder(Palette.border))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.panel, style: .continuous))
     }
 }
 
@@ -29,13 +30,13 @@ private struct RingGeometry {
     init(size: CGSize) {
         center = CGPoint(x: size.width / 2, y: size.height / 2)
         let radius = max(0, min(size.width, size.height) / 2 - 12)
-        hole = radius * 0.26
+        hole = radius * 0.30
         ring = (radius - hole) / CGFloat(Self.depth)
     }
 
     func radii(_ depth: Int) -> (inner: CGFloat, outer: CGFloat) {
-        let inner = hole + CGFloat(depth - 1) * ring + 1
-        return (inner, inner + ring - 2)
+        let inner = hole + CGFloat(depth - 1) * ring + 1.5
+        return (inner, inner + ring - 3)
     }
 
     func locate(_ point: CGPoint) -> (depth: Int, fraction: Double)? {
@@ -149,32 +150,74 @@ private struct SweepingRings: View, Animatable {
                 let start = -Double.pi / 2 + arc.start * turn
                 let end = -Double.pi / 2 + arc.end * turn
                 guard end - start > 0.0005 else { continue }
-                var path = Path()
-                path.addArc(center: geometry.center, radius: outer, startAngle: .radians(start), endAngle: .radians(end),
-                            clockwise: false)
-                path.addArc(center: geometry.center, radius: inner, startAngle: .radians(end), endAngle: .radians(start),
-                            clockwise: true)
-                path.closeSubpath()
 
                 let node = arc.node
                 let category = FileCategory.classify(name: tree.name(node), kind: tree.kind(node))
                 let isHovered = node == hovered
                 let related = isHovered || hovered.map { tree.isAncestor(node, of: $0) || tree.isAncestor($0, of: node) } == true
-                var opacity = 0.92 - 0.1 * Double(arc.depth - 1)
-                if dimmed && !related { opacity *= 0.55 }
+                var opacity = 1.0 - 0.12 * Double(arc.depth - 1)
+                if dimmed && !related { opacity *= 0.45 }
                 if isHovered { opacity = 1 }
-                context.fill(path, with: .color(category.color.opacity(opacity)))
+                let stops = category.gradientStops
+                let shading = GraphicsContext.Shading.radialGradient(
+                    Gradient(colors: [stops.bottom.opacity(opacity), stops.top.opacity(opacity)]),
+                    center: geometry.center, startRadius: inner, endRadius: outer)
+
+                let path = Self.segment(center: geometry.center, inner: inner, outer: outer, start: start, end: end)
+                if isHovered {
+                    var lifted = context
+                    lifted.addFilter(.shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 2))
+                    lifted.fill(path, with: shading)
+                }
+                context.fill(path, with: shading)
                 if basket.contains(node) {
-                    context.fill(path, with: .color(.red.opacity(0.28)))
-                    context.stroke(path, with: .color(.red), lineWidth: 1.5)
+                    context.fill(path, with: .color(Color(red: 0.95, green: 0.25, blue: 0.35).opacity(0.28)))
+                    context.stroke(path, with: .color(Color(red: 0.95, green: 0.25, blue: 0.35)), lineWidth: 1.5)
                 }
                 if node == selection {
                     context.stroke(path, with: .color(.accentColor), lineWidth: 2.5)
                 } else if isHovered {
-                    context.stroke(path, with: .color(.white), lineWidth: 2)
+                    context.stroke(path, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
                 }
             }
         }
+    }
+
+    /// A ring segment with a small gap on each side and softly rounded corners.
+    static func segment(center: CGPoint, inner: CGFloat, outer: CGFloat, start: Double, end: Double) -> Path {
+        let mid = Double((inner + outer) / 2)
+        // Half a gap of 1.5 points on each side, as an angle at the middle of the ring.
+        let gap = 0.75 / mid
+        var a0 = start + gap, a1 = end - gap
+        if a1 <= a0 {
+            let m = (start + end) / 2
+            a0 = m - 0.0004
+            a1 = m + 0.0004
+        }
+        let corner = min(CGFloat(3), (outer - inner) / 3, CGFloat((a1 - a0) * Double(inner)) / 2.5)
+        guard corner > 0.6 else {
+            var path = Path()
+            path.addArc(center: center, radius: outer, startAngle: .radians(a0), endAngle: .radians(a1), clockwise: false)
+            path.addArc(center: center, radius: inner, startAngle: .radians(a1), endAngle: .radians(a0), clockwise: true)
+            path.closeSubpath()
+            return path
+        }
+        // Each corner is a quadratic curve through the sharp corner, so the segment keeps its size.
+        let ci = Double(corner) / Double(inner), co = Double(corner) / Double(outer)
+        func point(_ r: CGFloat, _ a: Double) -> CGPoint {
+            CGPoint(x: center.x + r * CGFloat(cos(a)), y: center.y + r * CGFloat(sin(a)))
+        }
+        var path = Path()
+        path.move(to: point(inner + corner, a0))
+        path.addQuadCurve(to: point(inner, a0 + ci), control: point(inner, a0))
+        path.addArc(center: center, radius: inner, startAngle: .radians(a0 + ci), endAngle: .radians(a1 - ci), clockwise: false)
+        path.addQuadCurve(to: point(inner + corner, a1), control: point(inner, a1))
+        path.addLine(to: point(outer - corner, a1))
+        path.addQuadCurve(to: point(outer, a1 - co), control: point(outer, a1))
+        path.addArc(center: center, radius: outer, startAngle: .radians(a1 - co), endAngle: .radians(a0 + co), clockwise: true)
+        path.addQuadCurve(to: point(outer - corner, a0), control: point(outer, a0))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -188,7 +231,7 @@ private struct CenterLabel: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(.background.opacity(highlighted && canGoUp ? 0.95 : 0.8))
+                .fill(Palette.card)
                 .overlay(Circle().strokeBorder(Color.accentColor.opacity(highlighted && canGoUp ? 0.7 : 0.15), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
                 .scaleEffect(highlighted && canGoUp ? 1.04 : 1)
@@ -199,13 +242,13 @@ private struct CenterLabel: View {
                         .foregroundStyle(highlighted ? Color.accentColor : Color.secondary)
                 }
                 Text(folder == ScanTree.root ? (tree.rootPath as NSString).lastPathComponent : tree.name(folder))
-                    .font(.callout.weight(.semibold))
+                    .font(.system(.callout, design: .rounded).weight(.semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.7)
-                CountingBytes(tree.size(folder))
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                CountUpBytes(bytes: tree.size(folder))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(LinearGradient.scan)
             }
             .padding(8)
         }

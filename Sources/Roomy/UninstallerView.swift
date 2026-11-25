@@ -12,9 +12,9 @@ struct UninstallerView: View {
     var body: some View {
         let un = model.uninstaller
 
-        VStack(spacing: 0) {
+        ToolSheet {
             UninstallerHeader()
-            Divider()
+        } content: {
             ZStack {
                 switch un.phase {
                 case .idle, .loading:
@@ -33,7 +33,7 @@ struct UninstallerView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: un.phase)
-            Divider()
+        } footer: {
             footer
         }
         .frame(minWidth: 900, idealWidth: 980, minHeight: 600, idealHeight: 720)
@@ -74,8 +74,6 @@ struct UninstallerView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
     }
 }
 
@@ -85,26 +83,17 @@ private struct UninstallerHeader: View {
 
     var body: some View {
         let un = model.uninstaller
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.uninstaller)
+        ToolSheetHeader(title: "Uninstaller", subtitle: Text("Remove apps together with the files they leave in your Library."),
+                        gradient: .uninstaller) {
                 Image(systemName: "xmark.bin.fill")
                     .font(.system(size: 21, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.pulse, isActive: un.isBusy && !reduceMotion)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Uninstaller").font(.title2.weight(.semibold))
-                Text("Remove apps together with the files they leave in your Library.")
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
+        } accessory: {
             if un.phase == .ready && !un.apps.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
                     CountingBytes(un.totalAppBytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .animation(Motion.quick.unless(reduceMotion), value: un.totalAppBytes)
                     Text("in \(un.apps.count) \(Plural.word(un.apps.count, "app", "apps"))")
                         .font(.caption)
@@ -114,7 +103,6 @@ private struct UninstallerHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: un.phase)
     }
 }
@@ -518,9 +506,7 @@ private struct AppDetail: View {
                     Label(un.ticked.contains(app.path) ? "Uninstall" : "Remove Leftovers", systemImage: "trash")
                         .padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.uninstaller))
                 .disabled(blocked != nil || un.tickedCount == 0 || un.isFindingLeftovers)
             }
             .padding(14)
@@ -644,7 +630,7 @@ private struct LeftoverSection: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.card))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(state == .none ? Color.primary.opacity(0.06) : color.opacity(0.45), lineWidth: 1)
@@ -739,9 +725,7 @@ private struct OrphansDetail: View {
                 } label: {
                     Label("Move to Trash", systemImage: "trash").padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.uninstaller))
                 .disabled(un.orphanTickedItems.isEmpty)
             }
             .padding(14)
@@ -825,7 +809,7 @@ private struct OrphanCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.card))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(state == .none ? Color.primary.opacity(0.06) : Self.color.opacity(0.5), lineWidth: 1)

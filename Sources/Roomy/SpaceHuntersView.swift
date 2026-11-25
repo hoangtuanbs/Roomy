@@ -80,9 +80,9 @@ struct SpaceHuntersView: View {
     var body: some View {
         let hunters = model.spaceHunters
 
-        VStack(spacing: 0) {
+        ToolSheet {
             SpaceHuntersHeader()
-            Divider()
+        } content: {
             ZStack {
                 switch hunters.phase {
                 case .idle:
@@ -90,7 +90,7 @@ struct SpaceHuntersView: View {
                         Label("Ready to hunt", systemImage: "scope")
                     } actions: {
                         Button("Start Hunting") { model.huntSpace() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.primaryAction(.spaceHunters))
                     }
                     .transition(.opacity)
                 case .hunting:
@@ -116,7 +116,7 @@ struct SpaceHuntersView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: hunters.phase)
-            Divider()
+        } footer: {
             footer
         }
         .frame(minWidth: 780, idealWidth: 860, minHeight: 600, idealHeight: 720)
@@ -159,8 +159,7 @@ struct SpaceHuntersView: View {
                 } label: {
                     Label("Move to Trash", systemImage: "trash").padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.spaceHunters))
                 .disabled(hunters.selectedCount == 0)
             case .cleaning:
                 Spacer()
@@ -173,8 +172,6 @@ struct SpaceHuntersView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
     }
 }
 
@@ -184,28 +181,17 @@ private struct SpaceHuntersHeader: View {
 
     var body: some View {
         let hunters = model.spaceHunters
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.spaceHunters)
+        ToolSheetHeader(title: "Space Hunters", subtitle: Text("Big things you may have forgotten about."),
+                        gradient: .spaceHunters) {
                 Image(systemName: "scope")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.pulse, isActive: hunters.isBusy && !reduceMotion)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Space Hunters").font(.title2.weight(.semibold))
-                Text("Big things you may have forgotten about.")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            Spacer()
+        } accessory: {
             if hunters.phase == .ready {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(hunters.selectedBytes.bytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(hunters.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: hunters.selectedBytes)
@@ -218,7 +204,6 @@ private struct SpaceHuntersHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: hunters.phase)
     }
 }
@@ -240,7 +225,7 @@ private struct HuntingProgress: View {
                     .padding(16)
                     .animation(Motion.smooth.unless(reduceMotion), value: hunters.huntFraction)
                 Text("\(Int((hunters.huntFraction * 100).rounded()))%")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .animation(Motion.quick.unless(reduceMotion), value: Int(hunters.huntFraction * 100))
@@ -297,7 +282,7 @@ private struct HuntingLine: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Palette.card))
         .animation(Motion.bouncy.unless(reduceMotion), value: done)
     }
 }
@@ -336,10 +321,8 @@ private struct HuntSummary: View {
             ForEach(Array(SpaceHuntersModel.Hunter.allCases.enumerated()), id: \.element) { index, hunter in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Image(systemName: hunter.symbol)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(hunter.color)
-                        Text(hunter.shortTitle).font(.caption).foregroundStyle(.secondary)
+                        IconTile(symbol: hunter.symbol, gradient: .tile(hunter.color), size: 18)
+                        Text(hunter.shortTitle).font(.caption.weight(.medium)).foregroundStyle(.secondary)
                     }
                     if hunter == .backups && hunters.backupsNeedAccess {
                         Text("Needs access").font(.title3.weight(.semibold)).foregroundStyle(.orange)
@@ -351,7 +334,7 @@ private struct HuntSummary: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(hunter.color.opacity(0.08)))
+                .card(radius: 10, hoverable: false)
                 .entrance(index: index, offset: 10)
             }
         }
