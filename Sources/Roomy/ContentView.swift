@@ -93,15 +93,14 @@ extension AppModel {
     }
 }
 
-/// The window's toolbar: the tools live in the sidebar, and Rescan and Export sit in the header next to what they act
-/// on, so it only has the filter.
+/// The window's toolbar is left clear: the tools live in the sidebar, Rescan and Export sit in the header, and the
+/// filter sits above the list it filters. The traffic lights float over the sidebar.
 private struct MainToolbar: ViewModifier {
     @Environment(AppModel.self) private var model
 
     func body(content: Content) -> some View {
         @Bindable var model = model
         content
-            .searchable(text: $model.searchText, placement: .toolbar, prompt: "Filter by name")
             .toolbarBackground(.hidden, for: .windowToolbar)
             .modifier(HiddenToolbarTitle())
     }
@@ -292,6 +291,40 @@ struct HeroHeader: View {
     }
 }
 
+/// The filter for the lists: a rounded field with a magnifying glass and a clear button.
+private struct FilterField: View {
+    @Binding var text: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            TextField("Filter by name", text: $text)
+                .textFieldStyle(.plain)
+                .focused($focused)
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .transition(.opacity.combined(with: .scale(scale: 0.6)))
+            }
+        }
+        .font(.callout)
+        .padding(.horizontal, 9)
+        .frame(height: 26)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .strokeBorder(focused ? Color.accentColor.opacity(0.6) : Palette.border, lineWidth: focused ? 1.5 : 1))
+        .motion(Motion.quick, value: text.isEmpty)
+        .motion(Motion.hover, value: focused)
+    }
+}
+
 /// A round icon button of the header.
 private struct HeaderIcon: View {
     @Environment(\.isEnabled) private var isEnabled
@@ -380,11 +413,15 @@ struct ContentColumn: View {
         @Bindable var model = model
 
         VStack(spacing: 0) {
-            Picker("View", selection: $model.tab) {
-                ForEach(ContentTab.allCases) { Text($0.label).tag($0) }
+            HStack(spacing: Space.s) {
+                Picker("View", selection: $model.tab) {
+                    ForEach(ContentTab.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                FilterField(text: $model.searchText)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             .padding(.horizontal, Space.l)
             .padding(.top, Space.m)
             .padding(.bottom, Space.xs)
