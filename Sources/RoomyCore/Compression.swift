@@ -20,6 +20,9 @@ public struct CompressionService: Sendable {
     public let history: CleanupHistory?
     /// The archive must be at least this much smaller than the original, or the original is kept.
     public let minimumSaving: Double
+    /// The tools that make and check the archive; tests swap them to make a step fail.
+    var zipTool = "/usr/bin/ditto"
+    var checkTool = "/usr/bin/unzip"
 
     public init(
         policy: SafetyPolicy = SafetyPolicy(),
@@ -70,12 +73,12 @@ public struct CompressionService: Sendable {
         func discardArchive() { try? FileManager.default.removeItem(atPath: archive) }
 
         do {
-            let zipped = try await Self.run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", path, archive])
+            let zipped = try await Self.run(zipTool, ["-c", "-k", "--sequesterRsrc", "--keepParent", path, archive])
             guard zipped == 0 else {
                 discardArchive()
                 return failure(String(format: String(localized: "The archive could not be created (ditto exit code %lld). The original was not changed."), Int64(zipped)))
             }
-            let tested = try await Self.run("/usr/bin/unzip", ["-tqq", archive])
+            let tested = try await Self.run(checkTool, ["-tqq", archive])
             guard tested == 0 else {
                 discardArchive()
                 return failure(String(localized: "The archive did not pass its check, so it was removed. The original was not changed."))
