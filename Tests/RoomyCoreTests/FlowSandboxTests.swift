@@ -96,6 +96,9 @@ final class FlowSandboxTests: XCTestCase {
     func testConfinedPolicyStillAppliesTheUsualRulesInside() throws {
         let sandbox = try makeFolder("flow")
         let home = try makeFolder("flow/home")
+        // Real folders, as the app only judges what it found on disk.
+        let keychains = try makeFolder("flow/home/Library/Keychains")
+        fm.createFile(atPath: keychains + "/login.keychain-db", contents: Data("k".utf8))
         let policy = SafetyPolicy(homePath: home, confinedTo: sandbox)
         XCTAssertEqual(policy.verdict(for: home + "/Movies/holiday.mov"), .allowed)
         XCTAssertTrue(policy.verdict(for: home).isBlocked)

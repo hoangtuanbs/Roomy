@@ -28,7 +28,7 @@ final class FlowTest {
     private var failed = 0
 
     private static var current: FlowTest?
-    static let timeLimit: TimeInterval = 280
+    nonisolated static let timeLimit: TimeInterval = 280
 
     static func start(model: AppModel) {
         guard let sandbox = AppEnvironment.flowSandbox else { return }
