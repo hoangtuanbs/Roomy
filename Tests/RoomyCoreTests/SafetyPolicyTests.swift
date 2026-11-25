@@ -293,6 +293,9 @@ final class SafetyPolicyTests: XCTestCase {
             ("/Applications", .blocked),
             ("/Volumes", .blocked),
             ("/Volumes/", .blocked),
+            ("/tmp", .blocked),
+            ("/tmp/old-download.dmg", .allowed),
+            ("/var", .blocked),
         ])
     }
 

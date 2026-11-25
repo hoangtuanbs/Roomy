@@ -41,7 +41,7 @@ public struct SafetyPolicy: Sendable {
     static let systemExceptions = ["/usr/local"]
 
     /// Folders at the top of the disk that macOS expects to exist.
-    static let topLevelFolders = ["/Applications", "/Library", "/Users", "/Volumes"]
+    static let topLevelFolders = ["/Applications", "/Library", "/Users", "/Volumes", "/tmp", "/var"]
 
     static let standardHomeFolders = [
         "Desktop", "Documents", "Downloads", "Library", "Pictures", "Movies", "Music",
