@@ -252,7 +252,7 @@ final class ScannerTests: XCTestCase {
         XCTAssertEqual(tree.fileCount(ScanTree.root), 1)
         XCTAssertTrue(tree.containsDescendant(named: "bottom.bin", under: ScanTree.root))
         XCTAssertFalse(tree.containsDescendant(named: "nope", under: ScanTree.root))
-        XCTAssertGreaterThan(tree.size(try node(tree, "d")), tree.size(bottom))
+        XCTAssertEqual(tree.size(try node(tree, "d")), tree.size(ScanTree.root) - allocated(root))
     }
 
     func testPackagesAndExcludedFolders() async throws {
