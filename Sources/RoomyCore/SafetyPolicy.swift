@@ -28,11 +28,20 @@ public struct SafetyPolicy: Sendable {
     public let homePath: String
     /// The home folder with every link resolved, to judge where a path really leads.
     let resolvedHomePath: String
+    /// When set, everything that is not inside this folder is blocked, whatever else the rules say. The app's
+    /// flow test sets it to its sandbox, so nothing else on the Mac can be moved during a test run.
+    public let confinedTo: String?
+    let resolvedConfinement: String?
 
-    public init(homePath: String = NSHomeDirectory()) {
+    public init(homePath: String = NSHomeDirectory(), confinedTo: String? = nil) {
         self.homePath = DiskScanner.standardize(homePath)
         resolvedHomePath = Self.realPath(self.homePath) ?? self.homePath
+        self.confinedTo = confinedTo.map(DiskScanner.standardize)
+        resolvedConfinement = self.confinedTo.map { Self.realPath($0) ?? $0 }
     }
+
+    /// The reason given for a path outside `confinedTo`. Only the flow test confines a policy, so it is not translated.
+    public static let outsideConfinement = "This is outside the test sandbox."
 
     static let systemPrefixes = [
         "/System", "/bin", "/sbin", "/usr", "/etc", "/dev",
@@ -50,12 +59,23 @@ public struct SafetyPolicy: Sendable {
 
     public func verdict(for rawPath: String) -> SafetyVerdict {
         let path = DiskScanner.standardize(rawPath)
+        if !isConfined(rawPath, standardized: path) { return .blocked(Self.outsideConfinement) }
         let direct = Self.verdict(path: path, home: homePath)
         // A link on the way can lead somewhere protected, such as `link/Documents` when `link` points home.
         guard !direct.isBlocked, let real = Self.resolved(rawPath), real != path || resolvedHomePath != homePath else {
             return direct
         }
         return Self.stricter(direct, Self.verdict(path: real, home: resolvedHomePath))
+    }
+
+    /// True when there is no confinement, or when the path lies inside the confining folder both as written and
+    /// with its links followed. The folder itself is not inside it.
+    func isConfined(_ rawPath: String, standardized path: String) -> Bool {
+        guard let root = confinedTo, let realRoot = resolvedConfinement else { return true }
+        func inside(_ p: String, _ folder: String) -> Bool { p.lowercased().hasPrefix(folder.lowercased() + "/") }
+        guard inside(path, root) || inside(path, realRoot) else { return false }
+        guard let real = Self.resolved(rawPath) else { return true }
+        return inside(real, realRoot)
     }
 
     /// Judges the path as written. Letters are compared without case, as APFS does by default.
