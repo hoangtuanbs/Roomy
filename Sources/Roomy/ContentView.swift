@@ -314,6 +314,13 @@ private struct FilterField: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.6)))
             }
         }
+        .background(alignment: .topLeading) {
+            // Hidden button: ⌘F moves the cursor into the filter, as the toolbar search field used to.
+            Button { focused = true } label: { Color.clear.frame(width: 1, height: 1) }
+                .keyboardShortcut("f", modifiers: .command)
+                .opacity(0)
+                .accessibilityHidden(true)
+        }
         .font(.callout)
         .padding(.horizontal, 9)
         .frame(height: 26)

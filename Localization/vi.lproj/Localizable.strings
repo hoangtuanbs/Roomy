@@ -4,7 +4,7 @@
 " and more" = "và nhiều mục khác";
 " freed" = "đã giải phóng";
 " freed — still in the cloud" = "đã giải phóng — vẫn còn trên đám mây";
-" used of %@" = "đã dùng trên %@";
+" used of %@" = " đã dùng trên %@";
 "%lld %@ (%@) will be moved to the Trash. You can put them back from the Trash until you empty it." = "%lld %@ (%@) sẽ được chuyển vào Thùng rác. Bạn có thể đưa chúng trở lại từ Thùng rác cho đến khi làm rỗng thùng.";
 "%lld %@ downloaded" = "%lld %@ đã tải xuống";
 "%lld %@ selected" = "đã chọn %lld %@";
@@ -524,6 +524,7 @@
 "Simulator caches" = "Bộ nhớ đệm Simulator";
 "Smaller items" = "Các mục nhỏ hơn";
 "Smart Clean" = "Dọn dẹp thông minh";
+"Tools" = "Công cụ";
 "The Trash is not available on this system." = "Thùng rác không khả dụng trên hệ thống này.";
 "The archive did not pass its check, so it was removed. The original was not changed." = "Tệp nén không vượt qua bước kiểm tra nên đã bị xóa. Bản gốc không bị thay đổi.";
 "The disk reports that it is failing. Back up now with Time Machine. Click for details." = "Ổ đĩa báo cáo rằng nó đang bị lỗi. Hãy sao lưu ngay bằng Time Machine. Nhấp để xem chi tiết.";
