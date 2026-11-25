@@ -616,7 +616,12 @@ final class FlowTest {
         reopened.miniaturize(nil)
         try await waitUntil("the window to minimize", limit: 10) { reopened.isMiniaturized }
         MainWindow.show(AppDelegate.route(forNotification: DiskHealthNotifier.identifier))
-        try await waitUntil("the window to come back", limit: 10) { !reopened.isMiniaturized && reopened.isVisible }
+        do {
+            try await waitUntil("the window to come back", limit: 10) { !reopened.isMiniaturized && reopened.isVisible }
+        } catch {
+            let windows = NSApp.windows.map { "\($0.identifier?.rawValue ?? "-") visible \($0.isVisible) mini \($0.isMiniaturized)" }
+            throw Failure("\(error); active \(NSApp.isActive), hidden \(NSApp.isHidden), Disk Health asked \(model.showDiskHealth), windows \(windows)")
+        }
         try expect(model.showDiskHealth, "Disk Health was not opened")
         try await expectSheet("Disk Health")
         try expect(NSApp.windows.filter { $0.isVisible && $0.identifier?.rawValue.hasPrefix("main") == true }.count == 1,
@@ -638,10 +643,22 @@ final class FlowTest {
         defer { settings.close() }
         try? await Task.sleep(for: .seconds(1))
         let title = String(localized: "Show what can be freed next to the icon")
+        let controls = Self.controls(in: settings.contentView)
+        say("flow: note settings: controls \(controls.map { "\(type(of: $0))\(($0 as? NSButton).map { " '\($0.title)'" } ?? "")" })")
         if let toggle = Self.findElement(role: .checkBox, title: title, in: settings) {
             _ = (toggle as AnyObject).accessibilityPerformPress?()
             try await waitUntil("the toggle to be kept", limit: 5) { defaults.object(forKey: key) as? Bool == !before }
             say("flow: note settings: pressed the toggle in the Settings window")
+        } else if let button = controls.compactMap({ $0 as? NSButton }).first(where: { $0.title == title }) {
+            button.performClick(nil)
+            try await waitUntil("the toggle to be kept", limit: 5) { defaults.object(forKey: key) as? Bool == !before }
+            say("flow: note settings: clicked the toggle in the Settings window")
+        } else if let toggle = Self.switches(in: controls).dropFirst().first {
+            // The General tab's switches, top to bottom: the menu bar icon, then what can be freed next to it.
+            toggle.state = toggle.state == .on ? .off : .on
+            toggle.sendAction(toggle.action, to: toggle.target)
+            try await waitUntil("the switch to be kept", limit: 5) { defaults.object(forKey: key) as? Bool == !before }
+            say("flow: note settings: flipped the switch in the Settings window")
         } else {
             defaults.set(!before, forKey: key)
             say("flow: note settings: the toggle was not reachable through accessibility; set through the settings store")
@@ -673,6 +690,21 @@ final class FlowTest {
             return found != nil
         }
         return found!
+    }
+
+    /// Every control in a view, depth first.
+    private static func controls(in view: NSView?) -> [NSControl] {
+        guard let view else { return [] }
+        var found: [NSControl] = []
+        if let control = view as? NSControl { found.append(control) }
+        for child in view.subviews { found += controls(in: child) }
+        return found
+    }
+
+    /// The switches among `controls`, top to bottom in their window.
+    private static func switches(in controls: [NSControl]) -> [NSSwitch] {
+        let switches = controls.compactMap { $0 as? NSSwitch }
+        return switches.sorted { $0.convert($0.bounds, to: nil).maxY > $1.convert($1.bounds, to: nil).maxY }
     }
 
     /// Looks through a window's accessibility elements for a control with this role and title.
