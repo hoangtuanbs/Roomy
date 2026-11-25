@@ -107,7 +107,7 @@ enum ScreenTour {
 
     /// The real Settings window, opened through the RoomyDisk menu as a click on Settings… would, on each tab.
     private static func settingsShots(path: (String) -> String) async {
-        let defaults = UserDefaults.standard
+        let defaults = AppEnvironment.defaults
         let tabs: [(AlertSettingsView.Tab, String)] = [(.general, "11-settings"), (.checks, "13-settings-checks"),
                                                        (.updates, "14-settings-updates")]
         defaults.set(AlertSettingsView.Tab.general.rawValue, forKey: AlertSettingsView.tabKey)

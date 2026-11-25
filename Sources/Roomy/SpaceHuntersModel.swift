@@ -46,7 +46,9 @@ final class SpaceHuntersModel {
     /// Opens the Full Disk Access guide.
     @ObservationIgnored var onShowAccessHelp: (() -> Void)?
     @ObservationIgnored private var huntTask: Task<Void, Never>?
-    let home = NSHomeDirectory()
+    let home = AppEnvironment.home
+    /// The time the hunt counts ages from. The flow test moves it ahead, so the files it just made count as old.
+    @ObservationIgnored var now: () -> Date = { Date() }
 
     var isBusy: Bool { phase == .hunting || phase == .cleaning }
 
@@ -90,6 +92,7 @@ final class SpaceHuntersModel {
         huntStart = Date()
 
         let home = self.home
+        let now = self.now()
         let pictures = home + "/Pictures"
         var scanned: [PhotoSource.File]?
         if let tree { scanned = PhotoSource.files(in: tree) }
@@ -100,10 +103,10 @@ final class SpaceHuntersModel {
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {
                     let outcome = BackupFinder(homePath: home).find()
-                    await self.finishBackups(outcome)
+                    await self.finishBackups(outcome, now: now)
                 }
                 group.addTask {
-                    let found = OldDownloadsFinder(downloadsPath: home + "/Downloads", dates: { SpotlightDates.itemDates($0) }).find()
+                    let found = OldDownloadsFinder(downloadsPath: home + "/Downloads", now: now, dates: { SpotlightDates.itemDates($0) }).find()
                     await self.finishDownloads(found)
                 }
                 group.addTask {
@@ -130,12 +133,12 @@ final class SpaceHuntersModel {
         if phase == .hunting { phase = .idle }
     }
 
-    private func finishBackups(_ outcome: BackupFinder.Outcome) {
+    private func finishBackups(_ outcome: BackupFinder.Outcome, now: Date) {
         guard phase == .hunting else { return }
         switch outcome {
         case .found(let found):
             backups = found
-            selected.formUnion(BackupRules.preselected(found))
+            selected.formUnion(BackupRules.preselected(found, now: now))
         case .noAccess:
             backupsNeedAccess = true
         }
@@ -322,7 +325,7 @@ final class SpaceHuntersModel {
         phase = .cleaning
 
         Task.detached {
-            let service = CleanupService()
+            let service = AppEnvironment.cleanupService()
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan) { result in
                 Task { @MainActor in self.advance(result) }

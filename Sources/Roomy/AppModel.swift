@@ -88,8 +88,8 @@ final class AppModel {
     }
     /// True while the last move went to an enclosing folder, so the map zooms out instead of in.
     private(set) var zoomingOut = false
-    var mapStyle: MapStyle = MapStyle(rawValue: UserDefaults.standard.string(forKey: "mapStyle") ?? "") ?? .treemap {
-        didSet { UserDefaults.standard.set(mapStyle.rawValue, forKey: "mapStyle") }
+    var mapStyle: MapStyle = MapStyle(rawValue: AppEnvironment.defaults.string(forKey: "mapStyle") ?? "") ?? .treemap {
+        didSet { AppEnvironment.defaults.set(mapStyle.rawValue, forKey: "mapStyle") }
     }
     var tab: ContentTab = .folders
     var searchText = ""
@@ -144,14 +144,14 @@ final class AppModel {
     /// The folder being scanned again on its own.
     private(set) var rescanningNode: ScanTree.Index?
     private var subtreeTask: Task<Void, Never>?
-    let scanCache = ScanCache.standard(bundleID: Bundle.main.bundleIdentifier ?? "io.github.hoangtuanbs.Roomy")
+    let scanCache = AppEnvironment.scanCache
     private var keyMonitor: Any?
 
     var hasFullDiskAccess = FullDiskAccess.isGranted()
     var showOnboarding = false
 
-    let policy = SafetyPolicy()
-    let home = NSHomeDirectory()
+    let policy = AppEnvironment.policy
+    let home = AppEnvironment.home
 
     init() {
         MainWindow.model = self
@@ -162,18 +162,23 @@ final class AppModel {
         spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
         autoCheck.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
-        let dismissed = UserDefaults.standard.bool(forKey: "onboardingDismissed")
-        showOnboarding = !hasFullDiskAccess && !dismissed
+        let dismissed = AppEnvironment.defaults.bool(forKey: "onboardingDismissed")
+        showOnboarding = !hasFullDiskAccess && !dismissed && !AppEnvironment.isFlowTest
 
         installKeyMonitor()
         QuickLook.shared.onMove = { [weak self] delta in self?.moveSelection(by: delta) }
 
         // `RoomyDisk --scan <folder>` starts scanning that folder right away.
         let args = CommandLine.arguments
+        if AppEnvironment.isFlowTest {
+            // `--flow-test <sandbox>` drives the app's flows itself, starting from an empty window.
+            FlowTest.start(model: self)
+            return
+        }
         if let i = args.firstIndex(of: "--scan"), i + 1 < args.count {
             showOnboarding = false
             scan(path: (args[i + 1] as NSString).expandingTildeInPath, useCache: false)
-        } else if let last = UserDefaults.standard.string(forKey: "lastScanPath"),
+        } else if let last = AppEnvironment.defaults.string(forKey: "lastScanPath"),
                   FileManager.default.fileExists(atPath: scanCache.filePath(forRoot: last)) {
             // Show the last scan at once from the cache while a fresh one runs.
             scan(path: last)
@@ -277,8 +282,8 @@ final class AppModel {
     }
 
     private var pinnedPaths: [String] {
-        get { UserDefaults.standard.stringArray(forKey: "pinnedFolders") ?? [] }
-        set { UserDefaults.standard.set(newValue, forKey: "pinnedFolders") }
+        get { AppEnvironment.defaults.stringArray(forKey: "pinnedFolders") ?? [] }
+        set { AppEnvironment.defaults.set(newValue, forKey: "pinnedFolders") }
     }
 
     func chooseFolder() {
@@ -327,7 +332,7 @@ final class AppModel {
         refreshProgress = nil
         refreshError = nil
         removedDuringRefresh = []
-        UserDefaults.standard.set(path, forKey: "lastScanPath")
+        AppEnvironment.defaults.set(path, forKey: "lastScanPath")
 
         let cache = scanCache
         scanTask = Task { [weak self] in
@@ -717,7 +722,7 @@ final class AppModel {
         let policy = self.policy
 
         Task.detached {
-            let service = CleanupService(policy: policy)
+            let service = CleanupService(policy: policy, history: AppEnvironment.history)
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan)
             await MainActor.run { [weak self] in
@@ -863,7 +868,7 @@ final class AppModel {
         let policy = self.policy
 
         compressTask = Task { [weak self] in
-            let service = CompressionService(policy: policy)
+            let service = CompressionService(policy: policy, history: AppEnvironment.history)
             var results: [CompressionResult] = []
             for (i, item) in items.enumerated() {
                 if Task.isCancelled { break }
@@ -930,7 +935,7 @@ final class AppModel {
     }
 
     func dismissOnboarding() {
-        UserDefaults.standard.set(true, forKey: "onboardingDismissed")
+        AppEnvironment.defaults.set(true, forKey: "onboardingDismissed")
         showOnboarding = false
     }
 }

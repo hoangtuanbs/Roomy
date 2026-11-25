@@ -53,7 +53,7 @@ final class SmartCleanModel {
         trashResult = nil
 
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        let finder = JunkFinder(skippedCacheNames: running)
+        let finder = JunkFinder(homePath: AppEnvironment.home, skippedCacheNames: running)
         scanTask = Task {
             let found = await finder.find(tree: tree) { step in
                 Task { @MainActor in
@@ -91,7 +91,7 @@ final class SmartCleanModel {
         phase = .cleaning
 
         Task.detached {
-            let service = CleanupService()
+            let service = AppEnvironment.cleanupService()
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan) { result in
                 Task { @MainActor in self.advance(result) }

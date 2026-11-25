@@ -59,6 +59,59 @@ jobs:
           echo "RoomyDisk is still running after 20 seconds"
           kill "$pid"
 
+      - name: Run the app flow tests
+        # Drives the real models and sheets end to end (Sources/Roomy/FlowTest.swift) in a sandbox under $RUNNER_TEMP:
+        # the app's home folder, settings, scan cache and cleanup history all point into it, and its safety rules block
+        # everything outside it. Files it moves to the Trash are put back into the sandbox; the Trash is never emptied.
+        run: |
+          sandbox="$RUNNER_TEMP/flow"
+          rm -rf "$sandbox"
+          home="$sandbox/home"
+          mkdir -p "$home/Movies" "$home/Downloads" "$home/Projects/app" "$home/Pictures"
+          mkfile 30m "$home/Movies/holiday.mov"
+          cp "$home/Movies/holiday.mov" "$home/Downloads/holiday copy.mov"
+          mkfile 12m "$home/Projects/app/build.dmg"
+          mkfile 4m "$home/Projects/app/notes.txt"
+          # Two sizes of one picture, for Similar photos in Space Hunters.
+          picture=$(find "/System/Library/Desktop Pictures" -maxdepth 2 \( -name "*.heic" -o -name "*.jpg" \) 2>/dev/null | head -1)
+          if [ -n "$picture" ]; then
+            sips -s format jpeg -Z 2400 "$picture" --out "$home/Pictures/beach.jpg" > /dev/null || true
+            sips -s format jpeg -Z 1600 "$picture" --out "$home/Pictures/beach small.jpg" > /dev/null || true
+          fi
+          app=build/RoomyDisk.app/Contents/MacOS/RoomyDisk
+
+          # Runs the app in flow test mode with a time limit; prints its output and returns its status.
+          flow() {
+            local limit=$1 log=$2
+            shift 2
+            "$app" "$@" > "$log" 2>&1 &
+            local pid=$! status=0
+            for i in $(seq 1 "$limit"); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "::error::The flow tests did not finish within $limit seconds"
+              kill "$pid"
+              status=124
+            fi
+            wait "$pid" || status=$?
+            cat "$log"
+            return "$status"
+          }
+
+          status=0
+          flow 300 "$RUNNER_TEMP/flow.log" --flow-test "$sandbox" || status=$?
+          echo "--- Vietnamese ---"
+          flow 120 "$RUNNER_TEMP/flow-vi.log" -AppleLanguages '(vi)' --flow-test "$sandbox" --flow-only localization || status=$?
+          if grep -h "^flow: FAIL" "$RUNNER_TEMP/flow.log" "$RUNNER_TEMP/flow-vi.log"; then
+            echo "::error::Some app flow tests failed"
+            exit 1
+          fi
+          grep -q "^flow: PASS localization" "$RUNNER_TEMP/flow-vi.log" || { echo "::error::The Vietnamese check did not run"; exit 1; }
+          if [ "$status" -ne 0 ]; then
+            echo "::error::The flow tests exited with status $status"
+            exit 1
+          fi
+          echo "Passed: $(grep -c '^flow: PASS' "$RUNNER_TEMP/flow.log") scenarios"
+
       - name: Take screenshots of the main screens
         run: |
           sample="$RUNNER_TEMP/sample"

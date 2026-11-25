@@ -11,7 +11,7 @@ struct AlertSettingsView: View {
 
     /// The chosen tab, kept between openings. The screenshot tour sets it to show each tab.
     static let tabKey = "settingsTab"
-    @AppStorage(tabKey) private var tab = Tab.general
+    @AppStorage(tabKey, store: AppEnvironment.defaults) private var tab = Tab.general
 
     var body: some View {
         TabView(selection: $tab) {
@@ -33,9 +33,9 @@ struct AlertSettingsView: View {
 
 /// The menu bar icon and what it shows.
 private struct GeneralSettings: View {
-    @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
-    @AppStorage(AutoCheckSettings.showAmountKey) private var showAmount = true
-    @AppStorage(AutoCheckSettings.amountThresholdKey) private var amountThresholdGB = 1
+    @AppStorage(MenuBarSettings.key, store: AppEnvironment.defaults) private var showInMenuBar = true
+    @AppStorage(AutoCheckSettings.showAmountKey, store: AppEnvironment.defaults) private var showAmount = true
+    @AppStorage(AutoCheckSettings.amountThresholdKey, store: AppEnvironment.defaults) private var amountThresholdGB = 1
 
     var body: some View {
         Form {
@@ -56,11 +56,11 @@ private struct GeneralSettings: View {
 /// The background junk check, its notice, and the low-space warning.
 private struct CheckSettings: View {
     @Environment(AppModel.self) private var model
-    @AppStorage(AutoCheckSettings.intervalKey) private var interval = AutoCheckInterval.sixHours
-    @AppStorage(AutoCheckSettings.notifyKey) private var notifyReclaimable = true
-    @AppStorage(AutoCheckSettings.notifyThresholdKey) private var notifyThresholdGB = 5
-    @AppStorage(LowSpaceNotifier.enabledKey) private var alertEnabled = true
-    @AppStorage(LowSpaceNotifier.thresholdKey) private var thresholdGB = 10
+    @AppStorage(AutoCheckSettings.intervalKey, store: AppEnvironment.defaults) private var interval = AutoCheckInterval.sixHours
+    @AppStorage(AutoCheckSettings.notifyKey, store: AppEnvironment.defaults) private var notifyReclaimable = true
+    @AppStorage(AutoCheckSettings.notifyThresholdKey, store: AppEnvironment.defaults) private var notifyThresholdGB = 5
+    @AppStorage(LowSpaceNotifier.enabledKey, store: AppEnvironment.defaults) private var alertEnabled = true
+    @AppStorage(LowSpaceNotifier.thresholdKey, store: AppEnvironment.defaults) private var thresholdGB = 10
     @State private var permissionDenied = false
 
     var body: some View {

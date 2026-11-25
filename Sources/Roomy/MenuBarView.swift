@@ -5,14 +5,14 @@ import SwiftUI
 /// Whether the menu bar icon is shown. On by default.
 enum MenuBarSettings {
     static let key = "showInMenuBar"
-    static var isShown: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+    static var isShown: Bool { AppEnvironment.defaults.object(forKey: key) as? Bool ?? true }
 }
 
 /// The menu bar icon, with how much junk can be freed next to it when that is worth saying.
 struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
-    @AppStorage(AutoCheckSettings.showAmountKey) private var showAmount = true
-    @AppStorage(AutoCheckSettings.amountThresholdKey) private var thresholdGB = 1
+    @AppStorage(AutoCheckSettings.showAmountKey, store: AppEnvironment.defaults) private var showAmount = true
+    @AppStorage(AutoCheckSettings.amountThresholdKey, store: AppEnvironment.defaults) private var thresholdGB = 1
 
     private var amount: String? {
         let bytes = model.autoCheck.reclaimable

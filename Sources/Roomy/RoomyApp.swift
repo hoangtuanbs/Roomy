@@ -7,7 +7,7 @@ struct RoomyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
     @State private var menuDisks = MenuBarDiskModel()
-    @AppStorage(MenuBarSettings.key) private var showInMenuBar = true
+    @AppStorage(MenuBarSettings.key, store: AppEnvironment.defaults) private var showInMenuBar = true
 
     var body: some Scene {
         WindowGroup("RoomyDisk", id: "main") {
@@ -105,22 +105,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     // Keep running with the menu bar icon after the last window closes.
+    // The flow test closes the window on purpose, to check a notification click opens a new one.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        !MenuBarSettings.isShown
+        !MenuBarSettings.isShown && !AppEnvironment.isFlowTest
     }
 
     /// A click on the low-space notification brings RoomyDisk forward; one on the "can free" notice opens Smart Clean,
     /// and one on the failing disk notice opens Disk Health. This works with the menu bar icon hidden too.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        let route: MainWindow.Route
-        switch response.notification.request.identifier {
-        case LowSpaceNotifier.reclaimableIdentifier: route = .smartClean
-        case DiskHealthNotifier.identifier: route = .diskHealth
-        default: route = .main
-        }
+        let route = Self.route(forNotification: response.notification.request.identifier)
         Task { @MainActor in MainWindow.show(route) }
         completionHandler()
+    }
+
+    /// Where a click on the notification with this identifier leads.
+    static func route(forNotification identifier: String) -> MainWindow.Route {
+        switch identifier {
+        case LowSpaceNotifier.reclaimableIdentifier: return .smartClean
+        case DiskHealthNotifier.identifier: return .diskHealth
+        default: return .main
+        }
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
