@@ -43,9 +43,10 @@ enum MainWindow {
         return true
     }
 
-    /// SwiftUI names the windows of the "main" group "main-…".
+    /// SwiftUI names the windows of the "main" group "main-…". A minimized window cannot become main until it is
+    /// back on screen, so that is only asked of a window that is shown.
     private static func isMain(_ window: NSWindow) -> Bool {
-        (window.isVisible || window.isMiniaturized) && window.canBecomeMain
-            && window.identifier?.rawValue.hasPrefix("main") == true
+        guard window.identifier?.rawValue.hasPrefix("main") == true else { return false }
+        return window.isMiniaturized || (window.isVisible && window.canBecomeMain)
     }
 }
