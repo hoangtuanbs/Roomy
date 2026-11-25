@@ -251,6 +251,116 @@ final class SafetyPolicyTests: XCTestCase {
         ])
     }
 
+    // MARK: Letter case (APFS ignores it by default)
+
+    func testOtherLetterCaseStillMeansTheSameProtectedPlace() {
+        check(SafetyPolicy(homePath: fakeHome), [
+            ("/system", .blocked),
+            ("/SYSTEM/Library", .blocked),
+            ("/Usr/bin", .blocked),
+            ("/USR/LOCAL/bin/tool", .allowed),
+            ("/volumes/External", .blocked),
+            ("/VOLUMES/External/", .blocked),
+            ("/users/tester", .blocked),
+            ("/Users/TESTER", .blocked),
+            ("/users", .blocked),
+            (fakeHome + "/documents", .blocked),
+            (fakeHome + "/DESKTOP/", .blocked),
+            (fakeHome + "/library", .blocked),
+            (fakeHome + "/library/keychains/login.keychain-db", .blocked),
+            (fakeHome + "/Library/mail", .blocked),
+            (fakeHome + "/library/Mobile documents/x", .blocked),
+            (fakeHome + "/Library/cloudstorage/Box", .blocked),
+            (fakeHome + "/library/application support/mobilesync/backup", .blocked),
+            (fakeHome + "/Library/Application Support/MobileSync/BACKUP/abc", .caution),
+            (fakeHome + "/Library/Application Support/MobileSync/Backup/abc/MANIFEST.db", .blocked),
+            (fakeHome + "/Pictures/Photos Library.PhotosLibrary/originals", .blocked),
+            (fakeHome + "/library/caches", .caution),
+            (fakeHome + "/Projects/app/.GIT", .caution),
+            ("/library/caches/x", .caution),
+        ])
+    }
+
+    // MARK: Folders that hold protected places
+
+    func testFoldersThatHoldSystemFilesAreBlocked() {
+        check(SafetyPolicy(homePath: fakeHome), [
+            ("/Library", .blocked),
+            ("/Library/", .blocked),
+            ("/private", .blocked),
+            ("/private/var", .blocked),
+            ("/private/var/folders/xy/old", .allowed),
+            ("/Applications", .blocked),
+            ("/Volumes", .blocked),
+            ("/Volumes/", .blocked),
+        ])
+    }
+
+    // MARK: Links on the way
+
+    func testLinksOnTheWayIntoTheHomeFolderAreFollowed() throws {
+        let home = temp + "/home"
+        let elsewhere = temp + "/elsewhere"
+        for folder in ["Documents", "Library/Keychains", "Library/Caches/app", "Projects/app", "Pictures/P.photoslibrary/originals"] {
+            try fm.createDirectory(atPath: home + "/" + folder, withIntermediateDirectories: true)
+        }
+        try fm.createDirectory(atPath: elsewhere, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(atPath: elsewhere + "/home-link", withDestinationPath: home)
+        try fm.createSymbolicLink(atPath: elsewhere + "/projects-link", withDestinationPath: home + "/Projects")
+        try fm.createSymbolicLink(atPath: elsewhere + "/photos-link", withDestinationPath: home + "/Pictures/P.photoslibrary")
+
+        check(SafetyPolicy(homePath: home), [
+            (elsewhere + "/home-link/Documents", .blocked),
+            (elsewhere + "/home-link/Documents/", .blocked),
+            (elsewhere + "/home-link/Library/Keychains", .blocked),
+            (elsewhere + "/home-link/Library/Caches/app", .caution),
+            (elsewhere + "/home-link/Projects/app", .allowed),
+            (elsewhere + "/projects-link/../Documents", .blocked),
+            (elsewhere + "/projects-link/..", .blocked),
+            (elsewhere + "/photos-link/originals", .blocked),
+            (elsewhere + "/home-link", .allowed),
+        ])
+    }
+
+    func testAHomeFolderReachedThroughALinkIsStillProtected() throws {
+        let real = temp + "/real-home"
+        try fm.createDirectory(atPath: real + "/Documents", withIntermediateDirectories: true)
+        try fm.createSymbolicLink(atPath: temp + "/home-link", withDestinationPath: real)
+        let policy = SafetyPolicy(homePath: temp + "/home-link")
+        check(policy, [
+            (real, .blocked),
+            (real + "/Documents", .blocked),
+            (real + "/Documents/file.txt", .allowed),
+            (temp + "/home-link/Documents", .blocked),
+        ])
+    }
+
+    func testLinksOnTheWayIntoSystemFoldersAreFollowed() throws {
+        try fm.createSymbolicLink(atPath: temp + "/usr-link", withDestinationPath: "/usr")
+        try fm.createSymbolicLink(atPath: temp + "/root-link", withDestinationPath: "/")
+        check(SafetyPolicy(homePath: fakeHome), [
+            (temp + "/usr-link/bin", .blocked),
+            (temp + "/usr-link/lib/", .blocked),
+            (temp + "/root-link/System", .blocked),
+            (temp + "/root-link/usr/bin/zip", .blocked),
+            (temp + "/root-link/Library", .blocked),
+            (temp + "/usr-link", .allowed),
+        ])
+    }
+
+    #if os(macOS)
+    func testSystemFoldersBehindMacOSLinksAreBlocked() {
+        // /etc, /var and /tmp are links into /private on macOS.
+        check(SafetyPolicy(homePath: fakeHome), [
+            ("/var/db", .blocked),
+            ("/var/db/receipts", .blocked),
+            ("/var/vm", .blocked),
+            ("/var", .blocked),
+            ("/etc", .blocked),
+        ])
+    }
+    #endif
+
     // MARK: Selection
 
     func testSelectionDropsDuplicatesAndItemsInsideOtherItems() {
@@ -259,5 +369,12 @@ final class SafetyPolicyTests: XCTestCase {
         XCTAssertEqual(Selection.normalized(["/a/b/c", "/a/b", "/a/b/c/d"]), ["/a/b"])
         XCTAssertEqual(Selection.normalized(["/a/bc", "/a/b"]), ["/a/b", "/a/bc"])
         XCTAssertEqual(Selection.normalized(["/z", "/a"]), ["/a", "/z"])
+        XCTAssertEqual(Selection.normalized(["/", "/a", "/b/c"]), ["/"])
+    }
+
+    func testSelectionDropsNestedItemsEvenWhenANeighbourSortsBetween() {
+        // " " and "-" sort before "/", so "/a b" lands between "/a" and "/a/b".
+        XCTAssertEqual(Selection.normalized(["/a", "/a b", "/a/b"]), ["/a", "/a b"])
+        XCTAssertEqual(Selection.normalized(["/x/Photos", "/x/Photos-old", "/x/Photos/2019/a.jpg"]), ["/x/Photos", "/x/Photos-old"])
     }
 }
