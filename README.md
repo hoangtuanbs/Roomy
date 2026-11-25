@@ -184,6 +184,15 @@ Locally, `VERSION=1.0.0 BUILD_NUMBER=7 ./scripts/build-app.sh` builds with a ver
 `build/RoomyDisk.app/Contents/MacOS/RoomyDisk --scan <folder>` opens RoomyDisk already scanning a folder. Adding
 `--snapshot <file.png>` saves the window as an image and quits, which is how `docs/screenshot.png` is made.
 
+`RoomyDisk --flow-test <sandbox>` runs the app's flows end to end on the real models and sheets: scanning, Review
+and Clean, Compress, Smart Clean, Duplicates, the Uninstaller, Space Hunters, Cloud Space, the background check and
+Quick Clean, Disk Health, CSV export, the notification routes, Settings and the translations. It prints
+`flow: PASS <name>` or `flow: FAIL <name>: <reason>` for each and exits with status 1 when any fails;
+`--flow-only <name>,<name>` runs only some. It only runs on a folder inside `$TMPDIR` or `$RUNNER_TEMP` (the Build
+workflow makes one with sample files): the features look in `<sandbox>/home` instead of your home folder, settings
+go to a separate defaults suite that is removed afterwards, and everything outside the sandbox is blocked. What it
+moves to the Trash is moved back into the sandbox at the end; it never empties the Trash.
+
 ## Layout
 
 | Path | What it is |
