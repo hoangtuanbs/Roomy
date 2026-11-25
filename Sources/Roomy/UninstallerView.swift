@@ -292,7 +292,7 @@ private struct AppTile: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 146, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 160, alignment: .top)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -369,7 +369,7 @@ private struct OrphansTile: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 146, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: 160, alignment: .top)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
