@@ -292,7 +292,7 @@ private struct AppTile: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 134, alignment: .top)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -300,7 +300,10 @@ private struct AppTile: View {
                         .matchedGeometryEffect(id: "selected", in: highlight)
                 } else {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.primary.opacity(hovering ? 0.06 : 0.03))
+                        .fill(Palette.card)
+                        .shadow(color: .black.opacity(hovering ? 0.10 : 0.04), radius: hovering ? 6 : 2, y: hovering ? 2 : 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Palette.border)
                 }
             }
             .overlay(
@@ -366,7 +369,7 @@ private struct OrphansTile: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 134, alignment: .top)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)

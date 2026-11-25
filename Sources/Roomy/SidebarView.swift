@@ -14,8 +14,8 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             AppMark()
                 .padding(.horizontal, Space.l)
-                .padding(.top, Space.xs)
-                .padding(.bottom, Space.m)
+                .padding(.top, 2)
+                .padding(.bottom, Space.xs)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -134,8 +134,8 @@ private struct SidebarSection: View {
             .font(Typo.sectionLabel)
             .foregroundStyle(.secondary)
             .padding(.horizontal, Space.s)
-            .padding(.top, Space.l)
-            .padding(.bottom, Space.xs)
+            .padding(.top, Space.m)
+            .padding(.bottom, 3)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -157,6 +157,7 @@ private struct SmartCleanRow: View {
                 Text("Smart Clean")
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Spacer(minLength: 4)
                 if freeable > 0 {
                     Text(ByteFormat.short(freeable))
@@ -218,7 +219,7 @@ private struct ToolRow: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.primary.opacity(hovering ? 0.06 : 0))
@@ -247,7 +248,7 @@ private struct LocationRow: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 9) {
                     IconTile(symbol: location.symbol, gradient: .tile(tint), size: 22)
                         .symbolEffect(.pulse, isActive: isScanning && !reduceMotion)
@@ -274,7 +275,7 @@ private struct LocationRow: View {
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.vertical, 4)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)

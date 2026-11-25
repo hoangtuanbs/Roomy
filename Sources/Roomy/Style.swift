@@ -393,6 +393,8 @@ struct PrimaryActionStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .font(.body.weight(.semibold))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 7)

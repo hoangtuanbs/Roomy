@@ -152,6 +152,7 @@ struct DiskOverviewCard: View {
                                 .frame(width: 7, height: 7)
                             Text(part.title(wholeDisk: disk.isWholeDisk))
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                             if part == .hidden && disk.isWholeDisk && !model.hasFullDiskAccess {
                                 Image(systemName: "lock.fill").foregroundStyle(.orange)
                             }

@@ -11,7 +11,7 @@ struct ContentView: View {
 
         HStack(spacing: 0) {
             SidebarView()
-                .frame(width: 236)
+                .frame(width: 244)
                 .frame(maxHeight: .infinity)
                 .background(Palette.sidebar.ignoresSafeArea())
             Rectangle()
@@ -93,7 +93,8 @@ extension AppModel {
     }
 }
 
-/// The window's toolbar: the tools live in the sidebar, so it only has the filter, Rescan and Export.
+/// The window's toolbar: the tools live in the sidebar, and Rescan and Export sit in the header next to what they act
+/// on, so it only has the filter.
 private struct MainToolbar: ViewModifier {
     @Environment(AppModel.self) private var model
 
@@ -101,29 +102,6 @@ private struct MainToolbar: ViewModifier {
         @Bindable var model = model
         content
             .searchable(text: $model.searchText, placement: .toolbar, prompt: "Filter by name")
-            .toolbar {
-                ToolbarItem {
-                    Menu {
-                        Button("Items in This Folder") { model.exportCSV(depth: 1) }
-                        Button("Up to 2 Levels Deep") { model.exportCSV(depth: 2) }
-                        Button("Up to 3 Levels Deep") { model.exportCSV(depth: 3) }
-                        Button("Up to 5 Levels Deep") { model.exportCSV(depth: 5) }
-                    } label: {
-                        Label("Export as CSV", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(model.tree == nil)
-                    .help("Save this folder and its items as a CSV file")
-                }
-                ToolbarItem {
-                    Button {
-                        model.rescan()
-                    } label: {
-                        Label("Rescan", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(model.tree == nil && !model.state.isScanning)
-                    .help("Rescan")
-                }
-            }
             .toolbarBackground(.hidden, for: .windowToolbar)
             .modifier(HiddenToolbarTitle())
     }
@@ -270,6 +248,32 @@ struct HeroHeader: View {
                 }
                 .fixedSize()
 
+                HStack(spacing: 6) {
+                    Menu {
+                        Button("Items in This Folder") { model.exportCSV(depth: 1) }
+                        Button("Up to 2 Levels Deep") { model.exportCSV(depth: 2) }
+                        Button("Up to 3 Levels Deep") { model.exportCSV(depth: 3) }
+                        Button("Up to 5 Levels Deep") { model.exportCSV(depth: 5) }
+                    } label: {
+                        HeaderIcon(symbol: "square.and.arrow.up")
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("Save this folder and its items as a CSV file")
+                    .accessibilityLabel("Export as CSV")
+
+                    Button {
+                        model.rescan()
+                    } label: {
+                        HeaderIcon(symbol: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Rescan")
+                    .accessibilityLabel("Rescan")
+                }
+
                 Picker("Map", selection: $model.mapStyle) {
                     ForEach(MapStyle.allCases) { style in
                         Label(style.label, systemImage: style.symbol).tag(style)
@@ -285,6 +289,24 @@ struct HeroHeader: View {
             .padding(.bottom, Space.m)
             .overlay(alignment: .bottom) { Rectangle().fill(Palette.hairline).frame(height: 1) }
         }
+    }
+}
+
+/// A round icon button of the header.
+private struct HeaderIcon: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let symbol: String
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(hovering && isEnabled ? Color.accentColor : Color.secondary)
+            .frame(width: 30, height: 30)
+            .background(Circle().fill(Color.primary.opacity(hovering ? 0.10 : 0.06)))
+            .contentShape(Circle())
+            .opacity(isEnabled ? 1 : 0.4)
+            .onHover { hovering = $0 }
     }
 }
 
@@ -307,6 +329,14 @@ private struct Breadcrumb: View {
                         model.go(to: node)
                     }
                     .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+                if model.currentFolder == ScanTree.root, let root = model.tree?.rootPath {
+                    Text((root as NSString).abbreviatingWithTildeInPath)
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .transition(.opacity)
                 }
             }
             .animation(Motion.quick.unless(reduceMotion), value: model.breadcrumb)
