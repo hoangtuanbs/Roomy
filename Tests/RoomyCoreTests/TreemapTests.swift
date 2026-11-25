@@ -55,7 +55,11 @@ final class TreemapTests: XCTestCase {
     }
 
     func testManyItemsOfVeryDifferentSizes() {
-        let values = (0..<200).map { i in Double((i * 7_919) % 1_000 + 1) * (i % 10 == 0 ? 1_000 : 1) }
+        var values: [Double] = []
+        for i in 0..<200 {
+            let base = Double((i * 7_919) % 1_000 + 1)
+            values.append(i % 10 == 0 ? base * 1_000 : base)
+        }
         checkLayout(values, in: CGRect(x: 0, y: 0, width: 1_200, height: 800))
     }
 
