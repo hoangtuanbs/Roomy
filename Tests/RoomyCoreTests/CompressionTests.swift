@@ -147,7 +147,8 @@ final class CompressionTests: XCTestCase {
         XCTAssertGreaterThan(result.savedBytes, original / 2)
         XCTAssertEqual(try runTool("/usr/bin/unzip", ["-tqq", path + ".zip"]).status, 0)
         let names = try runTool("/usr/bin/unzip", ["-Z1", path + ".zip"]).output.split(separator: "\n").map(String.init)
-        XCTAssertTrue(names.contains("server.log"), "\(names)")
+        // ditto --keepParent keeps the folder that holds a single file too.
+        XCTAssertTrue(names.contains("Logs/server.log"), "\(names)")
 
         let records = history.load()
         XCTAssertEqual(records.count, 1)
