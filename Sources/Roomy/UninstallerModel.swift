@@ -63,7 +63,7 @@ final class UninstallerModel {
     @ObservationIgnored var onRemoved: (([String]) -> Void)?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var detailTask: Task<Void, Never>?
-    @ObservationIgnored private let uninstaller = AppUninstaller()
+    @ObservationIgnored private let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
 
     var isBusy: Bool { phase == .loading || phase == .removing }
 
@@ -311,7 +311,7 @@ final class UninstallerModel {
         phase = .removing
 
         Task.detached {
-            let service = CleanupService()
+            let service = AppEnvironment.cleanupService()
             // Leftovers go first and the app last, so if something fails the app is still there to try again.
             let appPath = app?.path
             let rest = paths.filter { $0 != appPath }

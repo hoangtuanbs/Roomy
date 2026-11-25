@@ -56,7 +56,7 @@ final class DuplicatesModel {
         }
         phase = .scanning
 
-        let finder = DuplicateFinder()
+        let finder = DuplicateFinder(homePath: AppEnvironment.home)
         scanTask = Task {
             let report: @Sendable (DuplicateProgress) -> Void = { step in
                 Task { @MainActor in
@@ -121,7 +121,7 @@ final class DuplicatesModel {
         phase = .cleaning
 
         Task.detached {
-            let service = CleanupService()
+            let service = AppEnvironment.cleanupService()
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan) { result in
                 Task { @MainActor in self.advance(result) }

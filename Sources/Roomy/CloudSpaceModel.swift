@@ -32,7 +32,7 @@ final class CloudSpaceModel {
     private(set) var evictedProviders: [CloudProvider] = []
 
     @ObservationIgnored private var task: Task<Void, Never>?
-    let locations = CloudLocations()
+    let locations = CloudLocations(homePath: AppEnvironment.home)
 
     var isBusy: Bool { phase == .finding || phase == .evicting }
     var hasProviders: Bool { !providers.isEmpty }

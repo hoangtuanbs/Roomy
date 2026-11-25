@@ -72,7 +72,7 @@ enum DiskHealthNotifier {
     nonisolated static let identifier = "diskFailing"
 
     static func check(_ reports: [DiskHealthReport]) {
-        let defaults = UserDefaults.standard
+        let defaults = AppEnvironment.defaults
         let before = Set(defaults.stringArray(forKey: announcedKey) ?? [])
         let decision = DiskHealthAlert.decide(reports, alreadyAnnounced: before)
         defaults.set(Array(decision.announced).sorted(), forKey: announcedKey)

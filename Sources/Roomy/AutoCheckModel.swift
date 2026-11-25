@@ -15,7 +15,7 @@ enum AutoCheckSettings {
     static let summaryKey = "autoCheckSummary"
 
     static var interval: AutoCheckInterval {
-        UserDefaults.standard.string(forKey: intervalKey).flatMap(AutoCheckInterval.init(rawValue:)) ?? .sixHours
+        AppEnvironment.defaults.string(forKey: intervalKey).flatMap(AutoCheckInterval.init(rawValue:)) ?? .sixHours
     }
 }
 
@@ -49,7 +49,7 @@ final class AutoCheckModel {
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: AutoCheckSettings.summaryKey) {
+        if let data = AppEnvironment.defaults.data(forKey: AutoCheckSettings.summaryKey) {
             summary = try? JSONDecoder().decode(JunkSummary.self, from: data)
         }
     }
@@ -113,7 +113,7 @@ final class AutoCheckModel {
         guard !isChecking, phase != .cleaning else { return }
         isChecking = true
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        let finder = JunkFinder(skippedCacheNames: running)
+        let finder = JunkFinder(homePath: AppEnvironment.home, skippedCacheNames: running)
         checkTask = Task.detached(priority: .background) {
             let found = await finder.find()
             let cancelled = Task.isCancelled
@@ -152,7 +152,7 @@ final class AutoCheckModel {
 
     private func save() {
         guard let summary, let data = try? JSONEncoder().encode(summary) else { return }
-        UserDefaults.standard.set(data, forKey: AutoCheckSettings.summaryKey)
+        AppEnvironment.defaults.set(data, forKey: AutoCheckSettings.summaryKey)
     }
 
     // MARK: Quick Clean
@@ -180,7 +180,7 @@ final class AutoCheckModel {
         phase = .cleaning
 
         Task.detached {
-            let service = CleanupService()
+            let service = AppEnvironment.cleanupService()
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan) { result in
                 Task { @MainActor in self.advance(result) }
@@ -224,7 +224,7 @@ final class AutoCheckModel {
     // MARK: Notice
 
     private func noticeIfWorthIt(_ summary: JunkSummary) {
-        let defaults = UserDefaults.standard
+        let defaults = AppEnvironment.defaults
         guard defaults.object(forKey: AutoCheckSettings.notifyKey) as? Bool ?? true else { return }
         let gigabytes = defaults.object(forKey: AutoCheckSettings.notifyThresholdKey) as? Int ?? 5
         let last = (defaults.object(forKey: AutoCheckSettings.lastNoticeKey) as? Double).map(Date.init(timeIntervalSince1970:))

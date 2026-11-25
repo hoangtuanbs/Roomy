@@ -14,7 +14,7 @@ enum LowSpaceNotifier {
     nonisolated static let reclaimableIdentifier = "reclaimable"
 
     static func checkStartupDisk(free: Int64) {
-        let defaults = UserDefaults.standard
+        let defaults = AppEnvironment.defaults
         guard defaults.object(forKey: enabledKey) as? Bool ?? true else { return }
         let gigabytes = defaults.object(forKey: thresholdKey) as? Int ?? 10
         let last = (defaults.object(forKey: lastAlertKey) as? Double).map(Date.init(timeIntervalSince1970:))
@@ -45,7 +45,7 @@ enum LowSpaceNotifier {
         let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: nil)
         do {
             try await UNUserNotificationCenter.current().add(request)
-            UserDefaults.standard.set(date.timeIntervalSince1970, forKey: lastAlertKey)
+            AppEnvironment.defaults.set(date.timeIntervalSince1970, forKey: lastAlertKey)
         } catch {
             // The next check tries again; nothing else to do.
         }
@@ -60,7 +60,7 @@ enum LowSpaceNotifier {
         let request = UNNotificationRequest(identifier: reclaimableIdentifier, content: content, trigger: nil)
         do {
             try await UNUserNotificationCenter.current().add(request)
-            UserDefaults.standard.set(date.timeIntervalSince1970, forKey: AutoCheckSettings.lastNoticeKey)
+            AppEnvironment.defaults.set(date.timeIntervalSince1970, forKey: AutoCheckSettings.lastNoticeKey)
         } catch {
             // The next check tries again.
         }

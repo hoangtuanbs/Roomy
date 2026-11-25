@@ -13,15 +13,20 @@ enum CSVExporter {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         Task {
-            let csv = await Task.detached(priority: .userInitiated) {
-                TreeCSV.export(tree: tree, folder: folder, depth: depth)
-            }.value
             do {
-                try csv.write(to: url, atomically: true, encoding: .utf8)
+                try await write(tree: tree, folder: folder, depth: depth, to: url)
             } catch {
                 NSAlert(error: error).runModal()
             }
         }
+    }
+
+    /// Writes the CSV to `url`, off the main thread. The save panel's choice ends here; so does the flow test.
+    static func write(tree: ScanTree, folder: ScanTree.Index, depth: Int, to url: URL) async throws {
+        let csv = await Task.detached(priority: .userInitiated) {
+            TreeCSV.export(tree: tree, folder: folder, depth: depth)
+        }.value
+        try csv.write(to: url, atomically: true, encoding: .utf8)
     }
 
     private static func fileName(for tree: ScanTree, folder: ScanTree.Index) -> String {

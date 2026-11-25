@@ -30,7 +30,7 @@ enum DiskPart: Int, CaseIterable, Identifiable {
 struct DiskOverviewCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage("diskOverviewExpanded") private var expanded = true
+    @AppStorage("diskOverviewExpanded", store: AppEnvironment.defaults) private var expanded = true
     @State private var grown = false
     @State private var explaining: DiskPart?
     @State private var hovered: DiskPart?
