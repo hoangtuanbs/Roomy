@@ -33,15 +33,23 @@ Pull requests get their own preview URL from Cloudflare automatically.
 ## Contact form
 
 The form posts to `/api/contact`, a Cloudflare Pages Function (`functions/api/contact.js`). It checks the fields,
-drops bot submissions (a hidden honeypot field) and forwards the message to [Formspree](https://formspree.io), which
-emails it to you. Your address is kept in Formspree only, never in the page or this repository.
+drops bot submissions (a hidden honeypot field and a minimum fill time) and emails the message to you through
+[Resend](https://resend.com), with the visitor's address as Reply-To so you can answer straight from your inbox.
+Your address is kept in Cloudflare's encrypted settings only, never in the page or this repository.
+Resend's free plan sends 3,000 emails a month (100 a day).
 
-1. Sign up at formspree.io with the address that should receive messages, and create a form.
-2. Copy the form's ID (the part after `/f/` in its endpoint, such as `xyzabcde`).
-3. In Cloudflare Pages open **Settings › Variables and Secrets**, add `FORMSPREE_FORM_ID` with that ID for
-   Production (and Preview if you like), then redeploy.
+1. Sign up at resend.com with the address that should receive messages, and create an API key with sending access.
+2. In Cloudflare Pages open **Settings › Variables and Secrets** and add, for Production:
+   - `RESEND_API_KEY`: the key (type **Secret**).
+   - `CONTACT_TO`: the address you signed up to Resend with (type **Secret**).
+3. Redeploy. Until both are set, the form tells visitors it isn't connected yet and points them to GitHub issues.
 
-Until the variable is set, the form tells visitors it isn't connected yet and points them to GitHub issues.
+Without a verified domain, Resend sends from its shared `onboarding@resend.dev` address and only to your own
+sign-up address, which is all a contact form needs. Once the site has its own domain, verify it in Resend and set
+`CONTACT_FROM` (for example `RoomyDisk <hello@yourdomain>`).
+
+Optional bot check: create a free Cloudflare Turnstile widget for the site, put its site key in `data-sitekey` on
+`#cf-turnstile` in `index.html`, and add its secret as `TURNSTILE_SECRET`.
 
 ## Updating screenshots
 

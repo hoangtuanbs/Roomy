@@ -41,6 +41,12 @@
   if (form) {
     var note = document.getElementById("cf-note"), send = document.getElementById("cf-send");
     var fEmail = document.getElementById("cf-email"), fMsg = document.getElementById("cf-message");
+    document.getElementById("cf-started").value = String(Date.now());
+    // Optional Cloudflare Turnstile bot check: load it only when a site key is filled in.
+    var ts = document.getElementById("cf-turnstile");
+    if (ts && ts.dataset.sitekey) {
+      var sc = document.createElement("script"); sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"; sc.async = true; document.head.appendChild(sc);
+    } else if (ts) ts.remove();
     var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     function say(text, kind) { note.textContent = text; note.className = "contact__note" + (kind ? " is-" + kind : ""); }
     function mark(el, bad) { if (bad) el.setAttribute("aria-invalid", "true"); else el.removeAttribute("aria-invalid"); }
