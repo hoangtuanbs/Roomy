@@ -271,15 +271,35 @@
         <h2 id="contact-title" class="h2">Say hello.</h2>
         <p class="sub">Questions, ideas, or a disk RoomyDisk didn't read right? Write and you'll hear back from the person who makes it.</p>
       </div>
-      <div class="contact__card">
-        <span class="contact__label">Email</span>
-        <a class="contact__mail mono" id="contactMail" href="mailto:hoangtuanbs@proton.me">hoangtuanbs@proton.me</a>
-        <div class="contact__actions">
-          <button class="btn btn--small" type="button" id="copyMail">Copy address</button>
-          <a class="btn btn--ghost btn--compact" href="https://github.com/hoangtuanbs/roomy/issues" rel="noopener">Report a bug on GitHub</a>
+      <form class="contact__card" id="contactForm" action="/api/contact" method="post" novalidate>
+        <div class="field-row">
+          <div class="field">
+            <label for="cf-name">Name</label>
+            <input id="cf-name" name="name" type="text" autocomplete="name" maxlength="100" placeholder="Your name">
+          </div>
+          <div class="field">
+            <label for="cf-email">Email <span aria-hidden="true">*</span></label>
+            <input id="cf-email" name="email" type="email" autocomplete="email" maxlength="200" required placeholder="So we can reply">
+          </div>
         </div>
-        <span class="contact__note" id="copyNote" role="status" aria-live="polite"></span>
-      </div>
+        <fieldset class="field topics">
+          <legend>About</legend>
+          <label><input type="radio" name="topic" value="Question" checked><span>Question</span></label>
+          <label><input type="radio" name="topic" value="Idea"><span>Idea</span></label>
+          <label><input type="radio" name="topic" value="Problem"><span>Problem</span></label>
+          <label><input type="radio" name="topic" value="Other"><span>Other</span></label>
+        </fieldset>
+        <div class="field">
+          <label for="cf-message">Message <span aria-hidden="true">*</span></label>
+          <textarea id="cf-message" name="message" rows="5" maxlength="5000" required placeholder="What's on your mind? For a problem, your macOS version helps."></textarea>
+        </div>
+        <div class="hp" aria-hidden="true"><label for="cf-website">Website</label><input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <div class="contact__actions">
+          <button class="btn btn--glow btn--send" type="submit" id="cf-send"><span>Send message</span></button>
+          <a class="contact__alt" href="https://github.com/hoangtuanbs/roomy/issues" rel="noopener">Or report a bug on GitHub</a>
+        </div>
+        <p class="contact__note" id="cf-note" role="status" aria-live="polite"></p>
+      </form>
     </div>
   </section>
 </main>
@@ -288,7 +308,7 @@
   <div class="wrap foot__inner">
     <span class="brand brand--small"><img src="assets/img/icon-32.png" width="20" height="20" alt="">RoomyDisk</span>
     <span>© 2026 hoangtuanbs and DanaExperts · MIT licence</span>
-    <nav aria-label="Footer"><a href="https://github.com/hoangtuanbs/roomy/releases" rel="noopener">Releases</a><a href="https://github.com/hoangtuanbs/roomy/issues" rel="noopener">Report a problem</a><a href="mailto:hoangtuanbs@proton.me">hoangtuanbs@proton.me</a></nav>
+    <nav aria-label="Footer"><a href="https://github.com/hoangtuanbs/roomy/releases" rel="noopener">Releases</a><a href="https://github.com/hoangtuanbs/roomy/issues" rel="noopener">Report a problem</a><a href="#contact">Contact</a></nav>
   </div>
 </footer>
 

@@ -36,19 +36,33 @@
     });
   }, 2500);
 
-  /* ---------------- contact: copy the email address ---------------- */
-  var copyBtn = document.getElementById("copyMail"), mail = document.getElementById("contactMail"), note = document.getElementById("copyNote");
-  if (copyBtn && mail) {
-    copyBtn.addEventListener("click", function () {
-      var addr = mail.textContent.trim();
-      function selectIt() {
-        var r = document.createRange(); r.selectNodeContents(mail);
-        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-        note.textContent = "Selected. Press ⌘C to copy.";
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(addr).then(function () { note.textContent = "Copied " + addr; }, selectIt);
-      } else selectIt();
+  /* ---------------- contact form ---------------- */
+  var form = document.getElementById("contactForm");
+  if (form) {
+    var note = document.getElementById("cf-note"), send = document.getElementById("cf-send");
+    var fEmail = document.getElementById("cf-email"), fMsg = document.getElementById("cf-message");
+    var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    function say(text, kind) { note.textContent = text; note.className = "contact__note" + (kind ? " is-" + kind : ""); }
+    function mark(el, bad) { if (bad) el.setAttribute("aria-invalid", "true"); else el.removeAttribute("aria-invalid"); }
+    [fEmail, fMsg].forEach(function (el) { el.addEventListener("input", function () { mark(el, false); }); });
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var badEmail = !EMAIL_RE.test(fEmail.value.trim()), badMsg = fMsg.value.trim().length < 10;
+      mark(fEmail, badEmail); mark(fMsg, badMsg);
+      if (badEmail) { say("Please enter an email address we can reply to.", "err"); fEmail.focus(); return; }
+      if (badMsg) { say("Please write a few more words.", "err"); fMsg.focus(); return; }
+      var data = {}; new FormData(form).forEach(function (v, k) { data[k] = v; });
+      send.disabled = true; send.classList.add("is-busy"); say("Sending…");
+      fetch(form.getAttribute("action"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) })
+        .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+        .then(function (res) {
+          if (res.ok) { form.classList.add("is-sent"); say("Thanks! Your message is on its way. We'll reply by email.", "ok"); form.reset(); return; }
+          if (res.field === "email") mark(fEmail, true);
+          if (res.field === "message") mark(fMsg, true);
+          say(res.error || "Your message couldn't be sent just now. Please try again in a minute.", "err");
+        })
+        .catch(function () { say("Your message couldn't be sent. Check your connection and try again.", "err"); })
+        .then(function () { send.disabled = false; send.classList.remove("is-busy"); });
     });
   }
 
