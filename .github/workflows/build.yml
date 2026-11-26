@@ -3,7 +3,10 @@ name: Build
 on:
   push:
     branches: [main]
+    # The website is static files served by Cloudflare Pages; it needs no Mac build.
+    paths-ignore: ['website/**']
   pull_request:
+    paths-ignore: ['website/**']
   workflow_dispatch:
 
 permissions:
