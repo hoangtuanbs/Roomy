@@ -4,7 +4,7 @@
 " and more" = "y más";
 " freed" = "liberado";
 " freed — still in the cloud" = "liberado; sigue en la nube";
-" used of %@" = "usado de %@";
+" used of %@" = " usado de %@";
 "%lld %@ (%@) will be moved to the Trash. You can put them back from the Trash until you empty it." = "Se moverán %lld %@ (%@) a la Papelera. Puedes devolverlos desde la Papelera hasta que la vacíes.";
 "%lld %@ downloaded" = "%lld %@ descargados";
 "%lld %@ selected" = "%lld %@ seleccionados";
@@ -525,6 +525,7 @@
 "Simulator caches" = "Cachés del simulador";
 "Smaller items" = "Elementos más pequeños";
 "Smart Clean" = "Limpieza inteligente";
+"Tools" = "Herramientas";
 "The Trash is not available on this system." = "La Papelera no está disponible en este sistema.";
 "The archive did not pass its check, so it was removed. The original was not changed." = "El archivo comprimido no superó la comprobación, así que se eliminó. El original no se modificó.";
 "The disk reports that it is failing. Back up now with Time Machine. Click for details." = "El disco informa de que está fallando. Haz una copia ya con Time Machine. Haz clic para más detalles.";

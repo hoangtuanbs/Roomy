@@ -10,9 +10,9 @@ struct DiskHealthView: View {
     var body: some View {
         let health = model.diskHealth
 
-        VStack(spacing: 0) {
+        ToolSheet {
             DiskHealthHeader()
-            Divider()
+        } content: {
             ZStack {
                 if health.phase != .ready && health.reports.isEmpty {
                     DiskHealthProgress()
@@ -36,7 +36,7 @@ struct DiskHealthView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: health.reports.isEmpty)
-            Divider()
+        } footer: {
             HStack(spacing: 10) {
                 Label("Read-only: RoomyDisk only looks at what your disks report and never changes them.",
                       systemImage: "lock.shield")
@@ -53,8 +53,6 @@ struct DiskHealthView: View {
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
-            .padding(.horizontal, 18)
-            .frame(height: 56)
         }
         .frame(minWidth: 780, idealWidth: 860, minHeight: 600, idealHeight: 720)
     }
@@ -66,23 +64,13 @@ private struct DiskHealthHeader: View {
 
     var body: some View {
         let health = model.diskHealth
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.diskHealth)
+        ToolSheetHeader(title: "Disk Health", subtitle: Text("What each disk reports about itself, in plain words."),
+                        gradient: .diskHealth) {
                 Image(systemName: "stethoscope")
                     .font(.system(size: 21, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.pulse, isActive: health.isBusy && !reduceMotion)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Disk Health").font(.title2.weight(.semibold))
-                Text("What each disk reports about itself, in plain words.")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer()
+        } accessory: {
             if let overall = health.overall {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(summary(overall, count: health.reports.count))
@@ -96,7 +84,6 @@ private struct DiskHealthHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: health.overall)
     }
 
@@ -197,7 +184,7 @@ private struct DiskHealthCard: View {
             .font(.callout)
         }
         .padding(18)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.card))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
             .strokeBorder(report.verdict.color.opacity(0.25), lineWidth: 1))
     }

@@ -1,20 +1,31 @@
+import AppKit
 import RoomyCore
 import SwiftUI
 
 extension FileCategory {
+    /// The category colours, defined once: softer, more modern hues that keep each category's meaning.
     var color: Color {
         switch self {
-        case .folder: return Color(red: 0.29, green: 0.52, blue: 0.86)
-        case .video: return Color(red: 0.86, green: 0.36, blue: 0.42)
-        case .audio: return Color(red: 0.93, green: 0.58, blue: 0.25)
-        case .image: return Color(red: 0.36, green: 0.72, blue: 0.48)
-        case .archive: return Color(red: 0.62, green: 0.45, blue: 0.85)
-        case .application: return Color(red: 0.25, green: 0.70, blue: 0.80)
-        case .developer: return Color(red: 0.85, green: 0.72, blue: 0.25)
-        case .document: return Color(red: 0.55, green: 0.62, blue: 0.70)
-        case .other: return Color(red: 0.60, green: 0.60, blue: 0.62)
+        case .folder: return Color(red: 0.36, green: 0.52, blue: 0.96)
+        case .video: return Color(red: 0.94, green: 0.42, blue: 0.56)
+        case .audio: return Color(red: 0.97, green: 0.62, blue: 0.30)
+        case .image: return Color(red: 0.26, green: 0.75, blue: 0.56)
+        case .archive: return Color(red: 0.62, green: 0.49, blue: 0.95)
+        case .application: return Color(red: 0.22, green: 0.70, blue: 0.85)
+        case .developer: return Color(red: 0.91, green: 0.72, blue: 0.22)
+        case .document: return Color(red: 0.50, green: 0.58, blue: 0.70)
+        case .other: return Color(red: 0.60, green: 0.62, blue: 0.67)
         }
     }
+
+    /// The top and bottom of a treemap tile or a ring segment of this category: a little lighter at the top.
+    var gradientStops: (top: Color, bottom: Color) {
+        Self.stops[self] ?? (color, color)
+    }
+
+    private static let stops: [FileCategory: (top: Color, bottom: Color)] = Dictionary(
+        uniqueKeysWithValues: FileCategory.allCases.map { ($0, ($0.color.mixed(with: .white, by: 0.18), $0.color.mixed(with: .black, by: 0.05))) }
+    )
 
     var symbol: String {
         switch self {
@@ -35,19 +46,23 @@ extension Int64 {
     var bytes: String { ByteFormat.string(self) }
 }
 
+/// A slim rounded bar with a gradient fill, for sizes and disk use.
 struct SizeBar: View {
     let fraction: Double
     let color: Color
+    var height: CGFloat = 5
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(.quaternary)
-                Capsule().fill(color)
-                    .frame(width: max(2, geo.size.width * min(1, max(0, fraction))))
+                Capsule().fill(Color.primary.opacity(0.08))
+                Capsule()
+                    .fill(LinearGradient(colors: [color.mixed(with: .white, by: 0.25), color],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(height, geo.size.width * min(1, max(0, fraction))))
             }
         }
-        .frame(height: 5)
+        .frame(height: height)
         .motion(Motion.spring, value: fraction)
     }
 }
@@ -82,7 +97,7 @@ extension DiskPart {
         case .scanned: return FileCategory.folder.color
         case .hidden: return FileCategory.audio.color
         case .purgeable: return FileCategory.archive.color
-        case .free: return Color.secondary.opacity(0.25)
+        case .free: return Color.primary.opacity(0.10)
         }
     }
 }
@@ -255,5 +270,207 @@ struct BusyRing<Center: View>: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+// MARK: Colours, type and spacing
+
+extension Color {
+    /// This colour blended toward `other` by `amount` (0...1), worked out in sRGB.
+    func mixed(with other: Color, by amount: Double) -> Color {
+        guard let a = NSColor(self).usingColorSpace(.sRGB), let b = NSColor(other).usingColorSpace(.sRGB) else { return self }
+        let t = CGFloat(min(1, max(0, amount)))
+        return Color(.sRGB,
+                     red: Double(a.redComponent + (b.redComponent - a.redComponent) * t),
+                     green: Double(a.greenComponent + (b.greenComponent - a.greenComponent) * t),
+                     blue: Double(a.blueComponent + (b.blueComponent - a.blueComponent) * t),
+                     opacity: Double(a.alphaComponent))
+    }
+
+    /// A colour with one value in Light mode and another in Dark mode.
+    static func adaptive(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        })
+    }
+}
+
+/// The app's surfaces. They are solid, so screenshots taken with `cacheDisplay` show them as they look on screen.
+enum Palette {
+    /// The sidebar column.
+    static let sidebar = Color.adaptive(light: NSColor(srgbRed: 0.945, green: 0.945, blue: 0.957, alpha: 1),
+                                        dark: NSColor(srgbRed: 0.155, green: 0.155, blue: 0.170, alpha: 1))
+    /// The main content behind lists and the map.
+    static let content = Color.adaptive(light: NSColor(srgbRed: 0.995, green: 0.995, blue: 1.0, alpha: 1),
+                                        dark: NSColor(srgbRed: 0.118, green: 0.118, blue: 0.128, alpha: 1))
+    /// The well behind the treemap and the rings, and the scrolling area of a tool sheet.
+    static let well = Color.adaptive(light: NSColor(srgbRed: 0.958, green: 0.960, blue: 0.970, alpha: 1),
+                                     dark: NSColor(srgbRed: 0.090, green: 0.090, blue: 0.100, alpha: 1))
+    /// Cards that sit on a well.
+    static let card = Color.adaptive(light: NSColor.white,
+                                     dark: NSColor(srgbRed: 0.170, green: 0.170, blue: 0.185, alpha: 1))
+    /// The bottom bar and the footers of the sheets.
+    static let bar = Color.adaptive(light: NSColor(srgbRed: 0.975, green: 0.975, blue: 0.982, alpha: 1),
+                                    dark: NSColor(srgbRed: 0.140, green: 0.140, blue: 0.152, alpha: 1))
+    /// Hairlines between areas.
+    static let hairline = Color.primary.opacity(0.09)
+    /// Card borders.
+    static let border = Color.primary.opacity(0.08)
+}
+
+/// The spacing scale: 4, 8, 12, 16, 20 and 28 points.
+enum Space {
+    static let xs: CGFloat = 4
+    static let s: CGFloat = 8
+    static let m: CGFloat = 12
+    static let l: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 28
+}
+
+/// Corner radii.
+enum Radius {
+    static let tile: CGFloat = 6
+    static let control: CGFloat = 8
+    static let card: CGFloat = 12
+    static let panel: CGFloat = 14
+}
+
+/// The few text styles the redesign adds; everything else uses the system styles.
+enum Typo {
+    static let heroTitle = Font.system(size: 24, weight: .semibold, design: .rounded)
+    static let heroNumber = Font.system(size: 24, weight: .bold, design: .rounded)
+    static let sheetTitle = Font.system(size: 20, weight: .semibold, design: .rounded)
+    static let sectionLabel = Font.system(size: 11, weight: .semibold)
+}
+
+/// A rounded square with a gradient and a white symbol, as in System Settings.
+struct IconTile: View {
+    let symbol: String
+    let gradient: LinearGradient
+    var size: CGFloat = 22
+    var symbolScale: CGFloat = 0.52
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).fill(gradient)
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.05)],
+                                             startPoint: .top, endPoint: .bottom), lineWidth: 0.75)
+            Image(systemName: symbol)
+                .font(.system(size: size * symbolScale, weight: .semibold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.15), radius: 0.5, y: 0.5)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+extension LinearGradient {
+    /// A top-to-bottom gradient made from one colour, for icon tiles.
+    static func tile(_ color: Color) -> LinearGradient {
+        LinearGradient(colors: [color.mixed(with: .white, by: 0.18), color.mixed(with: .black, by: 0.08)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+}
+
+/// The one prominent action of a screen, such as Clean or Move to Trash: a gradient capsule with white text.
+struct PrimaryActionStyle: ButtonStyle {
+    let gradient: LinearGradient
+
+    func makeBody(configuration: Configuration) -> some View {
+        PrimaryActionLabel(configuration: configuration, gradient: gradient)
+    }
+
+    private struct PrimaryActionLabel: View {
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        let configuration: Configuration
+        let gradient: LinearGradient
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(gradient)
+                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.white.opacity(hovering && isEnabled ? 0.10 : 0)))
+                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.75))
+                }
+                .shadow(color: .black.opacity(isEnabled ? (hovering ? 0.22 : 0.14) : 0), radius: hovering ? 6 : 3, y: 2)
+                .saturation(isEnabled ? 1 : 0)
+                .opacity(isEnabled ? 1 : 0.45)
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .onHover { inside in hovering = inside }
+                .animation(Motion.hover.unless(reduceMotion), value: hovering)
+                .animation(Motion.quick.unless(reduceMotion), value: configuration.isPressed)
+        }
+    }
+}
+
+extension ButtonStyle where Self == PrimaryActionStyle {
+    /// The gradient button for the main action of a screen.
+    static func primaryAction(_ gradient: LinearGradient = .smartClean) -> PrimaryActionStyle {
+        PrimaryActionStyle(gradient: gradient)
+    }
+}
+
+/// A white (or, in Dark mode, raised) card on a well: rounded, with a hairline border and a soft shadow.
+private struct CardModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var radius: CGFloat
+    var tint: Color?
+    var hoverable: Bool
+    @State private var hovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Palette.card)
+                    .shadow(color: .black.opacity(hovering ? 0.10 : 0.05), radius: hovering ? 8 : 3, y: hovering ? 3 : 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder((tint ?? Color.primary).opacity(tint == nil ? 0.08 : 0.45), lineWidth: 1)
+            )
+            .onHover { inside in
+                guard hoverable else { return }
+                withAnimation(Motion.hover.unless(reduceMotion)) { hovering = inside }
+            }
+    }
+}
+
+extension View {
+    /// Draws the view as a card. `tint` colours the border, for a ticked card.
+    func card(radius: CGFloat = Radius.card, tint: Color? = nil, hoverable: Bool = true) -> some View {
+        modifier(CardModifier(radius: radius, tint: tint, hoverable: hoverable))
+    }
+}
+
+/// A byte count that counts up from zero the first time it appears, then follows its value.
+struct CountUpBytes: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let bytes: Int64
+    var suffix: String = ""
+    @State private var shown = false
+
+    var body: some View {
+        CountingBytes(shown ? bytes : 0, suffix: suffix)
+            .animation(Motion.smooth.unless(reduceMotion), value: bytes)
+            .onAppear {
+                guard !shown else { return }
+                if reduceMotion { shown = true } else { withAnimation(.easeOut(duration: 0.7)) { shown = true } }
+            }
     }
 }

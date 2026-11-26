@@ -14,9 +14,9 @@ struct DuplicatesView: View {
     var body: some View {
         let dups = model.duplicates
 
-        VStack(spacing: 0) {
+        ToolSheet {
             DuplicatesHeader()
-            Divider()
+        } content: {
             ZStack {
                 switch dups.phase {
                 case .idle:
@@ -38,7 +38,7 @@ struct DuplicatesView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Motion.smooth.unless(reduceMotion), value: dups.phase)
-            Divider()
+        } footer: {
             footer
         }
         .frame(minWidth: 760, idealWidth: 820, minHeight: 580, idealHeight: 700)
@@ -84,8 +84,7 @@ struct DuplicatesView: View {
                 } label: {
                     Label("Move Duplicates to Trash", systemImage: "trash").padding(.horizontal, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.primaryAction(.duplicates))
                 .disabled(dups.selectedFiles.isEmpty)
             case .cleaning:
                 Spacer()
@@ -100,8 +99,6 @@ struct DuplicatesView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
     }
 }
 
@@ -111,30 +108,19 @@ private struct DuplicatesHeader: View {
 
     var body: some View {
         let dups = model.duplicates
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient.duplicates)
+        ToolSheetHeader(title: "Duplicates", subtitle: Text(dups.scope.isEmpty
+                     ? "Identical files that take up space more than once."
+                     : "Identical files in \((dups.scope as NSString).abbreviatingWithTildeInPath)."),
+                        gradient: .duplicates) {
                 Image(systemName: "doc.on.doc.fill")
                     .font(.system(size: 21, weight: .semibold))
                     .foregroundStyle(.white)
                     .symbolEffect(.pulse, isActive: dups.isBusy && !reduceMotion)
-            }
-            .frame(width: 46, height: 46)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Duplicates").font(.title2.weight(.semibold))
-                Text(dups.scope.isEmpty
-                     ? "Identical files that take up space more than once."
-                     : "Identical files in \((dups.scope as NSString).abbreviatingWithTildeInPath).")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer()
+        } accessory: {
             if dups.phase == .ready && !dups.groups.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(dups.selectedBytes.bytes)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(dups.selectedBytes)))
                         .animation(Motion.quick.unless(reduceMotion), value: dups.selectedBytes)
@@ -147,7 +133,6 @@ private struct DuplicatesHeader: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(18)
         .animation(Motion.smooth.unless(reduceMotion), value: dups.phase)
     }
 }
@@ -163,7 +148,7 @@ private struct DuplicatesStart: View {
             Text("Scan a folder or disk in the main window first, or choose a folder here.")
         } actions: {
             Button("Choose Folder…") { model.duplicates.chooseFolder() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primaryAction(.duplicates))
         }
     }
 }
@@ -381,7 +366,7 @@ private struct DuplicateCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(state == .none ? Color.primary.opacity(0.08) : Self.color.opacity(0.55), lineWidth: 1)

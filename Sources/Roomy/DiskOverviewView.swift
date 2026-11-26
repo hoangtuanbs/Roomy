@@ -54,11 +54,14 @@ struct DiskOverviewCard: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
                     }
                 }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.04)))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .fill(LinearGradient(colors: [Palette.well, Palette.well.opacity(0.6)], startPoint: .top, endPoint: .bottom))
+                )
+                .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.border))
+                .padding(.horizontal, Space.l)
+                .padding(.vertical, Space.s)
                 .animation(Motion.smooth.unless(reduceMotion), value: space)
                 .animation(Motion.spring.unless(reduceMotion), value: expanded)
                 .animation(Motion.smooth.unless(reduceMotion), value: disk.errorMessage)
@@ -96,20 +99,23 @@ struct DiskOverviewCard: View {
     private func header(_ space: DiskSpace) -> some View {
         let disk = model.diskOverview
         return HStack(spacing: 8) {
-            Image(systemName: disk.isWholeDisk ? "internaldrive.fill" : "internaldrive")
-                .foregroundStyle(LinearGradient.smartClean)
-            Text(disk.volumeName).font(.headline).lineLimit(1)
+            IconTile(symbol: disk.isWholeDisk ? "internaldrive.fill" : "internaldrive",
+                     gradient: .tile(Color(red: 0.52, green: 0.56, blue: 0.64)), size: 22)
+            Text(disk.volumeName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
             HStack(spacing: 0) {
                 CountingBytes(grown ? space.used : 0)
                 Text(" used of \(space.total.bytes)")
             }
-            .font(.callout)
+            .font(.caption)
+            .monospacedDigit()
             .foregroundStyle(.secondary)
+            .lineLimit(1)
             Spacer(minLength: 8)
             if let freed = disk.freedBytes {
                 FreedPill(bytes: freed)
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
+            if !disk.snapshots.isEmpty {
             Button {
                 expanded.toggle()
             } label: {
@@ -127,38 +133,44 @@ struct DiskOverviewCard: View {
             }
             .buttonStyle(.plain)
             .help(expanded ? "Hide local snapshots" : "Show local snapshots")
+            }
         }
         .animation(Motion.bouncy.unless(reduceMotion), value: disk.freedBytes)
     }
 
     private func legend(_ space: DiskSpace) -> some View {
         let disk = model.diskOverview
-        return HStack(alignment: .top, spacing: 16) {
+        return HStack(alignment: .top, spacing: 6) {
             ForEach(DiskPart.allCases) { part in
                 Button {
                     explaining = part
                 } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Circle().fill(part.color).frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack(spacing: 3) {
-                                Text(part.title(wholeDisk: disk.isWholeDisk))
-                                if part == .hidden && disk.isWholeDisk && !model.hasFullDiskAccess {
-                                    Image(systemName: "lock.fill").foregroundStyle(.orange)
-                                }
-                                if part == .hidden || part == .purgeable {
-                                    Image(systemName: "info.circle").foregroundStyle(.tertiary)
-                                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(part == .free ? Color.secondary.opacity(0.35) : part.color)
+                                .frame(width: 7, height: 7)
+                            Text(part.title(wholeDisk: disk.isWholeDisk))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                            if part == .hidden && disk.isWholeDisk && !model.hasFullDiskAccess {
+                                Image(systemName: "lock.fill").foregroundStyle(.orange)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            CountingBytes(grown ? part.bytes(in: space) : 0)
-                                .font(.callout.weight(.semibold))
                         }
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        CountingBytes(grown ? part.bytes(in: space) : 0)
+                            .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(hovered == part ? part.color.opacity(0.12) : .clear))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(hovered == part ? (part == .free ? Color.primary.opacity(0.06) : part.color.opacity(0.14)) : Palette.card.opacity(0.7))
+                    )
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.border))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -179,7 +191,6 @@ struct DiskOverviewCard: View {
                     .environment(model)
                 }
             }
-            Spacer(minLength: 0)
         }
     }
 
@@ -198,14 +209,14 @@ private struct CapacityBar: View {
     @Binding var hovered: DiskPart?
     let onTap: (DiskPart) -> Void
 
-    private let gap: CGFloat = 2
+    private let gap: CGFloat = 3
 
     var body: some View {
         GeometryReader { geo in
             let fractions = space.fractions
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(DiskPart.free.color.opacity(hovered == .free ? 1 : 0.7))
+                Capsule()
+                    .fill(Color.primary.opacity(hovered == .free ? 0.14 : 0.08))
                     .contentShape(Rectangle())
                     .onTapGesture { onTap(.free) }
                     .onHover { hover(.free, $0) }
@@ -213,10 +224,13 @@ private struct CapacityBar: View {
                     ForEach([DiskPart.scanned, .hidden, .purgeable]) { part in
                         let fraction = fractions[part.rawValue]
                         if fraction > 0 {
-                            Rectangle()
-                                .fill(part.color.gradient)
-                                .brightness(hovered == part ? 0.08 : 0)
-                                .frame(width: grown ? max(2, geo.size.width * fraction - gap) : 0)
+                            Capsule()
+                                .fill(LinearGradient(colors: [part.color.mixed(with: .white, by: 0.22), part.color],
+                                                     startPoint: .leading, endPoint: .trailing))
+                                .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.28), .clear],
+                                                                       startPoint: .top, endPoint: .bottom)))
+                                .brightness(hovered == part ? 0.06 : 0)
+                                .frame(width: grown ? max(6, geo.size.width * fraction - gap) : 0)
                                 .animation(Motion.stagger(part.rawValue + 1).unless(reduceMotion), value: grown)
                                 .contentShape(Rectangle())
                                 .onTapGesture { onTap(part) }
@@ -224,11 +238,10 @@ private struct CapacityBar: View {
                         }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
-            .scaleEffect(y: hovered == nil || reduceMotion ? 1 : 1.12)
+            .scaleEffect(y: hovered == nil || reduceMotion ? 1 : 1.15)
         }
-        .frame(height: 14)
+        .frame(height: 12)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Disk use")
         .accessibilityValue("\(space.scanned.bytes) scanned, \(space.hidden.bytes) hidden, \(space.purgeableShown.bytes) purgeable, \(space.free.bytes) free")
@@ -338,7 +351,22 @@ private struct SnapshotSection: View {
 
     var body: some View {
         let disk = model.diskOverview
-        VStack(alignment: .leading, spacing: 6) {
+        if disk.snapshotState == .loaded && disk.snapshots.isEmpty {
+            HStack(spacing: 5) {
+                Image(systemName: "clock.arrow.circlepath")
+                Text("No local snapshots on this disk.")
+                Spacer(minLength: 0)
+            }
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+        } else {
+            fullSection
+        }
+    }
+
+    private var fullSection: some View {
+        let disk = model.diskOverview
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("Local snapshots").font(.subheadline.weight(.semibold))
                 if !disk.snapshots.isEmpty {

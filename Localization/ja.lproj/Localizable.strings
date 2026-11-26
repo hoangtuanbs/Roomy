@@ -524,6 +524,7 @@
 "Simulator caches" = "シミュレータのキャッシュ";
 "Smaller items" = "小さい項目";
 "Smart Clean" = "スマートクリーン";
+"Tools" = "ツール";
 "The Trash is not available on this system." = "このシステムではゴミ箱を利用できません。";
 "The archive did not pass its check, so it was removed. The original was not changed." = "アーカイブが検査に合格しなかったため削除しました。元のファイルは変更されていません。";
 "The disk reports that it is failing. Back up now with Time Machine. Click for details." = "ディスクが障害を報告しています。Time Machine で今すぐバックアップしてください。クリックして詳細を表示します。";

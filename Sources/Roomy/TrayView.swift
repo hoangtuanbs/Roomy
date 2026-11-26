@@ -65,8 +65,8 @@ extension View {
     }
 }
 
-/// The collector at the bottom of the window. Items dragged here, added from a context menu or ticked in a list are
-/// collected for **Review and Clean…**.
+/// The bar at the bottom of the window. Its dashed drop target collects items dragged here, added from a context menu
+/// or ticked in a list for **Review and Clean…**; on the right are when the scan was made and the clean buttons.
 struct TrayView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -74,79 +74,105 @@ struct TrayView: View {
     @State private var flyers: [Flyer] = []
     @State private var bounce = 0
 
-    private static let iconCenter = CGPoint(x: 30, y: 29)
+    private static let iconCenter = CGPoint(x: 37, y: 30)
 
     var body: some View {
         let items = model.basketItems
         let accent = Color.accentColor
+        let active = isTargeted || !items.isEmpty
 
-        HStack(spacing: 12) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: items.isEmpty ? "tray" : "tray.full.fill")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(isTargeted || !items.isEmpty ? accent : Color.secondary)
-                    .symbolEffect(.bounce, value: bounce)
-                    .frame(width: 32, height: 32)
-                if !items.isEmpty {
-                    Text("\(items.count)")
-                        .font(.caption2.weight(.bold).monospacedDigit())
-                        .contentTransition(.numericText())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(Color.red))
-                        .offset(x: 6, y: -4)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-
-            if items.isEmpty {
-                Text(isTargeted ? "Drop to collect it for cleaning" : "Drag files and folders here to collect them for cleaning")
-                    .foregroundStyle(isTargeted ? Color.primary : Color.secondary)
-                    .transition(.opacity)
-                Spacer(minLength: 0)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(items, id: \.self) { node in
-                            TrayChip(node: node)
-                                .transition(chipTransition)
-                        }
+        HStack(spacing: Space.m) {
+            HStack(spacing: 10) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: items.isEmpty ? "tray.and.arrow.down" : "tray.full.fill")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(active ? accent : Color.secondary)
+                        .symbolEffect(.bounce, value: bounce)
+                        .frame(width: 26, height: 26)
+                    if !items.isEmpty {
+                        Text("\(items.count)")
+                            .font(.caption2.weight(.bold).monospacedDigit())
+                            .contentTransition(.numericText())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(LinearGradient.uninstaller))
+                            .offset(x: 8, y: -5)
+                            .transition(.scale.combined(with: .opacity))
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 2)
                 }
-                .transition(.opacity)
 
-                VStack(alignment: .trailing, spacing: 0) {
-                    CountingBytes(model.basketBytes)
-                        .font(.headline)
-                        .animation(Motion.smooth.unless(reduceMotion), value: model.basketBytes)
-                    Text("\(items.count) \(Plural.word(items.count, "item", "items"))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .contentTransition(.numericText())
+                if items.isEmpty {
+                    Text(isTargeted ? "Drop to collect it for cleaning" : "Drag files and folders here to collect them for cleaning")
+                        .font(.callout)
+                        .foregroundStyle(isTargeted ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                        .transition(.opacity)
+                    Spacer(minLength: 0)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(items, id: \.self) { node in
+                                TrayChip(node: node)
+                                    .transition(chipTransition)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 2)
+                    }
+                    .transition(.opacity)
+
+                    VStack(alignment: .trailing, spacing: 0) {
+                        CountingBytes(model.basketBytes)
+                            .font(.system(.headline, design: .rounded))
+                            .animation(Motion.smooth.unless(reduceMotion), value: model.basketBytes)
+                        Text("\(items.count) \(Plural.word(items.count, "item", "items"))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                    }
+                    .fixedSize()
+                    Button("Clear") { model.basket = [] }
+                        .buttonStyle(.borderless)
                 }
-                .fixedSize()
-                Button("Clear") { model.basket = [] }
             }
+            .padding(.horizontal, 10)
+            .frame(height: 40)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(active ? accent.opacity(isTargeted ? 0.12 : 0.06) : Color.primary.opacity(0.025))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(active ? accent.opacity(isTargeted ? 0.9 : 0.45) : Color.secondary.opacity(0.35),
+                                  style: StrokeStyle(lineWidth: isTargeted ? 1.5 : 1, dash: items.isEmpty || isTargeted ? [5, 4] : []))
+            )
+            .scaleEffect(isTargeted && !reduceMotion ? 1.01 : 1)
+
+            ScanStatusNote()
+                .fixedSize()
 
             Button("Compress and Clean…") { model.startCompressBasket() }
-                .buttonStyle(.bordered)
                 .disabled(!model.canCompressBasket)
                 .help("Zip the collected items, then move the originals to the Trash")
-            Button("Review and Clean…") { model.showReview = true }
-                .buttonStyle(.borderedProminent)
-                .disabled(items.isEmpty)
+            if items.isEmpty {
+                Button("Review and Clean…") { model.showReview = true }
+                    .disabled(true)
+            } else {
+                Button {
+                    model.showReview = true
+                } label: {
+                    Label("Review and Clean…", systemImage: "sparkles")
+                }
+                .buttonStyle(.primaryAction(.smartClean))
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
+            }
         }
-        .padding(.horizontal, 14)
-        .frame(height: 58)
-        .background(isTargeted ? accent.opacity(0.10) : Color.clear)
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(accent.opacity(isTargeted ? 0.8 : 0), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                .padding(4)
-        }
+        .controlSize(.large)
+        .padding(.horizontal, Space.l)
+        .padding(.vertical, 10)
+        .background(Palette.bar)
+        .overlay(alignment: .top) { Rectangle().fill(Palette.hairline).frame(height: 1) }
         .overlay(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 ForEach(flyers) { flyer in

@@ -89,7 +89,7 @@ struct HunterCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(state == .none ? Color.primary.opacity(0.08) : hunter.color.opacity(0.55), lineWidth: 1)

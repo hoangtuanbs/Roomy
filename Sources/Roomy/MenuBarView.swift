@@ -47,17 +47,17 @@ struct MenuBarView: View {
             Divider()
             MenuBarQuickClean()
             Divider()
-            MenuBarAction(title: "Open RoomyDisk", symbol: "macwindow") { openMain() }
-            MenuBarAction(title: "Smart Clean…", symbol: "sparkles") {
+            MenuBarAction(title: "Open RoomyDisk", symbol: "macwindow", tint: .scan) { openMain() }
+            MenuBarAction(title: "Smart Clean…", symbol: "sparkles", tint: .smartClean) {
                 model.openSmartClean()
                 openMain()
             }
-            MenuBarAction(title: "Disk Health…", symbol: "stethoscope") {
+            MenuBarAction(title: "Disk Health…", symbol: "stethoscope", tint: .diskHealth) {
                 model.openDiskHealth()
                 openMain()
             }
             Divider()
-            MenuBarAction(title: "Quit", symbol: "power") { NSApplication.shared.terminate(nil) }
+            MenuBarAction(title: "Quit", symbol: "power", tint: .tile(Color(red: 0.55, green: 0.57, blue: 0.62))) { NSApplication.shared.terminate(nil) }
         }
         .padding(14)
         .frame(width: 290)
@@ -114,17 +114,33 @@ struct MenuBarDiskRow: View {
 struct MenuBarAction: View {
     let title: LocalizedStringKey
     let symbol: String
+    var tint: LinearGradient? = nil
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovered = false
 
+    init(title: LocalizedStringKey, symbol: String, tint: LinearGradient? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.symbol = symbol
+        self.tint = tint
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
+            HStack(spacing: 9) {
+                if let tint {
+                    IconTile(symbol: symbol, gradient: tint, size: 22)
+                } else {
+                    Image(systemName: symbol).frame(width: 22)
+                }
+                Text(title)
+                Spacer(minLength: 0)
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 3)
                 .padding(.horizontal, 6)
-                .background(RoundedRectangle(cornerRadius: 6).fill(hovered ? Color.primary.opacity(0.08) : .clear))
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hovered ? Color.primary.opacity(0.08) : .clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
