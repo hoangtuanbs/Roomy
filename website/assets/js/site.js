@@ -36,6 +36,22 @@
     });
   }, 2500);
 
+  /* ---------------- contact: copy the email address ---------------- */
+  var copyBtn = document.getElementById("copyMail"), mail = document.getElementById("contactMail"), note = document.getElementById("copyNote");
+  if (copyBtn && mail) {
+    copyBtn.addEventListener("click", function () {
+      var addr = mail.textContent.trim();
+      function selectIt() {
+        var r = document.createRange(); r.selectNodeContents(mail);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        note.textContent = "Selected. Press ⌘C to copy.";
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(addr).then(function () { note.textContent = "Copied " + addr; }, selectIt);
+      } else selectIt();
+    });
+  }
+
   /* ---------------- card tilt + spotlight ---------------- */
   if (!reduceMotion && window.matchMedia("(hover: hover)").matches) {
     [].forEach.call(document.querySelectorAll(".tilt"), function (card) {

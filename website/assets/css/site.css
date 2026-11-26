@@ -375,6 +375,22 @@ kbd { font: 600 .78rem/1 var(--f-mono); color: var(--fg-2); border: 1px solid va
 .final .sub { margin-inline: auto; }
 @keyframes float2 { 50% { transform: translateY(-12px) rotate(3deg); } }
 
+/* ---------- contact ---------- */
+.contact { padding-block: clamp(70px, 10vw, 120px); background: var(--ink-1); border-top: 1px solid var(--line); }
+.contact__inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+.contact__card {
+  padding: 30px; border-radius: var(--radius); min-width: 0;
+  background: linear-gradient(160deg, rgba(63, 224, 160, .1), rgba(36, 41, 100, .5) 45%, rgba(18, 21, 58, .7));
+  border: 1px solid var(--line); display: grid; gap: 16px; justify-items: start;
+}
+.contact__label { font: 600 .78rem/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
+.contact__mail { font-size: clamp(1.15rem, .9rem + 1.2vw, 1.7rem); font-weight: 700; color: var(--fg); text-decoration: none; overflow-wrap: anywhere; user-select: all; background: linear-gradient(90deg, var(--c-free), #8fb4ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.contact__mail:hover { text-decoration: underline; text-decoration-color: var(--c-free); }
+.contact__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn--compact { --h: 38px; padding: 0 16px; font-size: .92rem; }
+.contact__note { min-height: 1.2em; font-size: .88rem; color: var(--c-free); }
+@media (max-width: 820px) { .contact__inner { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
+
 /* ---------- footer ---------- */
 .foot { border-top: 1px solid var(--line); padding-block: 28px calc(28px + env(safe-area-inset-bottom, 0px)); color: var(--fg-3); font-size: .88rem; }
 .foot__inner { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }
