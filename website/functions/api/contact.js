@@ -70,18 +70,39 @@ export async function onRequestPost({ request, env }) {
     `<p style="color:#666;font-size:13px;border-top:1px solid #ddd;padding-top:12px;margin:0">` +
     `From ${esc(name || "(no name)")} &lt;${esc(email)}&gt; · Topic: ${esc(topic)}<br>Sent from the RoomyDisk website. Reply to this email to answer.</p></div>`;
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      from: env.CONTACT_FROM || "RoomyDisk website <onboarding@resend.dev>",
-      to: [env.CONTACT_TO],
-      reply_to: email,
-      subject,
-      text,
-      html,
-    }),
+  // One key per submission, so a retry can never deliver the same message twice.
+  const idempotencyKey = `contact-${crypto.randomUUID()}`;
+  const payload = JSON.stringify({
+    from: env.CONTACT_FROM || "RoomyDisk website <onboarding@resend.dev>",
+    to: [env.CONTACT_TO],
+    reply_to: email,
+    subject,
+    text,
+    html,
   });
+  const send = () =>
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
+      },
+      body: payload,
+    });
+
+  // Retry once on a network error or a 5xx; other errors are final.
+  let res;
+  try { res = await send(); } catch { res = null; }
+  if (!res || res.status >= 500) {
+    await new Promise((r) => setTimeout(r, 800));
+    try { res = await send(); } catch { res = null; }
+  }
+  if (!res) return reply({ ok: false, error: "Your message couldn't be sent just now. Please try again in a minute." }, 502);
+
+  const result = await res.json().catch(() => ({}));
+  if (res.ok) console.log("contact email sent", result.id);
+  else console.error("contact email failed", res.status, result.name || "", result.message || "");
 
   if (res.status === 429) return reply({ ok: false, error: "Lots of messages today. Please try again tomorrow." }, 503);
   if (!res.ok) return reply({ ok: false, error: "Your message couldn't be sent just now. Please try again in a minute." }, 502);
