@@ -222,10 +222,7 @@
     }
 
     /* hub */
-    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.22, 48), metal);
-    hub.position.y = 0.1; disk.add(hub);
-    var hubHole = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.24, 32), new THREE.MeshStandardMaterial({ color: 0x0b0d28, roughness: 0.6 }));
-    hubHole.position.y = 0.11; disk.add(hubHole);
+    // (no hub: the folders cover the centre of the platter)
 
     /* tone arm (from the icon) */
     var arm = new THREE.Group();
@@ -237,18 +234,23 @@
     arm.position.set(ax, 0, az); var ARM_Y = Math.atan2(ax, az) - 0.32; arm.rotation.y = ARM_Y;
     world.add(arm);
 
-    /* the treemap city: a home folder laid out like RoomyDisk's treemap */
-    var COLORS = { vid: 0xf2789b, app: 0x7b8cff, doc: 0x5cc3ff, junk: 0xffb547, backup: 0xb48cff, mail: 0x8ad8c8 };
-    var items = [
-      { n: "Movies", s: 48, c: "vid" }, { n: "Photos Library", s: 36, c: "vid" },
-      { n: "Applications", s: 22, c: "app" }, { n: "Docker", s: 18, c: "app" },
-      { n: "Xcode DerivedData", s: 14, c: "junk", junk: true }, { n: "iPhone backup (old)", s: 12, c: "backup", junk: true },
-      { n: "Documents", s: 11, c: "doc" }, { n: "Music", s: 9, c: "vid" }, { n: "Projects", s: 8, c: "app" },
-      { n: "Old installers", s: 6, c: "junk", junk: true }, { n: "App caches", s: 5, c: "junk", junk: true },
-      { n: "Mail", s: 4, c: "mail" }, { n: "npm cache", s: 3, c: "junk", junk: true }, { n: "Desktop", s: 2.5, c: "doc" },
-      { n: "Logs", s: 1.2, c: "junk", junk: true }
+    /* the treemap: a home folder as folders (trays) holding files (tiles), drawn like RoomyDisk's treemap */
+    var KINDS = {
+      vid: { c: 0xf2789b, label: "Video" }, img: { c: 0xff9e6d, label: "Photos" }, music: { c: 0xd08cff, label: "Music" },
+      app: { c: 0x7b8cff, label: "App" }, doc: { c: 0x5cc3ff, label: "Documents" }, mail: { c: 0x8ad8c8, label: "Mail" },
+      junk: { c: 0xffc35c, label: "Junk" }, backup: { c: 0xb48cff, label: "Device backup" }
+    };
+    // [name, size in GB, kind, why RoomyDisk offers to remove it (only for junk)]
+    var TREE = [
+      { n: "Movies", files: [["holiday.mov", 31.5, "vid"], ["wedding-4k.mp4", 9.8, "vid"], ["screen recording.mov", 4.2, "vid"], ["trailer.m4v", 2.1, "vid"]] },
+      { n: "Pictures", files: [["Photos Library", 27.4, "img"], ["RAW exports", 6.2, "img"], ["Screenshots", 1.9, "img"]] },
+      { n: "Developer", files: [["Docker.raw", 16, "app"], ["DerivedData", 14.2, "junk", "Xcode build data"], ["node_modules", 3.8, "junk", "Untouched for 30 days"], ["roomy", 1.4, "doc"]] },
+      { n: "Applications", files: [["Xcode.app", 11.6, "app"], ["Final Cut Pro.app", 5.2, "app"], ["Docker.app", 2.1, "app"], ["Figma.app", 0.9, "app"], ["Slack.app", 0.6, "app"]] },
+      { n: "Library", files: [["iPhone backup 2025", 12.3, "backup", "Older iPhone backup"], ["Caches", 5.1, "junk", "App caches"], ["Mail", 4, "mail"], ["npm cache", 2.9, "junk", "Package cache"], ["Logs", 1.2, "junk", "Logs"]] },
+      { n: "Documents", files: [["Projects", 6.5, "doc"], ["Scans", 2.2, "doc"], ["Thesis", 1.8, "doc"]] },
+      { n: "Music", files: [["Music Library", 8.7, "music"]] },
+      { n: "Downloads", files: [["Xcode_16.xip", 4.1, "junk", "Installer, 94 days old"], ["ubuntu-24.04.iso", 2.6, "junk", "Installer, 120 days old"], ["report-final.pdf", 0.4, "doc"], ["budget.xlsx", 0.2, "doc"]] }
     ];
-    var junkTotal = items.reduce(function (a, it) { return a + (it.junk ? it.s : 0); }, 0);
     var diskTotal = 500, usedBase = 340; // a 500 GB disk with 160 GB free before cleaning
 
     function squarify(list, x, y, w, h) {
@@ -281,36 +283,65 @@
       return out;
     }
 
-    var SIDE = 4.3, GAP = 0.06;
-    var blockGeo = new THREE.BoxGeometry(1, 1, 1);
-    blockGeo.translate(0, 0.5, 0); // grow from the platter up
-    var blocks = items.map(function (it, i) {
-      var mat = new THREE.MeshPhysicalMaterial({
-        color: COLORS[it.c], roughness: 0.32, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.15,
-        emissive: COLORS[it.c], emissiveIntensity: 0.08, transparent: true, opacity: 1
+    var SIDE = 4.4, TRAY_H = 0.07, PAD = 0.075, GAP = 0.05;
+    var nodeGeo = new THREE.BoxGeometry(1, 1, 1);
+    nodeGeo.translate(0, 0.5, 0); // grow from the platter up
+    function springData(delay) {
+      function z() { return { x: 0, z: 0, w: 0.01, d: 0.01, h: 0.001, y: 0, op: 1 }; }
+      return { cur: z(), tgt: z(), vel: { x: 0, z: 0, w: 0, d: 0, h: 0, y: 0, op: 0 }, delay: delay, lift: 0, liftCur: 0 };
+    }
+    function gb(v) { return v >= 10 ? v.toFixed(0) + " GB" : v >= 1 ? v.toFixed(1) + " GB" : Math.round(v * 1000) + " MB"; }
+
+    var labelsEl = document.createElement("div"); labelsEl.className = "labels";
+    canvas.parentNode.appendChild(labelsEl);
+    function tag(cls, html) { var e = document.createElement("span"); e.className = "tag " + cls; e.innerHTML = html; e.style.opacity = 0; labelsEl.appendChild(e); return e; }
+
+    var folders = [], files = [];
+    TREE.forEach(function (fd, fi) {
+      var tray = new THREE.Mesh(nodeGeo, new THREE.MeshPhysicalMaterial({ color: 0x2a3070, roughness: 0.35, metalness: 0.35, clearcoat: 0.8, transparent: true }));
+      tray.userData = springData(fi * 0.05);
+      tray.userData.folder = fd;
+      tray.userData.label = tag("tag--folder", "<i></i>" + fd.n + "<b></b>");
+      disk.add(tray); folders.push(tray);
+      fd.files.forEach(function (f, j) {
+        var k = KINDS[f[2]];
+        var shade = new THREE.Color(k.c).offsetHSL(0, 0, [0, 0.07, -0.06, 0.12, -0.1][j % 5]);
+        var m = new THREE.Mesh(nodeGeo, new THREE.MeshPhysicalMaterial({
+          color: shade, roughness: 0.3, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.12,
+          emissive: shade, emissiveIntensity: 0.06, transparent: true
+        }));
+        m.userData = springData(0.3 + fi * 0.06 + j * 0.05);
+        m.userData.file = { n: f[0], s: f[1], kind: f[2], why: f[3] || null, junk: !!f[3], folder: fd.n };
+        disk.add(m); files.push(m);
       });
-      var m = new THREE.Mesh(blockGeo, mat);
-      m.userData = {
-        it: it, i: i,
-        cur: { x: 0, z: 0, w: 0.01, d: 0.01, h: 0.001, y: 0, op: 1 },
-        tgt: { x: 0, z: 0, w: 0.01, d: 0.01, h: 0.001, y: 0, op: 1 },
-        vel: { x: 0, z: 0, w: 0, d: 0, h: 0, y: 0, op: 0 },
-        delay: i * 0.06
-      };
-      disk.add(m);
-      return m;
+    });
+    var nodes = folders.concat(files);
+    var junkFiles = files.filter(function (m) { return m.userData.file.junk; });
+    var junkTotal = junkFiles.reduce(function (a, m) { return a + m.userData.file.s; }, 0);
+    // the four biggest finds get a callout; the rest just glow
+    junkFiles.slice().sort(function (p, q) { return q.userData.file.s - p.userData.file.s; }).slice(0, 4).forEach(function (m) {
+      var f = m.userData.file;
+      m.userData.label = tag("tag--junk", f.n + "<b>" + gb(f.s) + "</b><em>" + f.why + "</em>");
     });
 
+    function bySize(p, q) { return q.v - p.v; }
     function relayout(includeJunk) {
-      var list = items.filter(function (it) { return includeJunk || !it.junk; }).map(function (it) { return { v: it.s, it: it }; });
-      var rects = squarify(list, -SIDE / 2, -SIDE / 2, SIDE, SIDE);
-      var byItem = new Map(rects.map(function (r) { return [r.d.it, r]; }));
-      blocks.forEach(function (b) {
-        var r = byItem.get(b.userData.it), t = b.userData.tgt;
-        if (r) {
-          t.x = r.x + r.w / 2; t.z = r.y + r.h / 2; t.w = Math.max(0.02, r.w - GAP); t.d = Math.max(0.02, r.h - GAP);
-          t.h = 0.1 + Math.sqrt(b.userData.it.s) * 0.12; t.y = 0; t.op = 1;
-        }
+      var list = folders.map(function (tr) {
+        var fl = files.filter(function (m) { return m.userData.file.folder === tr.userData.folder.n && (includeJunk || !m.userData.file.junk); })
+          .map(function (m) { return { v: m.userData.file.s, m: m }; }).sort(bySize);
+        return { v: fl.reduce(function (a, x) { return a + x.v; }, 0), tr: tr, fl: fl };
+      }).filter(function (x) { return x.v > 0; }).sort(bySize);
+      squarify(list, -SIDE / 2, -SIDE / 2, SIDE, SIDE).forEach(function (r) {
+        var tr = r.d.tr, t = tr.userData.tgt;
+        t.x = r.x + r.w / 2; t.z = r.y + r.h / 2; t.w = r.w - GAP; t.d = r.h - GAP; t.h = TRAY_H; t.y = 0; t.op = 1;
+        tr.userData.label.querySelector("b").textContent = gb(r.d.v);
+        var iw = Math.max(0.02, r.w - GAP - PAD * 2), ih = Math.max(0.02, r.h - GAP - PAD * 2);
+        squarify(r.d.fl, r.x + GAP / 2 + PAD, r.y + GAP / 2 + PAD, iw, ih).forEach(function (q) {
+          var u = q.d.m.userData, ft = u.tgt;
+          ft.x = q.x + q.w / 2; ft.z = q.y + q.h / 2;
+          ft.w = Math.max(0.015, q.w - 0.065); ft.d = Math.max(0.015, q.h - 0.065);
+          ft.h = 0.05 + Math.sqrt(u.file.s) * 0.12; ft.y = TRAY_H; ft.op = 1;
+        });
       });
     }
 
@@ -346,7 +377,7 @@
       camera.aspect = w / h;
       compact = w < 900;
       baseY = compact ? 0 : -0.2;
-      if (compact) { camera.fov = 30; world.scale.setScalar(1); world.position.set(0, baseY, 0); var f = w / h < 1 ? 1.12 : 1.05; camera.position.set(0, 11.5 * f, 12.5 * f); camera.lookAt(0, -0.5, 0); }
+      if (compact) { camera.fov = 30; world.scale.setScalar(1); world.position.set(0, baseY, 0); var f = w / h < 1 ? 0.98 : 1.0; camera.position.set(0, 11.5 * f, 12.5 * f); camera.lookAt(0, -0.5, 0); }
       else {
         camera.fov = 30; world.scale.setScalar(0.84);
         var aspect = w / h;
@@ -354,7 +385,6 @@
         camera.lookAt(world.position.x * 0.45, -0.6, 0);
       }
       camera.updateProjectionMatrix();
-      if (reduceMotion) render();
     }
     window.addEventListener("resize", resize);
 
@@ -375,34 +405,42 @@
       hudBar.style.width = Math.round(frac * 100) + "%";
     }
 
-    /* the story, on a loop: rise → scan → pick junk → clean → settle → junk creeps back */
-    var CYCLE = 11.5, t0 = performance.now() / 1000, first = true, phase = "";
+    /* the story, on a loop: rise → the scan finds junk file by file → clean → settle → junk creeps back */
+    var CYCLE = 13, t0 = performance.now() / 1000, first = true, phase = "";
     relayout(true);
+    function resetJunk() {
+      junkFiles.forEach(function (m) {
+        var u = m.userData; u.found = false;
+        if (!first) { u.cur.x = u.tgt.x; u.cur.z = u.tgt.z; u.cur.w = u.tgt.w; u.cur.d = u.tgt.d; u.cur.y = TRAY_H; u.cur.h = 0.001; u.cur.op = 0; u.vel.y = 0; u.vel.h = 0; }
+      });
+    }
     function story(t) {
       var c = first ? t : (t % CYCLE);
       if (first && t > CYCLE) first = false;
-      var freedFrac = 0, junkGlow = 0, sweepX = null;
+      var freedFrac = 0, sweepX = null;
 
-      if (c < 2.2) { // rising (first time) or junk growing back
-        if (phase !== "rise") { phase = "rise"; relayout(true); blocks.forEach(function (b) { if (b.userData.it.junk && !first) { var u = b.userData; u.cur.x = u.tgt.x; u.cur.z = u.tgt.z; u.cur.w = u.tgt.w; u.cur.d = u.tgt.d; u.cur.y = 0; u.cur.h = 0.001; u.cur.op = 0; u.vel.y = 0; } }); }
-        setHud("Can be freed", junkTotal * Math.min(1, c / 2.2), 0);
-      } else if (c < 4.4) { // scanning
+      if (c < 2.4) { // rising (first time) or junk growing back
+        if (phase !== "rise") { phase = "rise"; relayout(true); resetJunk(); }
+        setHud("Scanning…", 0, 0);
+      } else if (c < 5.2) { // the scanner finds each junk file as it passes
         phase = "scan";
-        sweepX = -SIDE / 2 - 0.3 + ((c - 2.2) / 2.2) * (SIDE + 0.6);
-        junkGlow = Math.max(0, (c - 3.2) / 1.2);
-        setHud("Can be freed", junkTotal, 0);
-      } else if (c < 5.6) { // selected
+        sweepX = -SIDE / 2 - 0.3 + ((c - 2.4) / 2.6) * (SIDE + 0.6);
+        var found = 0;
+        junkFiles.forEach(function (m) { if (m.userData.cur.x < sweepX) m.userData.found = true; if (m.userData.found) found += m.userData.file.s; });
+        setHud("Can be freed", found, 0);
+      } else if (c < 6.6) { // all picked
         phase = "pick";
-        junkGlow = 1;
-      } else if (c < 7.4) { // clean: junk lifts away, city re-flows
+        junkFiles.forEach(function (m) { m.userData.found = true; });
+        setHud("Can be freed", junkTotal, 0);
+      } else if (c < 8.6) { // clean: junk lifts away, folders re-flow
         if (phase !== "clean") {
           phase = "clean";
-          blocks.forEach(function (b) {
-            if (b.userData.it.junk) { var tg = b.userData.tgt; tg.y = 3.2 + Math.random(); tg.op = 0; tg.w *= 0.2; tg.d *= 0.2; }
+          junkFiles.forEach(function (m, i) {
+            var tg = m.userData.tgt; tg.y = 2.8 + (i % 3) * 0.35; tg.op = 0; tg.w *= 0.25; tg.d *= 0.25;
           });
-          setTimeout(function () { if (phase === "clean") relayout(false); }, 420);
+          setTimeout(function () { if (phase === "clean") relayout(false); }, 450);
         }
-        freedFrac = Math.min(1, (c - 5.6) / 1.6);
+        freedFrac = Math.min(1, (c - 6.6) / 1.7);
         var e = 1 - Math.pow(1 - freedFrac, 3);
         setHud("Freed", junkTotal * e, e);
       } else { // settled
@@ -414,12 +452,12 @@
       var freedGB = junkTotal * (phase === "clean" ? 1 - Math.pow(1 - freedFrac, 3) : freedFrac);
       setGauge((diskTotal - usedBase + freedGB) / diskTotal);
 
-      // junk highlight
-      blocks.forEach(function (b) {
-        if (!b.userData.it.junk) return;
-        var pulse = 0.5 + 0.5 * Math.sin(t * 7);
-        b.material.emissive.setHex(junkGlow > 0 ? 0x3fe0a0 : COLORS[b.userData.it.c]);
-        b.material.emissiveIntensity = junkGlow > 0 ? 0.25 + junkGlow * (0.35 + pulse * 0.35) : 0.08;
+      // found junk glows green and pulses
+      var pulse = 0.5 + 0.5 * Math.sin(t * 7);
+      junkFiles.forEach(function (m) {
+        var on = m.userData.found && phase !== "rise";
+        if (on) m.material.emissive.setHex(0x3fe0a0); else m.material.emissive.copy(m.material.color);
+        m.material.emissiveIntensity = on ? 0.45 + pulse * 0.35 : 0.06;
       });
 
       if (sweepX === null) { sweep.material.opacity *= 0.85; sweepGlow.intensity *= 0.85; }
@@ -433,18 +471,89 @@
         var a = (u.tgt[p] - u.cur[p]) * k - u.vel[p] * damp;
         u.vel[p] += a * dt; u.cur[p] += u.vel[p] * dt;
       });
+      u.liftCur += (u.lift - u.liftCur) * Math.min(1, dt * 14);
       var c = u.cur;
-      b.position.set(c.x, c.y, c.z);
+      b.position.set(c.x, c.y + u.liftCur, c.z);
       b.scale.set(Math.max(0.001, c.w), Math.max(0.001, c.h), Math.max(0.001, c.d));
       b.material.opacity = Math.max(0, Math.min(1, c.op));
       b.visible = c.op > 0.02;
     }
 
+    /* labels: folder names on their trays, callouts on what the scan finds */
+    var v3 = new THREE.Vector3();
+    function toScreen(x, y, z) {
+      v3.set(x, y, z); disk.localToWorld(v3); v3.project(camera);
+      return [(v3.x + 1) / 2 * canvas.clientWidth, (1 - v3.y) / 2 * canvas.clientHeight];
+    }
+    function place(el, p, op) {
+      el.style.opacity = op;
+      if (op > 0) el.style.transform = "translate(" + p[0].toFixed(1) + "px," + p[1].toFixed(1) + "px)";
+    }
+    var shown = [];
+    function updateLabels() {
+      var minW = compact ? 82 : 84;
+      folders.forEach(function (tr) {
+        var c = tr.userData.cur, el = tr.userData.label;
+        var a = toScreen(c.x - c.w / 2, TRAY_H, c.z + c.d / 2), b = toScreen(c.x + c.w / 2, TRAY_H, c.z + c.d / 2);
+        var wide = Math.hypot(b[0] - a[0], b[1] - a[1]) >= minW && c.op > 0.5;
+        place(el, toScreen(c.x - c.w / 2 + 0.05, TRAY_H, c.z + c.d / 2 - 0.03), wide ? (phase === "scan" || phase === "pick" ? 0.45 : 1) : 0);
+      });
+      junkFiles.forEach(function (m) {
+        var el = m.userData.label; if (!el) return;
+        var c = m.userData.cur, on = m.userData.found && (phase === "scan" || phase === "pick");
+        var p = toScreen(c.x, c.y + c.h + m.userData.liftCur, c.z);
+        if (on) shown.push({ el: el, x: p[0], y: p[1], w: el.offsetWidth, h: el.offsetHeight + 16 });
+        else place(el, p, 0);
+      });
+      // keep callouts from covering each other: nudge later ones upward
+      shown.sort(function (a, b) { return b.y - a.y; });
+      for (var i = 0; i < shown.length; i++) {
+        for (var j = 0; j < i; j++) {
+          var A = shown[i], B = shown[j];
+          if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 + 6 && A.y > B.y - B.h && A.y - A.h < B.y) A.y = B.y - B.h;
+        }
+        place(shown[i].el, [shown[i].x, shown[i].y], 1);
+      }
+      shown.length = 0;
+    }
+
+    /* hover (or tap) a file to see what it is */
+    var tip = document.createElement("div"); tip.className = "tip"; tip.style.opacity = 0; labelsEl.appendChild(tip);
+    var ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hovered = null, tipTimer = null;
+    function pick(ev) {
+      var r = canvas.getBoundingClientRect();
+      if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) return null;
+      ndc.set((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      var hit = ray.intersectObjects(files.filter(function (m) { return m.visible && m.userData.cur.op > 0.5; }), false)[0];
+      return hit ? { m: hit.object, x: ev.clientX - r.left, y: ev.clientY - r.top } : null;
+    }
+    function hex(n) { return "#" + ("00000" + n.toString(16)).slice(-6); }
+    function showTip(h) {
+      if (hovered && (!h || hovered !== h.m)) hovered.userData.lift = 0;
+      hovered = h ? h.m : null;
+      canvas.style.cursor = h ? "pointer" : "";
+      if (!h) { tip.style.opacity = 0; return; }
+      var f = h.m.userData.file; h.m.userData.lift = 0.14;
+      tip.innerHTML = '<span class="tip__path mono">~/' + f.folder + "/" + f.n + '</span><b class="mono">' + gb(f.s) + "</b>" +
+        '<span class="tip__kind"><i style="background:' + hex(KINDS[f.kind].c) + '"></i>' + KINDS[f.kind].label + "</span>" +
+        (f.junk ? '<span class="tip__why">RoomyDisk can free this: ' + f.why.toLowerCase() + "</span>" : "");
+      var x = Math.max(8, Math.min(h.x + 16, canvas.clientWidth - 260)), y = Math.max(8, h.y - 84);
+      tip.style.transform = "translate(" + x + "px," + y + "px)"; tip.style.opacity = 1;
+    }
+    canvas.addEventListener("pointermove", function (ev) { if (ev.pointerType === "mouse") showTip(pick(ev)); });
+    canvas.addEventListener("pointerleave", function () { showTip(null); });
+    canvas.addEventListener("pointerup", function (ev) {
+      if (ev.pointerType === "mouse") return;
+      showTip(pick(ev)); clearTimeout(tipTimer); tipTimer = setTimeout(function () { showTip(null); }, 2600);
+    });
+
     function settleInstantly() {
       relayout(true);
-      blocks.forEach(function (b) { var u = b.userData; Object.keys(u.tgt).forEach(function (p) { u.cur[p] = u.tgt[p]; }); springStep(b, 0); });
+      nodes.forEach(function (b) { var u = b.userData; Object.keys(u.tgt).forEach(function (p) { u.cur[p] = u.tgt[p]; }); springStep(b, 0); });
       setGauge((diskTotal - usedBase) / diskTotal);
-      blocks.forEach(function (b) { if (b.userData.it.junk) { b.material.emissive.setHex(0x3fe0a0); b.material.emissiveIntensity = 0.45; } });
+      phase = "pick";
+      junkFiles.forEach(function (m) { m.userData.found = true; m.material.emissive.setHex(0x3fe0a0); m.material.emissiveIntensity = 0.6; });
       setHud("Can be freed", junkTotal, 0);
       disk.rotation.y = -0.5;
     }
@@ -459,7 +568,7 @@
       var t = now / 1000 - t0;
 
       story(t);
-      blocks.forEach(function (b) {
+      nodes.forEach(function (b) {
         // stagger the very first rise
         if (first && t < b.userData.delay) return;
         springStep(b, dt);
@@ -477,6 +586,7 @@
       arm.rotation.y += ((ARM_Y + (phase === "scan" ? 0.16 : 0) + Math.sin(t * 0.4) * 0.03) - arm.rotation.y) * 0.06;
 
       render();
+      updateLabels();
     }
     function setRunning(on) {
       if (on === running || reduceMotion) return;
@@ -486,7 +596,12 @@
 
     resize();
     hero.classList.add("is-3d");
-    if (reduceMotion) { settleInstantly(); render(); return; }
+    if (reduceMotion) {
+      settleInstantly(); render(); updateLabels();
+      window.addEventListener("resize", function () { render(); updateLabels(); });
+      canvas.addEventListener("pointermove", function () { requestAnimationFrame(function () { nodes.forEach(function (b) { b.userData.liftCur = b.userData.lift; springStep(b, 0); }); render(); updateLabels(); }); });
+      return;
+    }
     setRunning(true);
 
     if ("IntersectionObserver" in window) {

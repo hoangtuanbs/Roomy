@@ -186,7 +186,7 @@ a { color: inherit; }
 .hud__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .74rem; color: var(--fg-2); }
 .hud__legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
-.sw--v { background: var(--c-vid); } .sw--a { background: var(--c-app); } .sw--c { background: var(--c-warn); } .sw--f { background: var(--c-free); }
+.sw--v { background: var(--c-vid); } .sw--p { background: #ff9e6d; } .sw--d { background: #5cc3ff; } .sw--a { background: var(--c-app); } .sw--c { background: var(--c-warn); } .sw--f { background: var(--c-free); }
 
 .scroll-cue { position: absolute; left: 50%; bottom: 22px; width: 24px; height: 38px; border: 2px solid rgba(255,255,255,.3); border-radius: 14px; transform: translateX(-50%); z-index: 2; }
 .scroll-cue span { position: absolute; left: 50%; top: 7px; width: 4px; height: 8px; margin-left: -2px; border-radius: 2px; background: var(--fg); animation: cue 2s infinite; }
@@ -390,4 +390,52 @@ kbd { font: 600 .78rem/1 var(--f-mono); color: var(--fg-2); border: 1px solid va
   .marquee__track { animation: none; flex-wrap: wrap; width: auto; }
   .js [data-reveal] { opacity: 1; transform: none; }
   .mac { --rx: 0deg !important; --s: 1 !important; }
+}
+
+/* ---------- 3D labels: folder names, scan callouts, file tooltip ---------- */
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+.tag {
+  position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform, opacity;
+  transition: opacity .35s var(--ease-out);
+}
+.tag--folder {
+  font: 600 11.5px/1 var(--f-body); color: #fff; letter-spacing: .01em;
+  padding: 5px 8px 5px 7px; border-radius: 7px; margin-top: -26px;
+  background: rgba(12, 14, 44, .62); border: 1px solid rgba(255, 255, 255, .16);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tag--folder i { width: 12px; height: 9px; border-radius: 2px 2px 2px 2px; background: #8fb4ff; position: relative; }
+.tag--folder i::before { content: ""; position: absolute; left: 0; top: -2px; width: 5px; height: 3px; border-radius: 1px 1px 0 0; background: #8fb4ff; }
+.tag--folder b { font: 700 10.5px/1 var(--f-mono); color: var(--fg-2); }
+.tag--junk {
+  font: 600 12px/1.1 var(--f-body); color: #e6fff4;
+  padding: 7px 10px 8px; border-radius: 9px; transform-origin: 50% 100%;
+  translate: -50% calc(-100% - 14px);
+  background: rgba(8, 44, 32, .86); border: 1px solid rgba(63, 224, 160, .6);
+  box-shadow: 0 0 22px rgba(63, 224, 160, .35);
+}
+.tag--junk b { font: 700 11.5px/1 var(--f-mono); color: var(--c-free); margin-left: 8px; }
+.tag--junk em { display: block; font: 500 10.5px/1.2 var(--f-body); font-style: normal; color: rgba(230, 255, 244, .72); margin-top: 3px; }
+.tag--junk::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 13px; background: linear-gradient(rgba(63, 224, 160, .9), transparent); }
+.tip {
+  position: absolute; left: 0; top: 0; width: max-content; max-width: 250px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline;
+  padding: 11px 13px; border-radius: 12px; font-size: 12.5px; line-height: 1.35; color: var(--fg);
+  background: rgba(16, 19, 56, .9); border: 1px solid rgba(160, 170, 255, .28);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .7);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: opacity .2s; z-index: 2;
+}
+.tip__path { font-size: 11.5px; color: var(--fg); overflow-wrap: anywhere; }
+.tip b { font-size: 12px; color: var(--c-free); }
+.tip__kind { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 6px; color: var(--fg-2); font-size: 11.5px; }
+.tip__kind i { width: 9px; height: 9px; border-radius: 3px; }
+.tip__why { grid-column: 1 / -1; color: var(--c-free); font-size: 11.5px; }
+@media (max-width: 900px) {
+  .tag--folder { font-size: 10px; padding: 4px 6px; margin-top: -22px; }
+  .tag--folder b { font-size: 9.5px; }
+  .tag--junk { font-size: 10.5px; padding: 5px 8px 6px; }
+  .tag--junk b { font-size: 10px; }
+  .tag--junk em { display: none; }
 }
