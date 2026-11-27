@@ -371,7 +371,7 @@ private struct PurgeSection: View {
                         Text("macOS frees this by itself when it needs room.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(2)
                     }
                     Spacer(minLength: 8)
                     Button("Free Purgeable Space…") { confirm = true }
