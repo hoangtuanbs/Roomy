@@ -126,7 +126,7 @@ macOS 14 or later, and Swift 5.10 or later (Xcode or the Command Line Tools).
 open build/RoomyDisk.app
 ```
 
-This build is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time. Signed, notarized builds come from `scripts/release.sh` (see Releases).
+This build is signed for local use only, without a developer certificate. On another Mac, right-click the app and choose **Open** the first time. Signed, notarized builds come from `scripts/release.sh` or the production deploy (see Releases).
 
 For complete sizes, give RoomyDisk Full Disk Access in System Settings → Privacy & Security → Full Disk Access.
 
@@ -167,13 +167,20 @@ signed with that same key. Push the commit before publishing, since the release 
 Installed copies check `releases/latest/download/appcast.xml` once a day, and RoomyDisk › Check for Updates…
 checks right away. Only release builds carry the update key, so local and CI builds never look for updates.
 
-### Unsigned builds
+### Deploying from GitHub Actions
 
-Each push to `main` and each pull request is built by the **Build** workflow; the app zip is attached to the run.
+Three deploy workflows, all on the Avrea Mac runner (`avrea-macos-latest`):
 
-To publish a version, open **Actions → Release → Run workflow** on GitHub and pick `patch`, `minor` or `major`.
-The workflow takes the latest `vX.Y.Z` tag, bumps it, stamps the number into the app, builds it and publishes a
-GitHub Release with `RoomyDisk-X.Y.Z.zip` and its SHA-256 checksum. Pushing a tag works too:
+| Workflow | When it runs | What it publishes |
+| --- | --- | --- |
+| **Deploy app (dev)** | After every green **Build** of `main`, or by hand | The rolling `dev` pre-release: the app Build just tested, not notarized, no auto-updates. It never becomes "latest", so the website and the update feed keep pointing at production. |
+| **Deploy app (production)** | **Actions → Deploy app (production) → Run workflow** (pick `patch`, `minor` or `major`), or pushing a `vX.Y.Z` tag | A signed, notarized `vX.Y.Z` release with `appcast.xml`, made by `scripts/release.sh` in CI. Runs in the `production` environment, so it can wait for your approval. |
+| **Deploy website** | Pushes to `main` that change `website/`, or by hand | `website/` to Cloudflare Pages (see `website/README.md`). |
+
+Production needs these Actions secrets: `MACOS_CERTIFICATE_P12` (the Developer ID Application certificate
+exported from Keychain Access as .p12, then `base64 -i cert.p12 | pbcopy`), `MACOS_CERTIFICATE_PASSWORD`,
+`APPLE_ID`, `APPLE_APP_PASSWORD` (app-specific password) and `SPARKLE_PRIVATE_KEY` (the contents of the file from
+`generate_keys -x`). Until they are set it stops at its first step and names the missing ones. Pushing a tag works too:
 
 ```sh
 git tag v1.0.0 && git push origin v1.0.0
@@ -203,7 +210,7 @@ moves to the Trash is moved back into the sandbox at the end; it never empties t
 | `Sources/roomy-scan` | Command-line scanner. |
 | `scripts/build-app.sh` | Builds and signs the app bundle. |
 | `scripts/make-icon.swift` | Draws the app icon and writes `Resources/AppIcon.icns`. |
-| `.github/workflows` | Build on every push, and versioned releases. |
+| `.github/workflows` | Build on every push, and the dev, production and website deploys. |
 
 ## Help
 
