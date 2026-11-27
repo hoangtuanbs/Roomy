@@ -30,6 +30,8 @@ struct SidebarView: View {
                             help: "Find old backups, downloads, Mail attachments and similar photos") { model.openSpaceHunters() }
                     ToolRow(title: "Cloud Space", symbol: "icloud.fill", gradient: .cloudSpace,
                             help: "Free space by removing downloaded copies of cloud files; they stay in the cloud") { model.openCloudSpace() }
+                    ToolRow(title: "Cloud Backup", symbol: "icloud.and.arrow.up.fill", gradient: .cloudBackup,
+                            help: "Move big files you haven't used for months to iCloud Drive or another cloud folder") { model.openCloudBackup() }
                     ToolRow(title: "Disk Health", symbol: "stethoscope", gradient: .diskHealth,
                             help: "See what your disks report about their own health") { model.openDiskHealth() }
 

@@ -42,6 +42,8 @@ struct RoomyApp: App {
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Free Up Cloud Space…") { model.openCloudSpace() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button("Back Up Old Files to the Cloud…") { model.openCloudBackup() }
+                    .keyboardShortcut("b", modifiers: [.command, .shift])
                 Button("Disk Health…") { model.openDiskHealth() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
             }

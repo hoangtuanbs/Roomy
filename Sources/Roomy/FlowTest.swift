@@ -76,6 +76,7 @@ final class FlowTest {
         await run("uninstaller") { try await self.uninstallerScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
+        await run("cloud-backup") { try await self.cloudBackupScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
         await run("quick-clean") { try await self.quickCleanScenario() }
         await run("disk-health") { try await self.diskHealthScenario() }
@@ -273,6 +274,7 @@ final class FlowTest {
         model.showUninstaller = false
         model.showSpaceHunters = false
         model.showCloudSpace = false
+        model.showCloudBackup = false
         model.showDiskHealth = false
         model.showOnboarding = false
         let start = Date()
@@ -504,6 +506,88 @@ final class FlowTest {
         cloud.removeDownloads()
         try expect(cloud.phase == .ready, "removing with nothing ticked started")
         try expect(exists(home + "/Library/CloudStorage/Dropbox/Documents/report.pdf"), "a Dropbox file is gone")
+    }
+
+    /// Cloud Backup finds two big files nobody used for a year, moves the one left ticked into the fake iCloud Drive
+    /// (next to a file with its name, with an alias in its old place and a record in the sandbox), then restores it.
+    private func cloudBackupScenario() async throws {
+        let backup = model.cloudBackup
+        let render = home + "/Documents/Renders/final render.mov"
+        let trip = home + "/Movies/Archive/trip 2019.mp4"
+        let drive = home + "/Library/Mobile Documents/com~apple~CloudDocs"
+        let clash = drive + "/RoomyDisk Backup/Documents/Renders/final render.mov"
+        let manifest = state + "/cloud-backup.json"
+        try write("Documents/Renders/final render.mov", bytes: 110_000_000, fill: 11)
+        try write("Movies/Archive/trip 2019.mp4", bytes: 104_000_000, fill: 12)
+        try write("Documents/Renders/preview.mov", bytes: 2_000_000, fill: 13)
+        try write("Library/Mobile Documents/com~apple~CloudDocs/RoomyDisk Backup/Documents/Renders/final render.mov", bytes: 1_000, fill: 14)
+        defer {
+            // The big files are the test's own; they are removed so the sandbox stays small.
+            for path in [render, trip, clash, drive + "/RoomyDisk Backup/Documents/Renders/final render 2.mov"] where isInSandbox(path) {
+                try? FileManager.default.removeItem(atPath: path)
+            }
+            backup.now = { Date() }
+        }
+        try expect(AppEnvironment.cloudBackupManifest.fileURL.path == manifest, "the manifest is at \(AppEnvironment.cloudBackupManifest.fileURL.path)")
+
+        backup.now = { Date().addingTimeInterval(400 * 86_400) }
+        backup.minimumSize = .mb100
+        backup.unusedFor = .months6
+        backup.leavesAlias = true
+        model.openCloudBackup()
+        try await expectSheet("Cloud Backup")
+        try await waitUntil("the search for old files", limit: 60) { backup.phase == .ready }
+        try expect(AppEnvironment.defaults.integer(forKey: CloudBackupModel.Keys.minimumBytes) == 100_000_000, "the size was not kept")
+        try expect(Set(backup.items.map(\.path)) == [render, trip], "found: \(backup.items.map(\.path))")
+        try expect(backup.destination?.folderPath == drive, "the destination is \(backup.destination?.folderPath ?? "none")")
+        try expect(Set(backup.destinations.map(\.provider.name)) == ["iCloud Drive", "Dropbox"], "destinations: \(backup.destinations.map(\.provider.name))")
+
+        // A folder outside the cloud folders is refused with a warning.
+        backup.use(folder: home + "/Documents")
+        try expect(backup.destinationWarning != nil && backup.destination?.folderPath == drive, "a folder outside the cloud was accepted")
+
+        // A longer threshold looks again and finds nothing; going back finds both.
+        backup.unusedFor = .months24
+        try await waitUntil("the search with two years", limit: 60) { backup.phase == .ready }
+        try expect(backup.items.isEmpty, "two years found \(backup.items.map(\.path))")
+        backup.unusedFor = .months6
+        try await waitUntil("the search with six months", limit: 60) { backup.phase == .ready && !backup.items.isEmpty }
+
+        guard let tripItem = backup.items.first(where: { $0.path == trip }) else { throw Failure("the trip is not listed") }
+        backup.toggle(tripItem)
+        try expect(backup.selectedItems.map(\.path) == [render], "ticked: \(backup.selectedItems.map(\.path))")
+        backup.askToBackUp()
+        try expect(backup.isConfirming && exists(render) && !FinderAliases().isAlias(render), "asking moved something")
+        backup.backUp()
+        try await waitUntil("the move", limit: 60) { backup.phase == .done }
+        guard let report = backup.report, let record = report.succeeded.first?.record, report.results.count == 1 else {
+            throw Failure("the move reported \(backup.report?.results ?? [])")
+        }
+        let moved = drive + "/RoomyDisk Backup/Documents/Renders/final render 2.mov"
+        try expect(record.destinationPath == moved, "it went to \(record.destinationPath)")
+        try expect(Self.fileSize(moved) >= 110_000_000, "the moved file is not whole")
+        try expect(FinderAliases().isAlias(render), "no alias was left in its old place")
+        try expect(exists(clash) && Self.fileSize(clash) < 100_000, "the file already in the cloud folder was changed")
+        try expect(exists(trip) && !FinderAliases().isAlias(trip), "the unticked file was moved")
+        try expect(AppEnvironment.cloudBackupManifest.load().map(\.originalPath) == [render], "the manifest is not right")
+        try expect(!backup.items.contains { $0.path == render }, "the moved file is still listed")
+
+        backup.showBackedUp()
+        try expect(backup.tab == .backedUp && backup.records.map(\.id) == [record.id], "Backed Up lists \(backup.records.map(\.name))")
+        try expect(backup.states[record.id] == .notSyncing, "the sandbox file reads as \(String(describing: backup.states[record.id]))")
+        try expect(backup.freeable.isEmpty, "a file that is not uploaded can be freed")
+        try? await Task.sleep(for: .milliseconds(600))
+
+        backup.restore(record)
+        try await waitUntil("the restore", limit: 30) { backup.restoring.isEmpty && backup.records.isEmpty }
+        try expect(backup.notice == nil, "the restore said \(backup.notice ?? "")")
+        try expect(exists(render) && !FinderAliases().isAlias(render) && Self.fileSize(render) >= 110_000_000,
+                   "the file is not back in its old place")
+        try expect(!exists(moved), "the file is still in the cloud folder")
+        try expect(AppEnvironment.cloudBackupManifest.load().isEmpty, "the manifest still has the file")
+        backup.tab = .review
+        backup.minimumSize = .standard
+        backup.cancel()
     }
 
     /// The background check measures the junk and keeps its summary in the test's settings.
@@ -761,6 +845,11 @@ final class FlowTest {
     private func say(_ line: String) {
         print(line)
         fflush(stdout)
+    }
+
+    /// The length of one file, or 0 when it is not there.
+    private static func fileSize(_ path: String) -> Int64 {
+        ((try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     /// The space the files under `path` take, added up directly from the disk.
