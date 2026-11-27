@@ -11,11 +11,14 @@ public struct ScanSnapshot: Sendable, Equatable {
     public let sizes: [Int64]
     public let fileCounts: [Int32]
     public let modified: [Int64]
+    /// Clones and cloud-only sizes, by node.
+    public let clones: [Int32: CloneInfo]
+    public let onlineSizes: [Int32: Int64]
 
     public var count: Int { names.count }
 
     /// Bumped whenever the file layout changes; older files are ignored.
-    public static let formatVersion: UInt32 = 1
+    public static let formatVersion: UInt32 = 2
     static let magic: [UInt8] = Array("RMYS".utf8)
 
     /// A compact little-endian file: a header, then one record per node. Removed nodes are left out.
@@ -44,6 +47,24 @@ public struct ScanSnapshot: Sendable, Equatable {
             out.write(fileCounts[i])
             out.write(modified[i])
             out.write(string: i == 0 ? "" : names[i])
+        }
+        let keptClones: [(Int32, CloneInfo)] = clones.compactMap { item -> (Int32, CloneInfo)? in
+            newIndex[Int(item.key)] >= 0 ? (newIndex[Int(item.key)], item.value) : nil
+        }.sorted { $0.0 < $1.0 }
+        out.write(UInt32(keptClones.count))
+        for (index, clone) in keptClones {
+            out.write(index)
+            out.write(clone.family)
+            out.write(clone.sharedBytes)
+            out.write(UInt8(clone.carriesShared ? 1 : 0))
+        }
+        let keptOnline: [(Int32, Int64)] = onlineSizes.compactMap { item -> (Int32, Int64)? in
+            newIndex[Int(item.key)] >= 0 ? (newIndex[Int(item.key)], item.value) : nil
+        }.sorted { $0.0 < $1.0 }
+        out.write(UInt32(keptOnline.count))
+        for (index, bytes) in keptOnline {
+            out.write(index)
+            out.write(bytes)
         }
         return Data(out.bytes)
     }
@@ -75,12 +96,31 @@ public struct ScanSnapshot: Sendable, Equatable {
             let name = try reader.string()
             names.append(i == 0 ? rootPath : name)
         }
+        var clones: [Int32: CloneInfo] = [:]
+        let cloneCount = Int(try reader.read(UInt32.self))
+        guard cloneCount <= reader.remaining / 21 else { throw ScanCacheError.damaged }
+        for _ in 0..<cloneCount {
+            let index = try reader.read(Int32.self)
+            guard index > 0, Int(index) < count else { throw ScanCacheError.damaged }
+            let family = try reader.read(UInt64.self), shared = try reader.read(Int64.self)
+            clones[index] = CloneInfo(family: family, sharedBytes: shared, carriesShared: try reader.read(UInt8.self) == 1)
+        }
+        var onlineSizes: [Int32: Int64] = [:]
+        let onlineCount = Int(try reader.read(UInt32.self))
+        guard onlineCount <= reader.remaining / 12 else { throw ScanCacheError.damaged }
+        for _ in 0..<onlineCount {
+            let index = try reader.read(Int32.self)
+            guard index > 0, Int(index) < count else { throw ScanCacheError.damaged }
+            onlineSizes[index] = try reader.read(Int64.self)
+        }
         self.init(rootPath: rootPath, scannedAt: scannedAt, names: names, parents: parents, kinds: kinds,
-                  flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified)
+                  flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified,
+                  clones: clones, onlineSizes: onlineSizes)
     }
 
     init(rootPath: String, scannedAt: Date, names: [String], parents: [Int32], kinds: [NodeKind], flags: [NodeFlags],
-         sizes: [Int64], fileCounts: [Int32], modified: [Int64]) {
+         sizes: [Int64], fileCounts: [Int32], modified: [Int64], clones: [Int32: CloneInfo] = [:],
+         onlineSizes: [Int32: Int64] = [:]) {
         self.rootPath = rootPath
         self.scannedAt = scannedAt
         self.names = names
@@ -90,6 +130,8 @@ public struct ScanSnapshot: Sendable, Equatable {
         self.sizes = sizes
         self.fileCounts = fileCounts
         self.modified = modified
+        self.clones = clones
+        self.onlineSizes = onlineSizes
     }
 }
 
@@ -103,7 +145,8 @@ extension ScanTree {
     /// The tree as it is now, for saving.
     public func snapshot(scannedAt: Date) -> ScanSnapshot {
         ScanSnapshot(rootPath: rootPath, scannedAt: scannedAt, names: names, parents: parents, kinds: kinds,
-                     flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified)
+                     flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified,
+                     clones: clones, onlineSizes: onlineSizes)
     }
 
     /// Rebuilds a tree from a saved snapshot. Sizes and file counts are already totals.
@@ -115,6 +158,8 @@ extension ScanTree {
                    modified: s.modified[i], flags: s.flags[i])
         }
         restoreTotals(sizes: s.sizes, fileCounts: s.fileCounts)
+        for (index, clone) in s.clones where Int(index) < count { setClone(clone, at: index) }
+        for (index, bytes) in s.onlineSizes where Int(index) < count { setOnlineSize(bytes, at: index) }
     }
 }
 

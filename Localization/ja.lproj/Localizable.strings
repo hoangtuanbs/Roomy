@@ -601,3 +601,8 @@
 "Checks & Alerts" = "チェックと通知";
 "Updates" = "アップデート";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "この RoomyDisk はアップデートを確認しません。新しいバージョンは GitHub にあります。";
+"Shares %@ with other files" = "%@ を他のファイルと共有";
+"Shares %@ with %lld %@" = "%1$@ を %2$lld 個の%3$@と共有";
+"clone" = "クローン";
+"clones" = "クローン";
+"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "これは他のファイルと領域を共有するクローンです。ゴミ箱に入れても、解放されるのはこのファイル固有の領域だけです。";

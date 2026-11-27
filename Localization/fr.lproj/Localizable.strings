@@ -601,3 +601,8 @@
 "Checks & Alerts" = "Vérifications et alertes";
 "Updates" = "Mises à jour";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Cette copie de RoomyDisk ne recherche pas de mises à jour. Les nouvelles versions sont sur GitHub.";
+"Shares %@ with other files" = "Partage %@ avec d’autres fichiers";
+"Shares %@ with %lld %@" = "Partage %1$@ avec %2$lld %3$@";
+"clone" = "clone";
+"clones" = "clones";
+"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "C’est un clone qui partage de l’espace avec d’autres fichiers. Le placer dans la corbeille ne libère que l’espace qui lui est propre.";

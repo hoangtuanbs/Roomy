@@ -437,9 +437,10 @@ final class AppModel {
             return
         }
         let path = tree.path(of: node)
+        let families = tree.cloneFamilies(carriedOutside: node)
         rescanningNode = node
         subtreeTask = Task { [weak self] in
-            let fresh = try? await DiskScanner().scan(root: path)
+            let fresh = try? await DiskScanner().scan(root: path, cloneFamilies: families)
             guard let self, !Task.isCancelled else { return }
             self.rescanningNode = nil
             // Skip it if a new scan replaced the tree meanwhile, or the folder went to the Trash.
@@ -701,6 +702,9 @@ final class AppModel {
         guard let tree else { return [] }
         var out: [String] = []
         if let message = verdict(for: node).message { out.append(message) }
+        if tree.flags(node).contains(.clone) {
+            out.append(String(localized: "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own."))
+        }
         if tree.kind(node).isContainer && tree.containsDescendant(named: ".git", under: node) {
             out.append(String(localized: "Contains a Git repository. Check for work you have not pushed."))
         }

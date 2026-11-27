@@ -525,12 +525,18 @@ struct HoverCaption: View {
 
     var body: some View {
         Group {
-            if let tree = model.tree, let node = model.hovered {
+            if let tree = model.tree, let node = model.hovered ?? model.selection, !tree.flags(node).contains(.removed) {
                 let category = model.category(of: node)
                 HStack(spacing: 8) {
                     IconTile(symbol: category.symbol, gradient: .tile(category.color), size: 18)
                     Text(tree.name(node)).fontWeight(.medium).lineLimit(1)
                     Text(tree.size(node).bytes).foregroundStyle(.secondary).monospacedDigit()
+                    if tree.flags(node).contains(.clone) {
+                        Label(SpaceNotes.clone(node, in: tree), systemImage: "square.on.square")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    }
                     Spacer()
                     if tree.kind(node) == .directory {
                         Text(model.mapStyle == .rings ? "Click to open" : "Double-click to open").foregroundStyle(.tertiary)

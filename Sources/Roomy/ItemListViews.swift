@@ -184,6 +184,13 @@ struct ItemRow: View {
                         if flags.contains(.otherVolume) {
                             Text("other disk").font(.caption2).foregroundStyle(.tertiary)
                         }
+                        if flags.contains(.clone) {
+                            Image(systemName: "square.on.square")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .help(SpaceNotes.clone(node, in: tree))
+                                .accessibilityLabel(SpaceNotes.clone(node, in: tree))
+                        }
                         Spacer(minLength: 6)
                         if model.rescanningNode == node {
                             ProgressView()

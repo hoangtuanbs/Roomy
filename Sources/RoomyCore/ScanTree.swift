@@ -20,6 +20,27 @@ public struct NodeFlags: OptionSet, Sendable, Hashable {
     public static let hardLinkDuplicate = NodeFlags(rawValue: 1 << 2)
     public static let excluded = NodeFlags(rawValue: 1 << 3)
     public static let removed = NodeFlags(rawValue: 1 << 4)
+    /// An APFS clone that shares its blocks with other files. Only the first of its family found carries the shared
+    /// space; the others count just what is their own.
+    public static let clone = NodeFlags(rawValue: 1 << 5)
+    /// Stored in the cloud only (iCloud Drive, Dropbox and the like): it takes no space on this Mac.
+    public static let dataless = NodeFlags(rawValue: 1 << 6)
+}
+
+/// How a clone shares its space.
+public struct CloneInfo: Sendable, Equatable {
+    /// The same for every file of a family of pure clones (and their disk).
+    public let family: UInt64
+    /// The space this file shares with its clones.
+    public let sharedBytes: Int64
+    /// This file's size includes the shared space. One file of each family in a scan carries it.
+    public var carriesShared: Bool
+
+    public init(family: UInt64, sharedBytes: Int64, carriesShared: Bool) {
+        self.family = family
+        self.sharedBytes = sharedBytes
+        self.carriesShared = carriesShared
+    }
 }
 
 /// Scan result as parallel arrays. Node 0 is the root; a child always has a larger index than its parent.
@@ -36,6 +57,10 @@ public final class ScanTree: @unchecked Sendable {
     public private(set) var fileCounts: [Int32] = []
     public private(set) var modified: [Int64] = []
     public private(set) var children: [[Index]] = []
+    /// Only for nodes flagged `.clone`.
+    public private(set) var clones: [Index: CloneInfo] = [:]
+    /// The size in the cloud of files flagged `.dataless`.
+    public private(set) var onlineSizes: [Index: Int64] = [:]
 
     public var count: Int { names.count }
 
@@ -61,6 +86,54 @@ public final class ScanTree: @unchecked Sendable {
 
     func insertFlags(_ newFlags: NodeFlags, at index: Index) {
         flags[Int(index)].formUnion(newFlags)
+    }
+
+    func setClone(_ info: CloneInfo?, at index: Index) {
+        clones[index] = info
+    }
+
+    func setOnlineSize(_ bytes: Int64?, at index: Index) {
+        onlineSizes[index] = bytes
+    }
+
+    /// How many other files in the scan share their blocks with the clone `i`.
+    public func cloneSiblingCount(_ i: Index) -> Int {
+        guard let family = clones[i]?.family else { return 0 }
+        return clones.reduce(0) { count, item in
+            item.key != i && item.value.family == family && !flags[Int(item.key)].contains(.removed) ? count + 1 : count
+        }
+    }
+
+    /// The families whose shared space is carried by a file outside `i`, so a fresh scan of `i` counts its
+    /// members of those families by their own space only.
+    public func cloneFamilies(carriedOutside i: Index) -> Set<UInt64> {
+        var out = Set<UInt64>()
+        for (node, info) in clones where info.carriesShared && !flags[Int(node)].contains(.removed) {
+            if node != i && !isAncestor(i, of: node) { out.insert(info.family) }
+        }
+        return out
+    }
+
+    /// Gives each family of clones whose carrier left the tree (moved to the Trash or rescanned away) a new carrier,
+    /// since the shared space is still used by the files that are left.
+    func repairCloneCarriers() {
+        guard !clones.isEmpty else { return }
+        var carried = Set<UInt64>()
+        for (node, info) in clones where info.carriesShared && !flags[Int(node)].contains(.removed) {
+            carried.insert(info.family)
+        }
+        for node in clones.keys.sorted() {
+            guard var info = clones[node], !info.carriesShared, !flags[Int(node)].contains(.removed),
+                  carried.insert(info.family).inserted else { continue }
+            info.carriesShared = true
+            clones[node] = info
+            sizes[Int(node)] += info.sharedBytes
+            var n = node
+            while let p = parent(n) {
+                sizes[Int(p)] += info.sharedBytes
+                n = p
+            }
+        }
     }
 
     func finalize() {
@@ -183,6 +256,7 @@ public final class ScanTree: @unchecked Sendable {
             flags[Int(m)].insert(.removed)
             stack.append(contentsOf: children[Int(m)])
         }
+        repairCloneCarriers()
     }
 
     /// Sets totals read from a saved snapshot and sorts children largest first.
@@ -215,6 +289,8 @@ public final class ScanTree: @unchecked Sendable {
             map[n] = append(name: fresh.names[n], parent: parent, kind: fresh.kinds[n], size: fresh.sizes[n],
                             modified: fresh.modified[n], flags: fresh.flags[n])
             fileCounts[Int(map[n])] = fresh.fileCounts[n]
+            if let clone = fresh.clones[Index(n)] { clones[map[n]] = clone }
+            if let online = fresh.onlineSizes[Index(n)] { onlineSizes[map[n]] = online }
         }
 
         let sizeDelta = fresh.size(Self.root) - sizes[Int(i)]
@@ -229,6 +305,7 @@ public final class ScanTree: @unchecked Sendable {
             fileCounts[Int(p)] += fileDelta
             n = p
         }
+        repairCloneCarriers()
         let sizes = self.sizes
         for node in map + lineage(of: i).dropLast() where node >= 0 && children[Int(node)].count > 1 {
             children[Int(node)].sort { sizes[Int($0)] > sizes[Int($1)] }

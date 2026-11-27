@@ -9,6 +9,11 @@ A macOS app that shows what is using space on your disk and helps you free it up
 *Folders sorted by size on the left and a treemap of the same folder on the right, with two items ticked for cleanup.*
 
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
+  **APFS clones** (copies made with Finder's Duplicate, `cp -c` or apps that clone) share their blocks on disk, so the
+  space they share is counted once too: the first clone found carries it, and each other clone adds only the space that
+  is its own. A clone shows a small two-squares icon; hover or select it to see "Shares 1.2 GB with 2 clones". Moving a
+  clone to the Trash frees only its own space, and the review says so. A clone that was changed after copying gets
+  its own id from macOS and is counted in full.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder

@@ -601,3 +601,8 @@
 "Checks & Alerts" = "Kiểm tra & cảnh báo";
 "Updates" = "Cập nhật";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Bản RoomyDisk này không tự tìm bản cập nhật. Các phiên bản mới có trên GitHub.";
+"Shares %@ with other files" = "Dùng chung %@ với các tệp khác";
+"Shares %@ with %lld %@" = "Dùng chung %1$@ với %2$lld %3$@";
+"clone" = "bản sao nhân bản";
+"clones" = "bản sao nhân bản";
+"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Đây là bản sao nhân bản dùng chung dung lượng với các tệp khác. Chuyển nó vào Thùng rác chỉ giải phóng phần dung lượng của riêng nó.";

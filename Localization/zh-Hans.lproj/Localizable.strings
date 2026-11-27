@@ -601,3 +601,8 @@
 "Checks & Alerts" = "检查与提醒";
 "Updates" = "更新";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "此版本的 RoomyDisk 不检查更新。新版本发布在 GitHub 上。";
+"Shares %@ with other files" = "与其他文件共享 %@";
+"Shares %@ with %lld %@" = "与 %2$lld 个%3$@共享 %1$@";
+"clone" = "克隆";
+"clones" = "克隆";
+"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "这是与其他文件共享空间的克隆。将它移到废纸篓只会释放它自己独占的空间。";

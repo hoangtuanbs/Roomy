@@ -36,6 +36,14 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: ./scripts/build-app.sh
 
+      - name: Benchmark the scanner
+        # Times a scan of two big folders on the build machine (release build), with and without the APFS clone
+        # checks, and prints the item counts and peak memory. Read-only.
+        run: |
+          swift build -c release --product roomy-scan
+          bin="$(swift build -c release --show-bin-path)/roomy-scan"
+          for folder in /Applications /usr; do "$bin" --benchmark "$folder"; done
+
       - name: Check the bundle
         run: |
           codesign --verify --deep --strict build/RoomyDisk.app
