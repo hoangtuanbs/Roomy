@@ -163,6 +163,8 @@ enum PhotoSource {
             if Task.isCancelled { break }
             guard SimilarPhotoGrouper.isCandidate(path: url.path),
                   let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { continue }
+            // A picture kept only in the cloud would be downloaded just to be looked at.
+            if CloudPlaceholder.isDataless(path: url.path) != false { continue }
             let bytes = Int64(values.totalFileAllocatedSize ?? 0)
             guard bytes >= SimilarPhotoGrouper.minimumBytes else { continue }
             found.append(File(path: url.path, bytes: bytes, modified: values.contentModificationDate ?? .distantPast))

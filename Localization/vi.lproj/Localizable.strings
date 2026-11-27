@@ -602,9 +602,9 @@
 "Updates" = "Cập nhật";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Bản RoomyDisk này không tự tìm bản cập nhật. Các phiên bản mới có trên GitHub.";
 "Shares %@ with other files" = "Dùng chung %@ với các tệp khác";
-"Shares %@ with %lld %@" = "Dùng chung %1$@ với %2$lld %3$@";
-"clone" = "bản sao nhân bản";
-"clones" = "bản sao nhân bản";
+"Shares %@ with %lld %@" = "Dùng chung %@ với %lld %@";
+"clone" = "bản sao";
+"clones" = "bản sao";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Đây là bản sao nhân bản dùng chung dung lượng với các tệp khác. Chuyển nó vào Thùng rác chỉ giải phóng phần dung lượng của riêng nó.";
 "Stored only in the cloud (%@). It takes no space on this Mac." = "Chỉ lưu trên đám mây (%@). Không chiếm dung lượng trên máy Mac này.";
 "Stored only in the cloud. It takes no space on this Mac." = "Chỉ lưu trên đám mây. Không chiếm dung lượng trên máy Mac này.";
@@ -619,8 +619,8 @@
 "macOS released purgeable space on this disk." = "macOS đã giải phóng dung lượng có thể xóa trên ổ đĩa này.";
 "There is no purgeable space to free on this disk right now." = "Hiện không có dung lượng có thể xóa nào để giải phóng trên ổ đĩa này.";
 "macOS did not free any purgeable space this time. It frees it by itself when an app needs room." = "Lần này macOS không giải phóng được dung lượng có thể xóa nào. macOS tự giải phóng khi một ứng dụng cần chỗ.";
-"Free before" = "Trống trước đó";
-"Free now" = "Trống bây giờ";
+"Free before" = "Trống trước";
+"Free now" = "Trống hiện tại";
 "macOS did not say how much space the disk has." = "macOS không cho biết dung lượng của ổ đĩa.";
 "Only the folders that changed since the last scan were read again." = "Chỉ đọc lại các thư mục đã thay đổi kể từ lần quét trước.";
 "Everything was scanned again." = "Đã quét lại toàn bộ.";

@@ -602,10 +602,10 @@
 "Updates" = "Actualizaciones";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Esta copia de RoomyDisk no busca actualizaciones. Las versiones nuevas están en GitHub.";
 "Shares %@ with other files" = "Comparte %@ con otros archivos";
-"Shares %@ with %lld %@" = "Comparte %1$@ con %2$lld %3$@";
+"Shares %@ with %lld %@" = "Comparte %@ con %lld %@";
 "clone" = "clon";
 "clones" = "clones";
-"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Es un clon que comparte espacio con otros archivos. Al moverlo a la Papelera solo se libera el espacio que es solo suyo.";
+"This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Es un clon que comparte espacio con otros archivos. Al moverlo a la Papelera solo se libera el espacio propio.";
 "Stored only in the cloud (%@). It takes no space on this Mac." = "Guardado solo en la nube (%@). No ocupa espacio en este Mac.";
 "Stored only in the cloud. It takes no space on this Mac." = "Guardado solo en la nube. No ocupa espacio en este Mac.";
 "In the cloud only" = "Solo en la nube";

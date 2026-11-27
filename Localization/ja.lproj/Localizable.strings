@@ -602,7 +602,7 @@
 "Updates" = "アップデート";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "この RoomyDisk はアップデートを確認しません。新しいバージョンは GitHub にあります。";
 "Shares %@ with other files" = "%@ を他のファイルと共有";
-"Shares %@ with %lld %@" = "%1$@ を %2$lld 個の%3$@と共有";
+"Shares %@ with %lld %@" = "%@ を %lld 個の%@と共有";
 "clone" = "クローン";
 "clones" = "クローン";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "これは他のファイルと領域を共有するクローンです。ゴミ箱に入れても、解放されるのはこのファイル固有の領域だけです。";
@@ -611,7 +611,7 @@
 "In the cloud only" = "クラウドのみ";
 "%@ in the cloud" = "クラウドに %@";
 "It is stored only in the cloud, so removing it frees no space on this Mac." = "クラウドにのみ保存されているため、削除してもこの Mac の領域は空きません。";
-"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "クラウドにのみ保存された %lld 個の%@を含みます。一緒にゴミ箱に入りますが、この Mac の領域は空きません。";
+"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "%lld %@ がクラウドにのみ保存されています。ゴミ箱にも入りますが、この Mac の領域は空きません。";
 "%@ purgeable" = "purgeable %@";
 "macOS frees this by itself when it needs room." = "macOS は領域が必要になると自動で解放します。";
 "Asking macOS to free purgeable space…" = "macOS に purgeable 領域の解放を依頼中…";

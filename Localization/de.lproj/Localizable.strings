@@ -602,7 +602,7 @@
 "Updates" = "Updates";
 "This copy of RoomyDisk doesn't look for updates. New versions are on GitHub." = "Diese Kopie von RoomyDisk sucht nicht nach Updates. Neue Versionen gibt es auf GitHub.";
 "Shares %@ with other files" = "Teilt %@ mit anderen Dateien";
-"Shares %@ with %lld %@" = "Teilt %1$@ mit %2$lld %3$@";
+"Shares %@ with %lld %@" = "Teilt %@ mit %lld %@";
 "clone" = "Klon";
 "clones" = "Klonen";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Dies ist ein Klon, der Speicher mit anderen Dateien teilt. Wird er in den Papierkorb gelegt, wird nur sein eigener Speicher frei.";
@@ -624,4 +624,4 @@
 "macOS did not say how much space the disk has." = "macOS hat nicht gemeldet, wie viel Speicher das Laufwerk hat.";
 "Only the folders that changed since the last scan were read again." = "Nur die seit dem letzten Scan geänderten Ordner wurden neu gelesen.";
 "Everything was scanned again." = "Alles wurde neu gescannt.";
-"Rescan reads again only the folders that changed, when macOS still remembers what changed." = "„Neu scannen“ liest nur die geänderten Ordner neu, solange macOS sich noch merkt, was sich geändert hat.";
+"Rescan reads again only the folders that changed, when macOS still remembers what changed." = "„Erneut scannen“ liest nur die geänderten Ordner neu, solange macOS sich noch merkt, was sich geändert hat.";
