@@ -126,6 +126,14 @@ extension LinearGradient {
     )
 }
 
+/// The periwinkle-to-aqua gradient used for Cloud Backup, a sibling of Cloud Space's sky-to-indigo.
+extension LinearGradient {
+    static let cloudBackup = LinearGradient(
+        colors: [Color(red: 0.47, green: 0.50, blue: 0.97), Color(red: 0.27, green: 0.77, blue: 0.86)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+}
+
 /// A byte count that counts up or down to its new value when it changes inside an animation.
 struct CountingBytes: View, Animatable {
     var value: Double

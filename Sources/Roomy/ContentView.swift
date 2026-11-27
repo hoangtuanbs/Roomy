@@ -52,6 +52,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showCloudSpace) {
             CloudSpaceView().environment(model)
         }
+        .sheet(isPresented: $model.showCloudBackup) {
+            CloudBackupView().environment(model)
+        }
         .sheet(isPresented: $model.showDiskHealth) {
             DiskHealthView().environment(model)
         }

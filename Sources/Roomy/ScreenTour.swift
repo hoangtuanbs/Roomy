@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
-/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Disk Health, Disk overview,
+/// main screen into <dir> (treemap, rings, Smart Clean, Duplicates, Uninstaller, Space Hunters, Cloud Space, Cloud Backup, Disk Health, Disk overview,
 /// the menu bar popover with Quick Clean, and each Settings tab) and quits.
 /// It only opens screens; nothing is ticked, moved or removed.
 @MainActor
@@ -60,6 +60,22 @@ enum ScreenTour {
             await waitWhile({ model.cloudSpace.isBusy }, limit: 40)
             await shot("8-cloud-space", wait: 2)
             model.showCloudSpace = false
+
+            // Cloud Backup on the sample folder, with the clock a year ahead and a small minimum so its sample files
+            // count as big and forgotten. Only the review is shown; nothing is moved.
+            try? await Task.sleep(for: .seconds(1))
+            let backup = model.cloudBackup
+            backup.rootsOverride = model.tree.map { [$0.rootPath] }
+            backup.minimumBytesOverride = 5_000_000
+            backup.now = { Date().addingTimeInterval(400 * 86_400) }
+            model.openCloudBackup()
+            await waitWhile({ backup.isBusy }, limit: 40)
+            print("tour: cloud backup found \(backup.items.count) files in \(backup.findings.groups.count) folders")
+            await shot("15-cloud-backup", wait: 2.5)
+            model.showCloudBackup = false
+            backup.rootsOverride = nil
+            backup.minimumBytesOverride = nil
+            backup.now = { Date() }
 
             try? await Task.sleep(for: .seconds(1))
             model.openDiskHealth()

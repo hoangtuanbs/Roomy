@@ -270,7 +270,8 @@ final class CloudBackupTests: XCTestCase {
 
         // Blocked by the safety rules.
         try file("Movies/a.mov")
-        let blocked = SafetyPolicy(homePath: home, confinedTo: home + "/Documents")
+        // Confined to Library: the cloud folder is allowed, the file is not.
+        let blocked = SafetyPolicy(homePath: home, confinedTo: home + "/Library")
         XCTAssertEqual(service(policy: blocked).backUp(item, to: iCloud).error, SafetyPolicy.outsideConfinement)
         XCTAssertNotNil(DirectoryReader.entry(atPath: path))
 

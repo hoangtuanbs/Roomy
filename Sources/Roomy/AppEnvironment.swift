@@ -23,6 +23,10 @@ enum AppEnvironment {
     } ?? .standard
     static let scanCache: ScanCache = flowSandbox.map { ScanCache(directory: $0 + "/state/Scans") }
         ?? .standard(bundleID: Bundle.main.bundleIdentifier ?? "io.github.hoangtuanbs.Roomy")
+    /// The list of files Cloud Backup moved to a cloud folder.
+    static let cloudBackupManifest: BackupManifest = flowSandbox.map {
+        BackupManifest(fileURL: URL(fileURLWithPath: $0 + "/state/cloud-backup.json"))
+    } ?? .standard
     /// Where the Uninstaller looks for apps; nil for the usual app folders.
     static let appFolders: [String]? = flowSandbox.map { _ in [home + "/Applications"] }
 
