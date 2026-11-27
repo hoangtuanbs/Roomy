@@ -129,6 +129,8 @@ jobs:
           mkdir -p "$sample/Photos" "$sample/Projects/app" "$sample/Downloads"
           mkfile 30m "$sample/Photos/holiday.mov"
           cp "$sample/Photos/holiday.mov" "$sample/Downloads/holiday copy.mov"
+          # An APFS clone of the film, which shares its space with it.
+          cp -c "$sample/Photos/holiday.mov" "$sample/Photos/holiday clone.mov"
           mkfile 12m "$sample/Projects/app/build.dmg"
           mkfile 4m "$sample/Projects/app/notes.txt"
           # Two sizes of one picture, for Similar photos in Space Hunters.
@@ -149,8 +151,8 @@ jobs:
           wait "$pid" || { echo "::error::RoomyDisk exited with an error during the tour"; exit 1; }
           ls -l "$out"
           count=$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$count" -lt 13 ]; then
-            echo "::error::Expected 13 screenshots, got $count (is there a window session on this runner?)"
+          if [ "$count" -lt 15 ]; then
+            echo "::error::Expected 15 screenshots, got $count (is there a window session on this runner?)"
             exit 1
           fi
 

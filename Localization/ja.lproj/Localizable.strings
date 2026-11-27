@@ -612,3 +612,13 @@
 "%@ in the cloud" = "クラウドに %@";
 "It is stored only in the cloud, so removing it frees no space on this Mac." = "クラウドにのみ保存されているため、削除してもこの Mac の領域は空きません。";
 "Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "クラウドにのみ保存された %lld 個の%@を含みます。一緒にゴミ箱に入りますが、この Mac の領域は空きません。";
+"%@ purgeable" = "purgeable %@";
+"macOS frees this by itself when it needs room." = "macOS は領域が必要になると自動で解放します。";
+"Asking macOS to free purgeable space…" = "macOS に purgeable 領域の解放を依頼中…";
+"Free: %@" = "空き: %@";
+"macOS released purgeable space on this disk." = "macOS がこのディスクの purgeable 領域を解放しました。";
+"There is no purgeable space to free on this disk right now." = "現在、このディスクに解放できる purgeable 領域はありません。";
+"macOS did not free any purgeable space this time. It frees it by itself when an app needs room." = "今回は macOS が purgeable 領域を解放しませんでした。アプリが領域を必要とすると自動で解放されます。";
+"Free before" = "解放前の空き";
+"Free now" = "現在の空き";
+"macOS did not say how much space the disk has." = "macOS がディスクの容量を返しませんでした。";

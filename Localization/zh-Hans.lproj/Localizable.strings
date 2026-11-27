@@ -612,3 +612,13 @@
 "%@ in the cloud" = "云端 %@";
 "It is stored only in the cloud, so removing it frees no space on this Mac." = "它仅存储在云端，删除它不会释放这台 Mac 的空间。";
 "Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "包含 %lld 个仅存储在云端的%@。它们也会被移到废纸篓，但不会释放这台 Mac 的空间。";
+"%@ purgeable" = "%@ 可清除";
+"macOS frees this by itself when it needs room." = "macOS 在需要空间时会自行释放。";
+"Asking macOS to free purgeable space…" = "正在请求 macOS 释放可清除空间…";
+"Free: %@" = "可用：%@";
+"macOS released purgeable space on this disk." = "macOS 已释放这个磁盘上的可清除空间。";
+"There is no purgeable space to free on this disk right now." = "这个磁盘目前没有可释放的可清除空间。";
+"macOS did not free any purgeable space this time. It frees it by itself when an app needs room." = "macOS 这次没有释放任何可清除空间。当应用需要空间时，它会自行释放。";
+"Free before" = "之前可用";
+"Free now" = "现在可用";
+"macOS did not say how much space the disk has." = "macOS 没有提供磁盘的空间信息。";

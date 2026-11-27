@@ -80,6 +80,7 @@ final class FlowTest {
         await run("automatic-check") { try await self.automaticCheckScenario() }
         await run("quick-clean") { try await self.quickCleanScenario() }
         await run("disk-health") { try await self.diskHealthScenario() }
+        await run("free-purgeable") { try await self.freePurgeableScenario() }
         await run("csv-export") { try await self.csvScenario() }
         await run("notification-route") { try await self.notificationScenario() }
         await run("settings") { try await self.settingsScenario() }
@@ -365,6 +366,26 @@ final class FlowTest {
         try expect(!last.flags(film2).contains(.clone), "the film is still a clone after its clone went")
         let total = last.size(ScanTree.root)
         try expect(total == before, "the total is \(total), not \(before)")
+    }
+
+    /// "Free Purgeable Space" with the pretend releaser the flow test always gets: free space before and after are
+    /// measured and the result is shown. macOS is never asked to free anything here.
+    private func freePurgeableScenario() async throws {
+        let disk = model.diskOverview
+        guard let rehearsal = disk.releaser as? RehearsalReleaser else {
+            throw Failure("the flow test is not using the pretend releaser: \(type(of: disk.releaser))")
+        }
+        model.refreshDiskOverview()
+        try await waitUntil("the disk overview", limit: 10) { disk.space != nil }
+        disk.freePurgeable(scanned: model.scannedBytes)
+        try expect(disk.purge.isRunning, "it did not start: \(disk.purge)")
+        try await waitUntil("free purgeable space", limit: 30) { !disk.purge.isRunning }
+        guard case .done(let outcome) = disk.purge else { throw Failure("it ended as \(disk.purge)") }
+        try expect(rehearsal.requests == 1, "the releaser was asked \(rehearsal.requests) times")
+        let freed = outcome.freedBytes
+        try expect(abs(freed - rehearsal.amount) < 200_000_000, "it measured \(freed) bytes freed, not about \(rehearsal.amount)")
+        disk.dismissPurgeResult()
+        try expect(disk.purge == .idle, "the result did not close")
     }
 
     /// The home folder and a keychain cannot go to the tray or the Trash, and the reason is said.

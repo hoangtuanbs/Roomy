@@ -612,3 +612,13 @@
 "%@ in the cloud" = "%@ en la nube";
 "It is stored only in the cloud, so removing it frees no space on this Mac." = "Está guardado solo en la nube, así que eliminarlo no libera espacio en este Mac.";
 "Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "Contiene %lld %@ guardados solo en la nube. También irían a la Papelera, pero no liberan espacio en este Mac.";
+"%@ purgeable" = "%@ purgeable";
+"macOS frees this by itself when it needs room." = "macOS lo libera por sí solo cuando necesita espacio.";
+"Asking macOS to free purgeable space…" = "Pidiendo a macOS que libere espacio purgeable…";
+"Free: %@" = "Libre: %@";
+"macOS released purgeable space on this disk." = "macOS liberó espacio purgeable en este disco.";
+"There is no purgeable space to free on this disk right now." = "Ahora mismo no hay espacio purgeable que liberar en este disco.";
+"macOS did not free any purgeable space this time. It frees it by itself when an app needs room." = "macOS no liberó espacio purgeable esta vez. Lo libera por sí solo cuando una app necesita espacio.";
+"Free before" = "Libre antes";
+"Free now" = "Libre ahora";
+"macOS did not say how much space the disk has." = "macOS no indicó cuánto espacio tiene el disco.";

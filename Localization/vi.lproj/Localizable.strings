@@ -612,3 +612,13 @@
 "%@ in the cloud" = "%@ trên đám mây";
 "It is stored only in the cloud, so removing it frees no space on this Mac." = "Mục này chỉ lưu trên đám mây, nên xóa nó không giải phóng dung lượng trên máy Mac này.";
 "Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "Chứa %lld %@ chỉ lưu trên đám mây. Chúng cũng sẽ vào Thùng rác nhưng không giải phóng dung lượng trên máy Mac này.";
+"%@ purgeable" = "%@ có thể xóa";
+"macOS frees this by itself when it needs room." = "macOS tự giải phóng phần này khi cần chỗ.";
+"Asking macOS to free purgeable space…" = "Đang yêu cầu macOS giải phóng dung lượng có thể xóa…";
+"Free: %@" = "Trống: %@";
+"macOS released purgeable space on this disk." = "macOS đã giải phóng dung lượng có thể xóa trên ổ đĩa này.";
+"There is no purgeable space to free on this disk right now." = "Hiện không có dung lượng có thể xóa nào để giải phóng trên ổ đĩa này.";
+"macOS did not free any purgeable space this time. It frees it by itself when an app needs room." = "Lần này macOS không giải phóng được dung lượng có thể xóa nào. macOS tự giải phóng khi một ứng dụng cần chỗ.";
+"Free before" = "Trống trước đó";
+"Free now" = "Trống bây giờ";
+"macOS did not say how much space the disk has." = "macOS không cho biết dung lượng của ổ đĩa.";

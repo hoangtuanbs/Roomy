@@ -10,6 +10,17 @@ final class DiskOverviewModel {
         case idle, loading, loaded, failed(String)
     }
 
+    enum PurgeState: Equatable {
+        case idle
+        case running(before: Int64)
+        case done(PurgeOutcome)
+
+        var isRunning: Bool {
+            if case .running = self { return true }
+            return false
+        }
+    }
+
     private(set) var space: DiskSpace?
     private(set) var volumeName = ""
     private(set) var volumePath: String?
@@ -19,7 +30,10 @@ final class DiskOverviewModel {
     private(set) var snapshots: [LocalSnapshot] = []
     private(set) var snapshotState: SnapshotState = .idle
     private(set) var deleting: Set<String> = []
-    private(set) var isThinning = false
+    /// Where "Free Purgeable Space" is: not started, asking macOS, or what it did.
+    private(set) var purge: PurgeState = .idle
+    /// What asks macOS to free purgeable space. Replaced by a fake in the flow test and the tour.
+    var releaser: PurgeableSpaceReleaser = AppEnvironment.isFlowTest ? RehearsalReleaser() : TimeMachineThinner()
     var errorMessage: String?
     /// Space that became free after the last delete or thin, shown for a moment.
     private(set) var freedBytes: Int64?
@@ -76,22 +90,25 @@ final class DiskOverviewModel {
         }
     }
 
-    /// Lets Time Machine remove local snapshots until the purgeable space is free. Asks first in the view.
+    /// Asks macOS to release purgeable space (see `TimeMachineThinner` for how and why), then shows free space
+    /// before and after. The view asks first. The flow test and the screenshot tour use a fake releaser.
     func freePurgeable(scanned: Int64) {
-        guard let mount = snapshotMountPoint, let path = volumePath, let space, space.purgeable > 0, !isThinning else { return }
-        isThinning = true
+        guard let mount = snapshotMountPoint, let path = volumePath, !purge.isRunning else { return }
+        let before = space?.available ?? 0
+        purge = .running(before: before)
         errorMessage = nil
-        let before = space.available
+        let freer = PurgeableSpaceFreer(releaser: releaser)
         Task {
-            do {
-                try await LocalSnapshots.thin(mountPoint: mount, bytes: space.purgeable)
-                finishChange(path: path, scanned: scanned, availableBefore: before)
-            } catch {
-                errorMessage = String(format: String(localized: "Could not free purgeable space. %@"), error.localizedDescription)
-            }
-            isThinning = false
+            let outcome = await freer.run(volume: path, mountPoint: mount)
+            guard path == volumePath else { return }
+            space = DiskSpace.read(forPath: path, scanned: scanned) ?? space
+            purge = .done(outcome)
             loadSnapshots()
         }
+    }
+
+    func dismissPurgeResult() {
+        if case .done = purge { purge = .idle }
     }
 
     private func finishChange(path: String, scanned: Int64, availableBefore: Int64) {
@@ -115,5 +132,32 @@ final class DiskOverviewModel {
 
     func openStorageSettings() {
         NSWorkspace.shared.open(Self.storageSettingsURL)
+    }
+}
+
+/// Pretends to free purgeable space, for the flow test and the screenshot tour: it adds what it "freed" to the free
+/// space it reports and never asks macOS for anything.
+final class RehearsalReleaser: PurgeableSpaceReleaser, @unchecked Sendable {
+    private let lock = NSLock()
+    private var freed: Int64 = 0
+    let amount: Int64
+    private(set) var requests = 0
+
+    init(amount: Int64 = 1_800_000_000) {
+        self.amount = amount
+    }
+
+    func space(volume: String) -> (available: Int64, purgeable: Int64)? {
+        guard let real = DiskSpace.read(forPath: volume, scanned: 0) else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return (real.available + freed, max(amount - freed, 0) + real.purgeable)
+    }
+
+    func release(mountPoint: String, bytes: Int64) async throws {
+        lock.lock()
+        requests += 1
+        freed = amount
+        lock.unlock()
     }
 }

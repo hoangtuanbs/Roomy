@@ -42,9 +42,15 @@ A macOS app that shows what is using space on your disk and helps you free it up
   found, **hidden** space (used, but not found: files RoomyDisk cannot read without Full Disk Access, macOS system files and
   snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
   Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
-  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
-  Space…** asks Time Machine to thin its snapshots (`tmutil thinlocalsnapshots`), or open Storage Settings instead.
-  Neither can be undone, so both ask first.
+  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). When the disk
+  has purgeable space, the card shows it with a **Free Purgeable Space…** button. After you confirm, RoomyDisk asks
+  Time Machine to thin its own local snapshots until up to that much is free (`tmutil thinlocalsnapshots <disk> <bytes>
+  4`, the same request macOS makes when a disk runs low). It needs no admin rights and never touches your files;
+  snapshots made by macOS updates are left alone. The card then shows free space before and after, rolling up to the
+  new number, with the "space freed" moment, or says plainly that macOS freed nothing this time (purgeable iCloud
+  files and caches are freed by macOS itself when an app needs room; Storage Settings is a click away). RoomyDisk
+  does not fill the disk with a temporary file to force macOS to purge: that only works when the disk is nearly full
+  and writes gigabytes to the SSD. Removed snapshots cannot be brought back, so it asks first.
 - **Duplicates** (below Smart Clean in the sidebar, the toolbar, or ⇧⌘D) finds identical files of 1 MB or more in
   the current scan, or in a folder you choose. Files of the same size are compared by their first and last 64 KB, and
   only those that still match are read in full (SHA-256). Hard links, symbolic links, empty files, packages such as
