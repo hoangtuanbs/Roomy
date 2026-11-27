@@ -64,7 +64,11 @@ public struct DiskScanner: Sendable {
         guard let rootEntry = DirectoryReader.entry(atPath: root) else { throw ScanError.notFound(root) }
         guard rootEntry.kind == .directory else { throw ScanError.notADirectory(root) }
 
+        // Taken first, so whatever changes while the scan runs is in the history a quick rescan reads.
+        let journalID = ChangeJournal.currentEventID()
         let tree = ScanTree(rootPath: root, size: rootEntry.allocated, modified: rootEntry.modified)
+        tree.journalID = journalID
+        tree.volumeID = ChangeJournal.volumeID(forPath: root)
         let rules = EntryRules(root: root, rootDevice: rootEntry.device, options: options)
 
         let clock = ContinuousClock()
@@ -136,7 +140,7 @@ public struct DiskScanner: Sendable {
         return tree
     }
 
-    static func standardize(_ path: String) -> String {
+    public static func standardize(_ path: String) -> String {
         var p = (path as NSString).expandingTildeInPath
         p = (p as NSString).standardizingPath
         while p.count > 1 && p.hasSuffix("/") { p.removeLast() }

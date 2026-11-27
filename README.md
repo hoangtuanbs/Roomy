@@ -29,8 +29,12 @@ A macOS app that shows what is using space on your disk and helps you free it up
   rings, choose **Add to Tray** in the context menu, or tick them. The tray shows each item with its size and the total,
   and **Review and Clean…** moves them to the Trash after you review them, so Put Back still works.
 - **Fast reopening**: each scan is cached in `~/Library/Caches/io.github.hoangtuanbs.Roomy/Scans`, so the last scan of
-  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while a fresh scan runs behind it. **Rescan This
-  Folder** in the context menu scans just that folder again and updates the totals around it.
+  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while it is brought up to date behind it.
+  **Quick rescans**: macOS keeps a history of which folders changed (FSEvents), so the update after a relaunch and
+  the **Rescan** button read again only the folders that changed since the last scan and patch them into the shown
+  results. When the history cannot be trusted
+  (macOS dropped or merged events, the disk is a different one, or the scan is too old), RoomyDisk scans everything
+  again instead. **Rescan This Folder** in the context menu scans just that folder again and updates the totals around it.
 - **Smart Clean** (top of the sidebar, the toolbar, or ⇧⌘K) finds junk that is safe to remove: app caches, logs,
   Xcode build data, device support files and simulator caches, package manager caches (npm, Yarn, pnpm, pip, Homebrew,
   CocoaPods, Gradle, Cargo) and installers in Downloads older than 30 days. Xcode archives, simulators unused for

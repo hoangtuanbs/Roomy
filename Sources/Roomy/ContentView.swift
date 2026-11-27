@@ -598,6 +598,7 @@ struct ScanStatusNote: View {
                     Button("Rescan") { model.rescan() }
                         .buttonStyle(.link)
                 }
+                .help(refreshHelp)
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
@@ -605,6 +606,14 @@ struct ScanStatusNote: View {
         .foregroundStyle(.secondary)
         .animation(Motion.quick.unless(reduceMotion), value: model.isRefreshing)
         .animation(Motion.quick.unless(reduceMotion), value: model.rescanningNode)
+    }
+
+    private var refreshHelp: String {
+        switch model.lastRefresh {
+        case .quick?: return String(localized: "Only the folders that changed since the last scan were read again.")
+        case .full?: return String(localized: "Everything was scanned again.")
+        case nil: return String(localized: "Rescan reads again only the folders that changed, when macOS still remembers what changed.")
+        }
     }
 
     private var updatingText: String {

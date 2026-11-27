@@ -14,11 +14,14 @@ public struct ScanSnapshot: Sendable, Equatable {
     /// Clones and cloud-only sizes, by node.
     public let clones: [Int32: CloneInfo]
     public let onlineSizes: [Int32: Int64]
+    /// Where the FSEvents history starts for a quick rescan, and the disk it belongs to.
+    public let journalID: UInt64
+    public let volumeID: String
 
     public var count: Int { names.count }
 
     /// Bumped whenever the file layout changes; older files are ignored.
-    public static let formatVersion: UInt32 = 2
+    public static let formatVersion: UInt32 = 3
     static let magic: [UInt8] = Array("RMYS".utf8)
 
     /// A compact little-endian file: a header, then one record per node. Removed nodes are left out.
@@ -66,6 +69,8 @@ public struct ScanSnapshot: Sendable, Equatable {
             out.write(index)
             out.write(bytes)
         }
+        out.write(journalID)
+        out.write(string: volumeID)
         return Data(out.bytes)
     }
 
@@ -113,14 +118,16 @@ public struct ScanSnapshot: Sendable, Equatable {
             guard index > 0, Int(index) < count else { throw ScanCacheError.damaged }
             onlineSizes[index] = try reader.read(Int64.self)
         }
+        let journalID = try reader.read(UInt64.self)
+        let volumeID = try reader.string()
         self.init(rootPath: rootPath, scannedAt: scannedAt, names: names, parents: parents, kinds: kinds,
                   flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified,
-                  clones: clones, onlineSizes: onlineSizes)
+                  clones: clones, onlineSizes: onlineSizes, journalID: journalID, volumeID: volumeID)
     }
 
     init(rootPath: String, scannedAt: Date, names: [String], parents: [Int32], kinds: [NodeKind], flags: [NodeFlags],
          sizes: [Int64], fileCounts: [Int32], modified: [Int64], clones: [Int32: CloneInfo] = [:],
-         onlineSizes: [Int32: Int64] = [:]) {
+         onlineSizes: [Int32: Int64] = [:], journalID: UInt64 = 0, volumeID: String = "") {
         self.rootPath = rootPath
         self.scannedAt = scannedAt
         self.names = names
@@ -132,6 +139,8 @@ public struct ScanSnapshot: Sendable, Equatable {
         self.modified = modified
         self.clones = clones
         self.onlineSizes = onlineSizes
+        self.journalID = journalID
+        self.volumeID = volumeID
     }
 }
 
@@ -146,7 +155,7 @@ extension ScanTree {
     public func snapshot(scannedAt: Date) -> ScanSnapshot {
         ScanSnapshot(rootPath: rootPath, scannedAt: scannedAt, names: names, parents: parents, kinds: kinds,
                      flags: flags, sizes: sizes, fileCounts: fileCounts, modified: modified,
-                     clones: clones, onlineSizes: onlineSizes)
+                     clones: clones, onlineSizes: onlineSizes, journalID: journalID, volumeID: volumeID)
     }
 
     /// Rebuilds a tree from a saved snapshot. Sizes and file counts are already totals.
@@ -160,6 +169,14 @@ extension ScanTree {
         restoreTotals(sizes: s.sizes, fileCounts: s.fileCounts)
         for (index, clone) in s.clones where Int(index) < count { setClone(clone, at: index) }
         for (index, bytes) in s.onlineSizes where Int(index) < count { setOnlineSize(bytes, at: index) }
+        journalID = s.journalID
+        volumeID = s.volumeID
+        dropRemovedChildren()
+    }
+
+    /// A separate copy of the tree with the same indexes, for patching off the main thread.
+    public func copy() -> ScanTree {
+        ScanTree(snapshot: snapshot(scannedAt: Date()))
     }
 }
 

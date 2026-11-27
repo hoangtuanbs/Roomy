@@ -332,6 +332,7 @@ final class AppModel {
         refreshProgress = nil
         refreshError = nil
         removedDuringRefresh = []
+        lastRefresh = nil
         AppEnvironment.defaults.set(path, forKey: "lastScanPath")
 
         let cache = scanCache
@@ -346,7 +347,52 @@ final class AppModel {
                     self.isRefreshing = true
                 }
             }
-            await self?.runScan(path: path)
+            await self?.refresh(path: path)
+        }
+    }
+
+    /// How the shown results were last brought up to date.
+    enum RefreshKind: Equatable {
+        /// Only the folders FSEvents says changed were read again.
+        case quick(QuickRescanReport)
+        /// Everything was scanned; the reason a quick rescan could not be used, if one was tried.
+        case full(String?)
+    }
+    private(set) var lastRefresh: RefreshKind?
+
+    /// Brings the shown results of `path` up to date: a quick rescan of what changed since they were made when the
+    /// FSEvents history allows it, otherwise a full scan.
+    private func refresh(path: String) async {
+        if let shown = tree, shown.rootPath == DiskScanner.standardize(path) {
+            if await quickRescan(shown) { return }
+        }
+        guard !Task.isCancelled, selectedPath == path else { return }
+        await runScan(path: path)
+    }
+
+    /// Patches a copy of `shown` off the main thread and shows it. False when a full scan is needed instead.
+    private func quickRescan(_ shown: ScanTree) async -> Bool {
+        let snapshot = shown.snapshot(scannedAt: scannedAt ?? Date())
+        let outcome = await Task.detached(priority: .userInitiated) { () -> (tree: ScanTree, result: QuickRescanResult)? in
+            let copy = ScanTree(snapshot: snapshot)
+            guard let result = try? await QuickRescan.run(copy) else { return nil }
+            return (copy, result)
+        }.value
+        guard !Task.isCancelled, tree === shown, let outcome else { return false }
+        switch outcome.result {
+        case .needsFullScan(let reason):
+            print("roomy: full scan of \(shown.rootPath): \(reason)")
+            lastRefresh = .full(reason)
+            return false
+        case .patched(let report):
+            print("roomy: quick rescan of \(shown.rootPath): \(report.listedFolders) folders listed, \(report.scannedFolders) scanned")
+            for removed in removedDuringRefresh {
+                if let node = outcome.tree.index(ofPath: removed) { outcome.tree.detach(node) }
+            }
+            install(outcome.tree, scannedAt: Date(), keepPlace: true)
+            lastRefresh = .quick(report)
+            saveCache()
+            return true
         }
     }
 
@@ -369,6 +415,10 @@ final class AppModel {
             }
             let keep = isRefreshing
             install(result, scannedAt: Date(), keepPlace: keep)
+            switch lastRefresh {
+            case .full?: break
+            default: lastRefresh = .full(nil)
+            }
             saveCache()
         } catch is CancellationError {
         } catch {
@@ -493,7 +543,8 @@ final class AppModel {
         isRefreshing = true
         refreshError = nil
         removedDuringRefresh = []
-        scanTask = Task { [weak self] in await self?.runScan(path: path) }
+        lastRefresh = nil
+        scanTask = Task { [weak self] in await self?.refresh(path: path) }
     }
 
     func open(_ node: ScanTree.Index) {

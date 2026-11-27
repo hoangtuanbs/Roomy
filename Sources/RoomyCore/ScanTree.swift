@@ -61,6 +61,10 @@ public final class ScanTree: @unchecked Sendable {
     public private(set) var clones: [Index: CloneInfo] = [:]
     /// The size in the cloud of files flagged `.dataless`.
     public private(set) var onlineSizes: [Index: Int64] = [:]
+    /// The FSEvents id from when the scan started, so a quick rescan can ask what changed since. 0 when unknown.
+    public internal(set) var journalID: UInt64 = 0
+    /// The disk the scan was made on.
+    public internal(set) var volumeID = ""
 
     public var count: Int { names.count }
 
@@ -130,20 +134,30 @@ public final class ScanTree: @unchecked Sendable {
     func repairCloneCarriers() {
         guard !clones.isEmpty else { return }
         var carried = Set<UInt64>()
-        for (node, info) in clones where info.carriesShared && !flags[Int(node)].contains(.removed) {
-            carried.insert(info.family)
+        for node in clones.keys.sorted() {
+            // A family carried twice (two parts rescanned on their own) keeps only its first carrier.
+            guard var info = clones[node], info.carriesShared, !flags[Int(node)].contains(.removed) else { continue }
+            if carried.insert(info.family).inserted { continue }
+            info.carriesShared = false
+            clones[node] = info
+            addSize(-info.sharedBytes, from: node)
         }
         for node in clones.keys.sorted() {
             guard var info = clones[node], !info.carriesShared, !flags[Int(node)].contains(.removed),
                   carried.insert(info.family).inserted else { continue }
             info.carriesShared = true
             clones[node] = info
-            sizes[Int(node)] += info.sharedBytes
-            var n = node
-            while let p = parent(n) {
-                sizes[Int(p)] += info.sharedBytes
-                n = p
-            }
+            addSize(info.sharedBytes, from: node)
+        }
+    }
+
+    /// Adds `delta` to the size of `node` and every ancestor.
+    private func addSize(_ delta: Int64, from node: Index) {
+        sizes[Int(node)] += delta
+        var n = node
+        while let p = parent(n) {
+            sizes[Int(p)] += delta
+            n = p
         }
     }
 
@@ -321,5 +335,66 @@ public final class ScanTree: @unchecked Sendable {
         for node in map + lineage(of: i).dropLast() where node >= 0 && children[Int(node)].count > 1 {
             children[Int(node)].sort { sizes[Int($0)] > sizes[Int($1)] }
         }
+    }
+
+    // MARK: Patching (quick rescans)
+
+    /// Adds a node below `parent` and adds its size and file count to every ancestor.
+    @discardableResult
+    func insertNode(name: String, parent: Index, kind: NodeKind, size: Int64, modified: Int64, flags: NodeFlags) -> Index {
+        let index = append(name: name, parent: parent, kind: kind, size: size, modified: modified, flags: flags)
+        let files = fileCounts[Int(index)]
+        var n = index
+        while let p = self.parent(n) {
+            sizes[Int(p)] += size
+            fileCounts[Int(p)] += files
+            n = p
+        }
+        return index
+    }
+
+    /// Gives a file new values, and moves the change in size to every ancestor.
+    func updateLeaf(_ i: Index, size: Int64, modified: Int64, flags newFlags: NodeFlags) {
+        let delta = size - sizes[Int(i)]
+        sizes[Int(i)] = size
+        self.modified[Int(i)] = modified
+        flags[Int(i)] = newFlags
+        var n = i
+        while let p = parent(n) {
+            sizes[Int(p)] += delta
+            n = p
+        }
+    }
+
+    func setModified(_ value: Int64, at i: Index) {
+        modified[Int(i)] = value
+    }
+
+    func removeFlags(_ old: NodeFlags, at i: Index) {
+        flags[Int(i)].subtract(old)
+    }
+
+    /// Leaves removed nodes out of every children list, for a tree rebuilt from a snapshot that still has them.
+    func dropRemovedChildren() {
+        for n in 0..<children.count where !children[n].isEmpty {
+            children[n].removeAll { flags[Int($0)].contains(.removed) }
+        }
+    }
+
+    /// Sorts the children of these nodes largest first again.
+    func resortChildren(of nodes: Set<Index>) {
+        let sizes = self.sizes
+        for node in nodes where Int(node) < children.count && children[Int(node)].count > 1 {
+            children[Int(node)].sort { sizes[Int($0)] > sizes[Int($1)] }
+        }
+    }
+
+    /// The families whose shared space is carried by a node that `skip` does not pick.
+    func cloneFamilies(carriedExcept skip: (Index) -> Bool) -> Set<UInt64> {
+        var out = Set<UInt64>()
+        for (node, info) in clones where info.carriesShared && !flags[Int(node)].contains(.removed) && !skip(node) {
+            out.insert(info.family)
+        }
+        return out
     }
 }

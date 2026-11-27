@@ -622,3 +622,6 @@
 "Free before" = "Vorher frei";
 "Free now" = "Jetzt frei";
 "macOS did not say how much space the disk has." = "macOS hat nicht gemeldet, wie viel Speicher das Laufwerk hat.";
+"Only the folders that changed since the last scan were read again." = "Nur die seit dem letzten Scan geänderten Ordner wurden neu gelesen.";
+"Everything was scanned again." = "Alles wurde neu gescannt.";
+"Rescan reads again only the folders that changed, when macOS still remembers what changed." = "„Neu scannen“ liest nur die geänderten Ordner neu, solange macOS sich noch merkt, was sich geändert hat.";

@@ -622,3 +622,6 @@
 "Free before" = "解放前の空き";
 "Free now" = "現在の空き";
 "macOS did not say how much space the disk has." = "macOS がディスクの容量を返しませんでした。";
+"Only the folders that changed since the last scan were read again." = "前回のスキャン以降に変更されたフォルダだけを読み直しました。";
+"Everything was scanned again." = "すべてを再スキャンしました。";
+"Rescan reads again only the folders that changed, when macOS still remembers what changed." = "再スキャンでは、macOS が変更を記録している間は変更されたフォルダだけを読み直します。";

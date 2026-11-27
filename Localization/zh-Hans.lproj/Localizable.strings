@@ -622,3 +622,6 @@
 "Free before" = "之前可用";
 "Free now" = "现在可用";
 "macOS did not say how much space the disk has." = "macOS 没有提供磁盘的空间信息。";
+"Only the folders that changed since the last scan were read again." = "只重新读取了上次扫描后有变化的文件夹。";
+"Everything was scanned again." = "已全部重新扫描。";
+"Rescan reads again only the folders that changed, when macOS still remembers what changed." = "在 macOS 仍记得哪些内容有变化时，重新扫描只会重新读取有变化的文件夹。";
