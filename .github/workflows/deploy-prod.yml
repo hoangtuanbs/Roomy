@@ -1,0 +1,162 @@
+name: Deploy app (production)
+
+# Publishes a signed, notarized release with the update feed that installed copies read (Sparkle).
+#  - Actions > Deploy app (production) > Run workflow, and pick patch, minor or major. The next version is worked
+#    out from the latest vX.Y.Z tag (v0.0.0 if there is none), then tagged and released.
+#  - Or push a tag yourself: git tag v1.2.3 && git push origin v1.2.3
+# The job runs in the "production" environment: add yourself as a required reviewer there
+# (Settings > Environments > production) and every release waits for your approval.
+#
+# Secrets it needs (Settings > Secrets and variables > Actions, or on the production environment):
+#   MACOS_CERTIFICATE_P12        base64 of the "Developer ID Application" certificate exported as .p12
+#   MACOS_CERTIFICATE_PASSWORD   the password chosen when exporting it
+#   APPLE_ID                     the Apple ID email of the developer account
+#   APPLE_APP_PASSWORD           an app-specific password for it (account.apple.com > Sign-In and Security)
+#   SPARKLE_PRIVATE_KEY          the update key: the contents of the file from Sparkle's generate_keys -x
+# Optional variables: APPLE_TEAM_ID (default C57S55A2P7), SPARKLE_PUBLIC_KEY (default below).
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to increase
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    runs-on: avrea-macos-latest
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}/releases/latest
+    steps:
+      - name: Check the signing secrets are set
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          missing=()
+          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD APPLE_ID APPLE_APP_PASSWORD SPARKLE_PRIVATE_KEY; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::Production releases are signed and notarized. Add these secrets first: ${missing[*]} (see the top of deploy-prod.yml)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+              echo "::error::Run releases from main (this run is on $GITHUB_REF_NAME)."
+              exit 1
+            fi
+            LAST=$(git tag --list 'v*.*.*' --sort=-v:refname | head -n 1)
+            LAST=${LAST:-v0.0.0}
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST#v}"
+            case "$BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              *)     PATCH=$((PATCH + 1)) ;;
+            esac
+            TAG="v$MAJOR.$MINOR.$PATCH"
+            echo "Latest tag: $LAST, next: $TAG"
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a vX.Y.Z version tag."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if this version was already published
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # scripts/release.sh can also publish from a Mac; its tag push lands here too.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run the tests
+        if: steps.existing.outputs.skip != 'true'
+        run: |
+          swift --version
+          swift test
+
+      - name: Put the signing certificate and update key on this runner
+        if: steps.existing.outputs.skip != 'true'
+        id: signing
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # A throwaway keychain that only this job uses; the last step deletes it.
+          KEYCHAIN="$RUNNER_TEMP/release-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 -D > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" -f pkcs12 \
+            -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)
+          if [[ -z "$IDENTITY" ]]; then
+            echo "::error::MACOS_CERTIFICATE_P12 holds no Developer ID Application certificate with its private key."
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "keychain=$KEYCHAIN" >> "$GITHUB_OUTPUT"
+          umask 077
+          printf '%s\n' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle-private-key"
+
+      - name: Build, sign, notarize and publish
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'C57S55A2P7' }}
+          SPARKLE_EXPECTED_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY || 'zDipHnw83WnnUDJ6cHvJ81Ej84TKmDX4uVJZzCW8qAc=' }}
+        run: |
+          SPARKLE_PRIVATE_KEY_FILE="$RUNNER_TEMP/sparkle-private-key" ./scripts/release.sh "$VERSION" --publish
+          echo "Published https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing certificate and update key
+        if: always()
+        env:
+          KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+        run: |
+          rm -f "$RUNNER_TEMP/sparkle-private-key" "$RUNNER_TEMP/certificate.p12"
+          if [[ -n "$KEYCHAIN" ]]; then security delete-keychain "$KEYCHAIN" || true; fi

@@ -20,15 +20,17 @@ cd website && python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Hosting on Cloudflare Pages
 
-Cloudflare builds and serves the site from this repository on its own side, so no GitHub Actions run.
+The **Deploy website** GitHub Actions workflow (`.github/workflows/deploy-website.yml`) uploads this folder to
+Cloudflare Pages on every push to `main` that touches `website/`, and creates the Pages project (`roomydisk`,
+served at `roomydisk.pages.dev`) on its first run. Don't also connect the repository under Workers & Pages ›
+Connect to Git, or the site would deploy twice from two projects.
 
-1. In the Cloudflare dashboard open **Workers & Pages › Create › Pages › Connect to Git** and pick `hoangtuanbs/roomy`.
-2. Production branch: `main`. Framework preset: **None**. Build command: leave empty.
-   **Root directory: `website`**. Build output directory: `.` (so `functions/` is picked up for the contact form).
-3. Optional: under **Settings › Builds › Build watch paths** include only `website/*`, so app-only commits don't redeploy the site.
-4. Optional: **Custom domains** to add your own domain.
-
-Pull requests get their own preview URL from Cloudflare automatically.
+1. In Cloudflare open **My Profile › API Tokens › Create Token › Custom token** with the permission
+   **Account › Cloudflare Pages › Edit**, and copy it.
+2. In GitHub open **Settings › Secrets and variables › Actions** and add `CLOUDFLARE_API_TOKEN` (the token) and
+   `CLOUDFLARE_ACCOUNT_ID` (shown on the right of the Workers & Pages overview).
+3. Run **Actions › Deploy website › Run workflow** once, or push a change to `website/`.
+4. Optional: **Custom domains** on the Pages project to add your own domain.
 
 ## Contact form
 
@@ -39,9 +41,9 @@ Your address is kept in Cloudflare's encrypted settings only, never in the page 
 Resend's free plan sends 3,000 emails a month (100 a day).
 
 1. Sign up at resend.com with the address that should receive messages, and create an API key with sending access.
-2. In Cloudflare Pages open **Settings › Variables and Secrets** and add, for Production:
-   - `RESEND_API_KEY`: the key (type **Secret**).
-   - `CONTACT_TO`: the address you signed up to Resend with (type **Secret**).
+2. Add `RESEND_API_KEY` (the key) and `CONTACT_TO` (the address you signed up to Resend with) as GitHub Actions
+   secrets; the deploy copies them into the Pages project as encrypted secrets. Or set them yourself in
+   Cloudflare Pages under **Settings › Variables and Secrets** (type **Secret**), and leave them out of GitHub.
 3. Redeploy. Until both are set, the form tells visitors it isn't connected yet and points them to GitHub issues.
 
 Without a verified domain, Resend sends from its shared `onboarding@resend.dev` address and only to your own

@@ -1,0 +1,92 @@
+name: Deploy app (dev)
+
+# Publishes every green build of main as the "dev" pre-release on GitHub, replacing the previous one:
+# https://github.com/hoangtuanbs/roomy/releases/tag/dev
+# It reuses the app that the Build workflow just made and tested, so nothing is compiled twice.
+# Dev builds are not signed by Apple and never update themselves. They are marked as a pre-release,
+# so "latest release" (the website's download button and the update feed) keeps pointing at production.
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
+  # Manual run: builds the chosen branch from scratch and publishes it as the dev build.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy-dev:
+    # Only after a successful Build of a push to main, never after a pull request's Build.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: avrea-macos-latest
+    environment:
+      name: dev
+      url: https://github.com/${{ github.repository }}/releases/tag/dev
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Get the app from the Build run
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: RoomyDisk-build-${{ github.event.workflow_run.run_number }}
+          path: build
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Build the app (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          swift --version
+          ./scripts/build-app.sh
+
+      - name: Check the app
+        run: |
+          test -f build/RoomyDisk.zip
+          rm -rf "$RUNNER_TEMP/check"
+          ditto -x -k build/RoomyDisk.zip "$RUNNER_TEMP/check"
+          codesign --verify --deep --strict "$RUNNER_TEMP/check/RoomyDisk.app"
+          plutil -lint "$RUNNER_TEMP/check/RoomyDisk.app/Contents/Info.plist"
+
+      - name: Publish the dev pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ github.event.workflow_run.run_number || github.run_number }}
+        run: |
+          SHORT=${SHA:0:7}
+          ZIP="build/RoomyDisk-dev-$BUILD.zip"
+          mv build/RoomyDisk.zip "$ZIP"
+          (cd build && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
+          cat > "$RUNNER_TEMP/notes.md" <<NOTES
+          **Development build $BUILD** of \`$SHORT\` on $GITHUB_REF_NAME, for testing. Use the latest regular release for everyday use.
+
+          Download **$(basename "$ZIP")**, unzip it and move **RoomyDisk.app** to Applications. It is not notarized by Apple,
+          so the first time you open it, right-click the app and choose **Open**. It does not update itself.
+          NOTES
+          # One rolling "dev" release: drop the previous one and its tag, then publish this build in its place.
+          gh release delete dev --yes --cleanup-tag 2>/dev/null || true
+          git push origin :refs/tags/dev 2>/dev/null || true
+          gh release create dev "$ZIP" "$ZIP.sha256" \
+            --title "RoomyDisk dev build $BUILD ($SHORT)" \
+            --target "$SHA" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --prerelease \
+            --latest=false
+          echo "Published https://github.com/$GITHUB_REPOSITORY/releases/tag/dev" >> "$GITHUB_STEP_SUMMARY"
