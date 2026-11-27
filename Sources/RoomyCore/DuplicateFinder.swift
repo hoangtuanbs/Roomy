@@ -222,7 +222,7 @@ public struct DuplicateFinder: Sendable {
         while let node = stack.popLast() {
             for child in tree.children(node) {
                 let flags = tree.flags(child)
-                if flags.contains(.removed) || flags.contains(.hardLinkDuplicate) { continue }
+                if flags.contains(.removed) || flags.contains(.hardLinkDuplicate) || flags.contains(.dataless) { continue }
                 switch tree.kind(child) {
                 case .directory:
                     if !Self.skippedFolderNames.contains(tree.name(child)) { stack.append(child) }

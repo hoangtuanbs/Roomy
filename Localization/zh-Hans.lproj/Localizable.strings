@@ -606,3 +606,9 @@
 "clone" = "克隆";
 "clones" = "克隆";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "这是与其他文件共享空间的克隆。将它移到废纸篓只会释放它自己独占的空间。";
+"Stored only in the cloud (%@). It takes no space on this Mac." = "仅存储在云端（%@）。不占用这台 Mac 的空间。";
+"Stored only in the cloud. It takes no space on this Mac." = "仅存储在云端。不占用这台 Mac 的空间。";
+"In the cloud only" = "仅在云端";
+"%@ in the cloud" = "云端 %@";
+"It is stored only in the cloud, so removing it frees no space on this Mac." = "它仅存储在云端，删除它不会释放这台 Mac 的空间。";
+"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "包含 %lld 个仅存储在云端的%@。它们也会被移到废纸篓，但不会释放这台 Mac 的空间。";

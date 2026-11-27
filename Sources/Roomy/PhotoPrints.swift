@@ -141,7 +141,7 @@ enum PhotoSource {
         for i in 0..<tree.count {
             let index = ScanTree.Index(i)
             guard tree.kind(index) == .file, tree.size(index) >= SimilarPhotoGrouper.minimumBytes,
-                  !tree.flags(index).contains(.removed) else { continue }
+                  !tree.flags(index).contains(.removed), !tree.flags(index).contains(.dataless) else { continue }
             let ext = (tree.name(index) as NSString).pathExtension.lowercased()
             guard SimilarPhotoGrouper.extensions.contains(ext) else { continue }
             let path = tree.path(of: index)

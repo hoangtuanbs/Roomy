@@ -13,7 +13,12 @@ A macOS app that shows what is using space on your disk and helps you free it up
   space they share is counted once too: the first clone found carries it, and each other clone adds only the space that
   is its own. A clone shows a small two-squares icon; hover or select it to see "Shares 1.2 GB with 2 clones". Moving a
   clone to the Trash frees only its own space, and the review says so. A clone that was changed after copying gets
-  its own id from macOS and is counted in full.
+  its own id from macOS and is counted in full. Only files of 32 KB or more are checked, which keeps scans quick.
+- **Cloud-only files** (iCloud Drive, Dropbox, OneDrive and other cloud drives that keep a file in the cloud until you
+  open it) take no space on your Mac, so they count as 0 bytes in the lists, the treemap, the rings and Biggest Files.
+  They show a small cloud icon; hover or select one to see its size in the cloud. Cloud-only folders are not opened,
+  so a scan never makes macOS download anything. They cannot go to the tray, Duplicates and Similar photos never read
+  them, and a folder that holds some says so in the review, since moving them to the Trash frees nothing here.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder

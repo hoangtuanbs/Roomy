@@ -96,6 +96,17 @@ public final class ScanTree: @unchecked Sendable {
         onlineSizes[index] = bytes
     }
 
+    /// How many items inside `i` are stored only in the cloud.
+    public func datalessCount(under i: Index) -> Int {
+        var count = 0
+        var stack = children[Int(i)]
+        while let n = stack.popLast() {
+            if flags[Int(n)].contains(.dataless) { count += 1 }
+            stack.append(contentsOf: children[Int(n)])
+        }
+        return count
+    }
+
     /// How many other files in the scan share their blocks with the clone `i`.
     public func cloneSiblingCount(_ i: Index) -> Int {
         guard let family = clones[i]?.family else { return 0 }

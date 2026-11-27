@@ -606,3 +606,9 @@
 "clone" = "クローン";
 "clones" = "クローン";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "これは他のファイルと領域を共有するクローンです。ゴミ箱に入れても、解放されるのはこのファイル固有の領域だけです。";
+"Stored only in the cloud (%@). It takes no space on this Mac." = "クラウドにのみ保存（%@）。この Mac の領域は使いません。";
+"Stored only in the cloud. It takes no space on this Mac." = "クラウドにのみ保存。この Mac の領域は使いません。";
+"In the cloud only" = "クラウドのみ";
+"%@ in the cloud" = "クラウドに %@";
+"It is stored only in the cloud, so removing it frees no space on this Mac." = "クラウドにのみ保存されているため、削除してもこの Mac の領域は空きません。";
+"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "クラウドにのみ保存された %lld 個の%@を含みます。一緒にゴミ箱に入りますが、この Mac の領域は空きません。";

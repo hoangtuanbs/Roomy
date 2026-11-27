@@ -29,4 +29,18 @@ enum SpaceNotes {
         return String(format: NSLocalizedString("Shares %@ with %lld %@", comment: ""), shared, others,
                       Plural.word(others, "clone", "clones"))
     }
+
+    /// For the icon's help: "Stored only in the cloud (1.2 GB). It takes no space on this Mac."
+    static func cloudOnly(_ node: ScanTree.Index, in tree: ScanTree) -> String {
+        if let online = tree.onlineSizes[node] {
+            return String(format: NSLocalizedString("Stored only in the cloud (%@). It takes no space on this Mac.", comment: ""), online.bytes)
+        }
+        return String(localized: "Stored only in the cloud. It takes no space on this Mac.")
+    }
+
+    /// For the caption: "1.2 GB in the cloud".
+    static func cloudCaption(_ node: ScanTree.Index, in tree: ScanTree) -> String {
+        guard let online = tree.onlineSizes[node] else { return String(localized: "In the cloud only") }
+        return String(format: NSLocalizedString("%@ in the cloud", comment: ""), online.bytes)
+    }
 }

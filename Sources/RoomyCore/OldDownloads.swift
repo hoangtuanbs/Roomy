@@ -94,6 +94,9 @@ public struct OldDownloadsFinder: Sendable {
             guard entry.kind == .file || entry.kind == .directory else { continue }
             let path = DiskScanner.join(downloadsPath, entry.name)
             if policy.verdict(for: path).isBlocked { continue }
+            // Only in the cloud: removing it would free nothing here.
+            if CloudPlaceholder.isDataless(flags: entry.fileFlags, allocated: entry.allocated, length: entry.length,
+                                           isDirectory: entry.kind == .directory, inCloudFolder: false) { continue }
             let walked: (bytes: Int64, newest: Int64) = entry.kind == .directory ? Self.walk(path) : (entry.allocated, entry.modified)
             var dates = self.dates(path)
             dates.modified = Date(timeIntervalSince1970: TimeInterval(walked.newest))

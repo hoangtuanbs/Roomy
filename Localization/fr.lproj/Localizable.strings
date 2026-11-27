@@ -606,3 +606,9 @@
 "clone" = "clone";
 "clones" = "clones";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "C’est un clone qui partage de l’espace avec d’autres fichiers. Le placer dans la corbeille ne libère que l’espace qui lui est propre.";
+"Stored only in the cloud (%@). It takes no space on this Mac." = "Stocké uniquement dans le cloud (%@). N’occupe aucun espace sur ce Mac.";
+"Stored only in the cloud. It takes no space on this Mac." = "Stocké uniquement dans le cloud. N’occupe aucun espace sur ce Mac.";
+"In the cloud only" = "Uniquement dans le cloud";
+"%@ in the cloud" = "%@ dans le cloud";
+"It is stored only in the cloud, so removing it frees no space on this Mac." = "Il est stocké uniquement dans le cloud : le supprimer ne libère aucun espace sur ce Mac.";
+"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "Contient %lld %@ stockés uniquement dans le cloud. Ils iraient aussi à la corbeille, sans libérer d’espace sur ce Mac.";

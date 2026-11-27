@@ -606,3 +606,9 @@
 "clone" = "bản sao nhân bản";
 "clones" = "bản sao nhân bản";
 "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own." = "Đây là bản sao nhân bản dùng chung dung lượng với các tệp khác. Chuyển nó vào Thùng rác chỉ giải phóng phần dung lượng của riêng nó.";
+"Stored only in the cloud (%@). It takes no space on this Mac." = "Chỉ lưu trên đám mây (%@). Không chiếm dung lượng trên máy Mac này.";
+"Stored only in the cloud. It takes no space on this Mac." = "Chỉ lưu trên đám mây. Không chiếm dung lượng trên máy Mac này.";
+"In the cloud only" = "Chỉ trên đám mây";
+"%@ in the cloud" = "%@ trên đám mây";
+"It is stored only in the cloud, so removing it frees no space on this Mac." = "Mục này chỉ lưu trên đám mây, nên xóa nó không giải phóng dung lượng trên máy Mac này.";
+"Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac." = "Chứa %lld %@ chỉ lưu trên đám mây. Chúng cũng sẽ vào Thùng rác nhưng không giải phóng dung lượng trên máy Mac này.";

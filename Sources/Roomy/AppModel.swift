@@ -565,6 +565,9 @@ final class AppModel {
         let flags = tree.flags(node)
         if flags.contains(.otherVolume) { return .blocked(String(localized: "This is another disk.")) }
         if flags.contains(.removed) { return .blocked(String(localized: "Already moved to the Trash.")) }
+        if flags.contains(.dataless) {
+            return .blocked(String(localized: "It is stored only in the cloud, so removing it frees no space on this Mac."))
+        }
         return policy.verdict(for: tree.path(of: node))
     }
 
@@ -702,6 +705,13 @@ final class AppModel {
         guard let tree else { return [] }
         var out: [String] = []
         if let message = verdict(for: node).message { out.append(message) }
+        if tree.kind(node).isContainer {
+            let cloudOnly = tree.datalessCount(under: node)
+            if cloudOnly > 0 {
+                out.append(String(format: NSLocalizedString("Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac.", comment: ""),
+                                  cloudOnly, Plural.word(cloudOnly, "item", "items")))
+            }
+        }
         if tree.flags(node).contains(.clone) {
             out.append(String(localized: "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own."))
         }
@@ -834,7 +844,7 @@ final class AppModel {
         let kind = tree.kind(node)
         guard kind == .file || kind.isContainer else { return false }
         let flags = tree.flags(node)
-        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) { return false }
+        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) || flags.contains(.dataless) { return false }
         return tree.size(node) > 0 && !verdict(for: node).isBlocked
     }
 

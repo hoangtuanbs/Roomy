@@ -95,7 +95,7 @@ public struct DiskScanner: Sendable {
                     continue
                 }
                 stats.directories += 1
-                let inCloud = false
+                let inCloud = CloudPlaceholder.isInCloudFolder(listing.path)
 
                 for entry in entries {
                     let childPath = Self.join(listing.path, entry.name)
@@ -205,6 +205,16 @@ struct EntryRules: Sendable {
 
     func classify(_ entry: RawEntry, path: String, inCloudFolder: Bool, counter: inout SpaceCounter) -> ClassifiedEntry {
         var out = ClassifiedEntry(kind: entry.kind, size: entry.allocated, flags: [], descend: false)
+
+        if CloudPlaceholder.isDataless(flags: entry.fileFlags, allocated: entry.allocated, length: entry.length,
+                                       isDirectory: entry.kind == .directory, inCloudFolder: inCloudFolder) {
+            // Its contents are in the cloud. Looking inside a cloud-only folder could make macOS fetch it.
+            out.flags.insert(.dataless)
+            out.size = 0
+            if entry.kind == .file { out.onlineBytes = entry.length }
+            if entry.kind == .directory && PackageTypes.isPackage(name: entry.name) { out.kind = .package }
+            return out
+        }
 
         if out.kind != .directory && entry.linkCount > 1 {
             if !counter.seenInodes.insert(InodeKey(device: entry.device, inode: entry.inode)).inserted {
