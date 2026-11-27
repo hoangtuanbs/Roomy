@@ -68,6 +68,7 @@ final class FlowTest {
 
         await run("scan") { try await self.scanScenario() }
         await run("scan-cache") { try await self.scanCacheScenario() }
+        await run("clones") { try await self.clonesScenario() }
         await run("blocked-path") { try self.blockedPathScenario() }
         await run("review-and-clean") { try await self.reviewScenario() }
         await run("compress-and-clean") { try await self.compressScenario() }
@@ -328,6 +329,42 @@ final class FlowTest {
         say("flow: note scan-cache: cached results were \(shownFromCache ? "" : "not ")seen before the fresh scan finished")
         let rescanned = try tree.size(ScanTree.root)
         try expect(rescanned == size, "the new scan found \(rescanned) bytes, not \(size)")
+    }
+
+    /// A clone of the film made with clonefile() counts once: rescanning its folder adds only the clone's own space,
+    /// the clone is marked and says what it shares, and the review warns about it. The clone is removed again after.
+    private func clonesScenario() async throws {
+        let original = home + "/Movies/holiday.mov"
+        let clone = try sandboxed(home + "/Movies/holiday clone.mov")
+        defer { try? FileManager.default.removeItem(atPath: clone) }
+        guard Darwin.clonefile(original, clone, 0) == 0 else {
+            say("flow: note clones: this disk cannot clone files (errno \(errno)), skipped")
+            return
+        }
+        let movies = try node(home + "/Movies")
+        let before = try tree.size(ScanTree.root)
+        model.rescanSubtree(movies)
+        try await waitUntil("the rescan of Movies", limit: 30) { model.rescanningNode == nil }
+        let tree = try self.tree
+        let copy = try node(clone)
+        let film = try node(original)
+        try expect(tree.flags(copy).contains(.clone) && tree.flags(film).contains(.clone),
+                   "the clones are not marked: \(tree.flags(copy)) \(tree.flags(film))")
+        let after = tree.size(ScanTree.root)
+        try expect(after - before < 1_048_576, "the clone added \(after - before) bytes to the total")
+        try expect(tree.cloneSiblingCount(copy) == 1, "the clone has \(tree.cloneSiblingCount(copy)) siblings")
+        let note = SpaceNotes.clone(copy, in: tree)
+        try expect(note.contains("1"), "the clone says \(note)")
+        try expect(model.warnings(for: copy).contains { $0.contains("clone") }, "the review gives no clone warning")
+
+        try FileManager.default.removeItem(atPath: clone)
+        model.rescanSubtree(movies)
+        try await waitUntil("the second rescan of Movies", limit: 30) { model.rescanningNode == nil }
+        let film2 = try node(original)
+        let last = try self.tree
+        try expect(!last.flags(film2).contains(.clone), "the film is still a clone after its clone went")
+        let total = last.size(ScanTree.root)
+        try expect(total == before, "the total is \(total), not \(before)")
     }
 
     /// The home folder and a keychain cannot go to the tray or the Trash, and the reason is said.

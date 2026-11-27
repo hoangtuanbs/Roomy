@@ -30,8 +30,12 @@ struct CloneAttributes: Sendable, Equatable {
 
 /// POSIX directory reads. Never follows symlinks.
 enum DirectoryReader {
-    /// The entries of a folder. With `clones`, files on APFS that may share blocks are asked for their clone id and
-    /// private size too (one more call for each file with data, a second only for files that were ever cloned).
+    /// Files smaller than this are not asked whether they are clones: the extra call costs more than the little space
+    /// a small clone could share. On /Applications this keeps the scan within a few percent of a scan without checks.
+    static let cloneCheckMinimum: Int64 = 32_768
+
+    /// The entries of a folder. With `clones`, files on APFS of `cloneCheckMinimum` or more are asked whether they
+    /// share blocks (one more call), and only those that may are asked for their private size (a second).
     static func list(path: String, clones: Bool = false) -> [RawEntry]? {
         let fd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard fd >= 0 else { return nil }
@@ -51,7 +55,7 @@ enum DirectoryReader {
             var st = stat()
             guard fstatat(fd, name, &st, AT_SYMLINK_NOFOLLOW) == 0 else { continue }
             var entry = makeEntry(name: name, st)
-            if askClones && entry.kind == .file && entry.allocated > 0 {
+            if askClones && entry.kind == .file && entry.allocated >= cloneCheckMinimum {
                 entry.clone = cloneAttributes(fd: fd, name: name, allocated: entry.allocated)
             }
             entries.append(entry)
