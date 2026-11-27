@@ -154,7 +154,12 @@ There is also a command-line scanner:
 
 ```sh
 swift run roomy-scan ~ --top 20
+swift run -c release roomy-scan --benchmark /Applications   # scan time, item count and peak memory
 ```
+
+`--benchmark` scans the folder once cold and then twice more with the disk cache warm, with and without the APFS
+clone checks, and prints the times, the number of items, the peak memory and how much counting clones once saved.
+The CI build runs it on `/Applications` and `/usr` of the build machine.
 
 ## Language
 

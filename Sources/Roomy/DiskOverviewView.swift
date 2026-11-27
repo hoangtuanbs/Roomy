@@ -371,10 +371,13 @@ private struct PurgeSection: View {
                         Text("macOS frees this by itself when it needs room.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
                     Button("Free Purgeable Space…") { confirm = true }
                         .controlSize(.small)
+                        .fixedSize()
+                        .layoutPriority(1)
                 }
             case .running(let before):
                 HStack(spacing: 8) {
