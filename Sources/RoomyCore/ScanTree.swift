@@ -25,6 +25,8 @@ public struct NodeFlags: OptionSet, Sendable, Hashable {
     public static let clone = NodeFlags(rawValue: 1 << 5)
     /// Stored in the cloud only (iCloud Drive, Dropbox and the like): it takes no space on this Mac.
     public static let dataless = NodeFlags(rawValue: 1 << 6)
+    /// A cloud drive whose app did not answer (it is not running), so it was not read. It counts 0 bytes.
+    public static let unavailable = NodeFlags(rawValue: 1 << 7)
 }
 
 /// How a clone shares its space.

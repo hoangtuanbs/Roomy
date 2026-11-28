@@ -58,16 +58,18 @@ final class CloudSpaceModel {
     func find() {
         guard phase != .evicting else { return }
         task?.cancel()
-        providers = locations.providers()
         findings = CloudSpaceFinder.Findings()
         progress = nil
         selection = CloudSelection()
         report = nil
         phase = .finding
 
-        let providers = self.providers
-        // Detached, so the walk runs off the main thread and stops when cancelled.
+        let locations = self.locations
+        // Detached, so the walk runs off the main thread and stops when cancelled. Listing the cloud folders is off
+        // the main thread too, since a cloud app that is not running can keep it waiting.
         task = Task.detached(priority: .userInitiated) {
+            let providers = locations.providers()
+            await self.setProviders(providers)
             let found = CloudSpaceFinder(providers: providers).find { progress in
                 Task { @MainActor in self.setProgress(progress) }
             }
@@ -84,6 +86,11 @@ final class CloudSpaceModel {
         findings = found
         expanded = Set(found.providers.map(\.id))
         phase = .ready
+    }
+
+    private func setProviders(_ found: [CloudProvider]) {
+        guard phase == .finding else { return }
+        providers = found
     }
 
     private func setProgress(_ progress: CloudSpaceFinder.Progress) {

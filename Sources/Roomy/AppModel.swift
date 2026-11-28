@@ -895,7 +895,7 @@ final class AppModel {
         let kind = tree.kind(node)
         guard kind == .file || kind.isContainer else { return false }
         let flags = tree.flags(node)
-        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) || flags.contains(.dataless) { return false }
+        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) || flags.contains(.dataless) || flags.contains(.unavailable) { return false }
         return tree.size(node) > 0 && !verdict(for: node).isBlocked
     }
 

@@ -625,3 +625,5 @@
 "Only the folders that changed since the last scan were read again." = "只重新读取了上次扫描后有变化的文件夹。";
 "Everything was scanned again." = "已全部重新扫描。";
 "Rescan reads again only the folders that changed, when macOS still remembers what changed." = "在 macOS 仍记得哪些内容有变化时，重新扫描只会重新读取有变化的文件夹。";
+"Not available (%@ isn't running)" = "不可用（%@ 未运行）";
+"Open the app to read it again. Nothing in it was changed." = "打开该应用即可重新读取。其中的内容没有任何改动。";

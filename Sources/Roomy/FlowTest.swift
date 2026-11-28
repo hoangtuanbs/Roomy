@@ -67,6 +67,7 @@ final class FlowTest {
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         await run("scan") { try await self.scanScenario() }
+        await run("stuck-cloud-drive") { try await self.stuckCloudScenario() }
         await run("scan-cache") { try await self.scanCacheScenario() }
         await run("clones") { try await self.clonesScenario() }
         await run("quick-rescan") { try await self.quickRescanScenario() }
@@ -112,6 +113,7 @@ final class FlowTest {
             let name = "\(i + 1)-" + (item.original as NSString).lastPathComponent
             if (try? FileManager.default.moveItem(atPath: item.trash, toPath: back + "/" + name)) != nil { returned += 1 }
         }
+        stuckRelease.signal()
         say("flow: moved \(returned) of \(trashed.count) trashed items back into the sandbox")
         AppEnvironment.defaults.removePersistentDomain(forName: AppEnvironment.flowDefaultsSuite)
         say("flow: \(passed) passed, \(failed) failed")
@@ -169,10 +171,17 @@ final class FlowTest {
         try write(backup + "/00/0011223344", bytes: 400_000, fill: 8)
 
         try write("Library/CloudStorage/Dropbox/Documents/report.pdf", bytes: 40_000, fill: 9)
+        // A Google Drive folder whose app "is not running": reading it waits until the test ends.
+        try write("Library/CloudStorage/\(Self.stuckDrive)/My Drive/plan.txt", bytes: 20_000, fill: 11)
+        FolderReader.standard = .withStuckFolders([stuckDrivePath], timeout: 1.5, release: stuckRelease)
         try write("Library/Mobile Documents/com~apple~CloudDocs/Notes/note.txt", bytes: 20_000, fill: 10)
     }
 
     static let appID = "io.github.roomy.flowsample"
+    static let stuckDrive = "GoogleDrive-flow@example.com"
+    private var stuckDrivePath: String { home + "/Library/CloudStorage/" + Self.stuckDrive }
+    /// Lets the stuck Google Drive reads finish when the test ends.
+    private let stuckRelease = DispatchSemaphore(value: 0)
     private var cachePath: String { home + "/Library/Caches/com.example.flowcache" }
     private var logPath: String { home + "/Library/Logs/FlowExample" }
     private var archivePath: String { home + "/Library/Developer/Xcode/Archives/2026-01-01/Flow.xcarchive" }
@@ -307,6 +316,25 @@ final class FlowTest {
         let folders = Set(model.visibleChildren.map { tree.name($0) })
         try expect(folders.isSuperset(of: ["Movies", "Downloads", "Projects", "Pictures", "Library", "Applications"]),
                    "the folder list is \(folders.sorted())")
+    }
+
+    /// A cloud drive whose app does not answer is shown as not available, and neither a scan nor Cloud Space waits
+    /// for it.
+    private func stuckCloudScenario() async throws {
+        if model.tree?.rootPath != home {
+            model.scan(path: home, useCache: false)
+            try await waitUntil("the scan", limit: 30) { if case .ready = model.state { return !model.isRefreshing }; return false }
+        }
+        let drive = try node(stuckDrivePath)
+        let scan = try tree
+        try expect(scan.flags(drive).contains(.unavailable), "the stuck drive has flags \(scan.flags(drive).rawValue)")
+        try expect(scan.children(drive).isEmpty && scan.size(drive) <= 4096, "the stuck drive was counted")
+        let note = CloudGuard.unavailableNote(for: stuckDrivePath)
+        try expect(note.contains("Google Drive"), "the note reads \(note)")
+        let start = Date()
+        model.scan(path: home, useCache: false)
+        try await waitUntil("the second scan", limit: 20) { if case .ready = model.state { return !model.isRefreshing }; return false }
+        try expect(Date().timeIntervalSince(start) < 15, "the second scan took \(Int(Date().timeIntervalSince(start))) s")
     }
 
     /// The scan is cached in the sandbox, read back the same, and shown from the cache on the next scan.
@@ -627,7 +655,9 @@ final class FlowTest {
         try await expectSheet("Cloud Space")
         try await waitUntil("the cloud search", limit: 60) { cloud.phase == .ready }
         let names = Set(cloud.providers.map(\.name))
-        try expect(names == ["iCloud Drive", "Dropbox"], "providers: \(names.sorted())")
+        try expect(names == ["iCloud Drive", "Dropbox", "Google Drive"], "providers: \(names.sorted())")
+        try expect(cloud.findings.unavailable.map(\.rootPath) == [stuckDrivePath],
+                   "not available: \(cloud.findings.unavailable.map(\.rootPath))")
         try expect(cloud.findings.evictableBytes == 0 && cloud.selectedItems.isEmpty,
                    "files that are not in the cloud were offered: \(cloud.selectedItems.map(\.path))")
         cloud.removeDownloads()

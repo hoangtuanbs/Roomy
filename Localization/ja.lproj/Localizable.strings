@@ -625,3 +625,5 @@
 "Only the folders that changed since the last scan were read again." = "前回のスキャン以降に変更されたフォルダだけを読み直しました。";
 "Everything was scanned again." = "すべてを再スキャンしました。";
 "Rescan reads again only the folders that changed, when macOS still remembers what changed." = "再スキャンでは、macOS が変更を記録している間は変更されたフォルダだけを読み直します。";
+"Not available (%@ isn't running)" = "利用できません（%@ が起動していません）";
+"Open the app to read it again. Nothing in it was changed." = "読み直すにはアプリを開いてください。中身は何も変更されていません。";

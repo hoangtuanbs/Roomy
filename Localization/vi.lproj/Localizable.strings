@@ -625,3 +625,5 @@
 "Only the folders that changed since the last scan were read again." = "Chỉ đọc lại các thư mục đã thay đổi kể từ lần quét trước.";
 "Everything was scanned again." = "Đã quét lại toàn bộ.";
 "Rescan reads again only the folders that changed, when macOS still remembers what changed." = "Quét lại chỉ đọc lại các thư mục đã thay đổi, khi macOS vẫn còn nhớ những gì đã thay đổi.";
+"Not available (%@ isn't running)" = "Không khả dụng (%@ không chạy)";
+"Open the app to read it again. Nothing in it was changed." = "Mở ứng dụng để đọc lại. Không có gì bên trong bị thay đổi.";

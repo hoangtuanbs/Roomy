@@ -19,6 +19,10 @@ A macOS app that shows what is using space on your disk and helps you free it up
   They show a small cloud icon; hover or select one to see its size in the cloud. Cloud-only folders are not opened,
   so a scan never makes macOS download anything. They cannot go to the tray, Duplicates and Similar photos never read
   them, and a folder that holds some says so in the review, since moving them to the Trash frees nothing here.
+  A cloud drive whose app is not running (such as Google Drive after you quit it) can make macOS wait forever when
+  its folder is opened. RoomyDisk reads the folders in `~/Library/CloudStorage` on a thread of their own and gives up
+  after 4 seconds: the drive shows as "Not available (Google Drive isn't running)" with 0 bytes, and the scan, Cloud
+  Space and the other tools carry on without it.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder

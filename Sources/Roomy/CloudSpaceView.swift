@@ -352,6 +352,8 @@ private struct NothingDownloaded: View {
                 .entrance(index: 1, offset: 8)
             ProviderChips(kinds: cloud.providers.map { ($0.kind, $0.title) })
                 .padding(.top, 4)
+            UnavailableProviders()
+                .frame(maxWidth: 480)
         }
         .padding(32)
     }
@@ -369,6 +371,7 @@ private struct CloudResults: View {
                 ForEach(Array(cloud.findings.providers.enumerated()), id: \.element.id) { index, provider in
                     ProviderCard(provider: provider, index: index)
                 }
+                UnavailableProviders()
                 if cloud.findings.capped {
                     Text("Very large cloud folders were only partly checked (\(CloudSpaceFinder.fileLimit.formatted()) files each).")
                         .font(.caption)
@@ -376,6 +379,40 @@ private struct CloudResults: View {
                 }
             }
             .padding(16)
+        }
+    }
+}
+
+/// Cloud drives whose app is not running, so they could not be read. They are skipped, not waited for.
+private struct UnavailableProviders: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let unavailable = model.cloudSpace.findings.unavailable
+        if !unavailable.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(unavailable.enumerated()), id: \.element.id) { index, provider in
+                    HStack(spacing: 8) {
+                        Image(systemName: "icloud.slash")
+                            .foregroundStyle(.orange)
+                        Text(provider.title)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 6)
+                        Text(CloudGuard.unavailableNote(for: provider.rootPath))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .entrance(index: index, offset: 6)
+                }
+                Text("Open the app to read it again. Nothing in it was changed.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.orange.opacity(0.08)))
         }
     }
 }

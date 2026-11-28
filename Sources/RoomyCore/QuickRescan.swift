@@ -115,13 +115,19 @@ public enum QuickRescan {
     /// Makes the children of `node` match the folder's items now.
     private static func relist(_ node: ScanTree.Index, path: String, in tree: ScanTree, rules: EntryRules,
                                options: ScanOptions, report: inout QuickRescanReport) async throws -> Relisted {
-        guard let entries = DirectoryReader.list(path: path, clones: options.detectClones) else {
+        let entries: [RawEntry]
+        switch options.reader.list(path, clones: options.detectClones) {
+        case .entries(let listed): entries = listed
+        case .unreadable:
             if DirectoryReader.entry(atPath: path)?.kind != .directory { return .gone }
             tree.insertFlags(.inaccessible, at: node)
             return .unreadable
+        case .unavailable:
+            tree.insertFlags(.unavailable, at: node)
+            return .unreadable
         }
         report.listedFolders += 1
-        tree.removeFlags(.inaccessible, at: node)
+        tree.removeFlags([.inaccessible, .unavailable], at: node)
         if let own = DirectoryReader.entry(atPath: path) { tree.setModified(own.modified, at: node) }
 
         var existing: [String: ScanTree.Index] = [:]

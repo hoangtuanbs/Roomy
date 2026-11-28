@@ -625,3 +625,5 @@
 "Only the folders that changed since the last scan were read again." = "Solo se volvieron a leer las carpetas que cambiaron desde el último análisis.";
 "Everything was scanned again." = "Se volvió a analizar todo.";
 "Rescan reads again only the folders that changed, when macOS still remembers what changed." = "Volver a analizar solo relee las carpetas que cambiaron, mientras macOS aún recuerde qué cambió.";
+"Not available (%@ isn't running)" = "No disponible (%@ no está abierto)";
+"Open the app to read it again. Nothing in it was changed." = "Abre la app para volver a leerlo. No se cambió nada.";
