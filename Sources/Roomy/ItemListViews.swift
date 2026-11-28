@@ -14,6 +14,7 @@ struct NodeMenu: View {
             }
             Button("Quick Look") { model.quickLook(node) }
             Button("Reveal in Finder") { model.reveal(node) }
+            Button("What Is This?") { model.explainItem(node) }
             Button("Copy Path") { model.copyPath(node) }
             if kind.isContainer {
                 Button("Rescan This Folder") { model.rescanSubtree(node) }

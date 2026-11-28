@@ -32,6 +32,9 @@ final class CloudSpaceModel {
     private(set) var evictedProviders: [CloudProvider] = []
 
     @ObservationIgnored private var task: Task<Void, Never>?
+    /// Reads each file's cloud state, and removes local copies. The flow test uses stand-ins.
+    @ObservationIgnored var status: any CloudStatusReading = SystemCloudStatus()
+    @ObservationIgnored var evictor: any CloudEvicting = SystemCloudEvictor()
     let locations = CloudLocations(homePath: AppEnvironment.home)
 
     var isBusy: Bool { phase == .finding || phase == .evicting }
@@ -65,12 +68,13 @@ final class CloudSpaceModel {
         phase = .finding
 
         let locations = self.locations
+        let status = self.status
         // Detached, so the walk runs off the main thread and stops when cancelled. Listing the cloud folders is off
         // the main thread too, since a cloud app that is not running can keep it waiting.
         task = Task.detached(priority: .userInitiated) {
             let providers = locations.providers()
             await self.setProviders(providers)
-            let found = CloudSpaceFinder(providers: providers).find { progress in
+            let found = CloudSpaceFinder(providers: providers, status: status).find { progress in
                 Task { @MainActor in self.setProgress(progress) }
             }
             guard !Task.isCancelled else { return }
@@ -133,8 +137,9 @@ final class CloudSpaceModel {
         phase = .evicting
 
         let providers = self.providers
+        let status = self.status, evictor = self.evictor
         Task.detached {
-            let service = CloudEvictionService(providers: providers)
+            let service = CloudEvictionService(providers: providers, status: status, evictor: evictor)
             let report = service.evict(items) { result in
                 Task { @MainActor in self.advance(result) }
             }

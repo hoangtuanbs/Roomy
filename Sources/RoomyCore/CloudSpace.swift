@@ -114,6 +114,13 @@ public struct CloudLocations: Sendable {
             }
             return (appName(container: first), provider.rootPath + "/" + first)
         }
+        // Google Drive keeps everything under "My Drive", "Shared drives" and "Other computers", so its folders are
+        // grouped one level further down: "My Drive › Reports".
+        if provider.kind == .googleDrive && parts.count > 1 {
+            let top = provider.rootPath + "/" + first
+            guard parts.count > 2 else { return (first, top) }
+            return ("\(first) › \(parts[1])", top + "/" + parts[1])
+        }
         guard parts.count > 1 else { return (topLevel, provider.rootPath) }
         return (first, provider.rootPath + "/" + first)
     }

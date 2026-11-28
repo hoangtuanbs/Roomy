@@ -412,7 +412,7 @@ final class UninstallerModel {
         phase = .removing
 
         Task.detached {
-            let service = AppEnvironment.cleanupService()
+            let service = AppEnvironment.cleanupService(.uninstaller)
             // Leftovers go first and the app last, so if something fails the app is still there to try again.
             let appPath = app?.path
             let rest = paths.filter { $0 != appPath }
@@ -429,7 +429,7 @@ final class UninstallerModel {
             }
             // Let the icon land in the Trash and the ring finish before the result appears.
             try? await Task.sleep(for: .milliseconds(700))
-            await self.finish(CleanupReport(date: Date(), results: results))
+            await self.finish(CleanupReport(date: Date(), results: results, tool: .uninstaller))
         }
     }
 

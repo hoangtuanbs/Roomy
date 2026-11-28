@@ -27,6 +27,16 @@ A macOS app that shows what is using space on your disk and helps you free it up
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
   to zoom in and click the centre to go up.
+- **What Is This?** (select an item and press ⌘I, choose it in the context menu, or click the button under the map)
+  explains what a file or folder is and whether it can go: **Safe to remove**, **Removable, app will rebuild it** or
+  **Keep**. A built-in list of over 100 places answers first: the folders in your Library, developer caches (Xcode,
+  simulators, npm, Gradle, Cargo, CocoaPods and more), the data of well-known apps, system folders, and names known
+  anywhere such as `node_modules`, `.git` or `.DS_Store`. An item inside a known folder says which one. RoomyDisk's
+  safety rules always have the last word: anything they protect is shown as Keep with the reason. For items the list
+  doesn't know, on macOS 26 with Apple Intelligence turned on, **Ask Apple Intelligence** asks Apple's on-device model
+  (the Foundation Models framework) from the item's path, size and the names inside it; nothing leaves the Mac. Its
+  answer is labelled as a guess, and the safety rules are applied to it in code, so a guess can never make a protected
+  item removable. On older macOS, or with Apple Intelligence off, the button doesn't show.
 - **Quick Look**: select an item in a list, the treemap or the rings and press Space (or ⌘Y). The arrow keys move the
   preview through the list.
 - **Collect** items in the **tray** at the bottom of the window: drag them there from any list, the treemap or the
@@ -134,7 +144,10 @@ A macOS app that shows what is using space on your disk and helps you free it up
   without deleting anything: it removes the downloaded copies of files kept in **iCloud Drive** (and apps' iCloud
   folders in `~/Library/Mobile Documents`) and in **Dropbox, OneDrive, Google Drive and Box** (`~/Library/CloudStorage`).
   Each service gets a card with its folders, the space their local copies take, and a tick for each folder; nothing
-  starts ticked. **Remove Downloads** asks macOS to evict each file (`FileManager.evictUbiquitousItem`), the same as
+  starts ticked. Google Drive (`~/Library/CloudStorage/GoogleDrive-<account>`) shows each account on its own card, with
+  its folders one level deeper ("My Drive › Reports", "Shared drives › Team"); a Google Drive whose app is not running
+  shows "Google Drive isn't running" and is skipped after 4 seconds instead of keeping Cloud Space waiting.
+  **Remove Downloads** asks macOS to evict each file (`FileManager.evictUbiquitousItem`), the same as
   Finder's **Remove Download**: the files stay in the cloud and download again when you open them. Files are never moved
   or deleted. A file whose changes have not reached the cloud yet, that is still uploading, whose state is unknown, or
   that has conflicting versions is kept and labelled ("Not uploaded yet — kept"); each file is checked again just
@@ -151,6 +164,20 @@ A macOS app that shows what is using space on your disk and helps you free it up
   their health; they show **Unknown**. The menu bar popover shows a dot in the health's colour next to each disk.
   RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**;
   clicking it opens Disk Health.
+- **Space Freed** (below Disk Health in the sidebar, or ⇧⌘T, "Space Freed History…") shows what RoomyDisk has freed
+  from the cleanup history it keeps (`~/Library/Application Support/Roomy/cleanup-history.jsonl`): the total, a bar for
+  each of the last 12 months, and every clean by date or by tool (Smart Clean, Duplicates, Uninstaller, Space Hunters,
+  Review and Clean, Quick Clean, Compress, Login Items, Shortcuts and the command line). Open a clean to see each item
+  it moved; **Show in Trash** selects it in the Trash while it is still there, so Put Back brings it home. Cleans from
+  before tools were noted are listed as "Earlier cleans". It only reads.
+- **Shortcuts actions**: **Scan Folder** (the total and the biggest items of a folder, as text), **Get Free Space**,
+  **Find Junk** (how much Smart Clean's safe junk takes; nothing is moved) and **Clean Junk**, which moves only what
+  Smart Clean ticks by itself to the Trash, and only after Shortcuts asks you to confirm. Cleans go through the same
+  safety rules and appear in Space Freed as "Shortcuts". The actions run without opening the window.
+- **Cleaning from the command line**: `roomy-scan clean --dry-run` lists what Smart Clean would move to the Trash,
+  with sizes, and moves nothing. `roomy-scan clean` lists the same items and asks "Move … to the Trash? [y/N]";
+  only "y" moves them (`--yes` skips the question, for scripts). The same safety rules apply, caches of open apps
+  are left alone, everything goes to the Trash (never deleted), and the clean shows in Space Freed as "Command Line".
 - **Settings** (⌘,) has three tabs: **General** (the menu bar icon), **Checks & Alerts** (automatic checks, their
   notice and the low-space alert) and **Updates**.
 - **Menu bar** (on by default, turn it off in Settings › General): an icon in the menu bar shows the startup disk and any
@@ -197,6 +224,7 @@ There is also a command-line scanner:
 ```sh
 swift run roomy-scan ~ --top 20
 swift run -c release roomy-scan --benchmark /Applications   # scan time, item count and peak memory
+swift run roomy-scan clean --dry-run                         # what Smart Clean would move to the Trash
 ```
 
 `--benchmark` scans the folder once, then twice more with the disk cache warm: once with and once without the APFS

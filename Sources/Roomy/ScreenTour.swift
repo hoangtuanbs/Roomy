@@ -81,6 +81,15 @@ enum ScreenTour {
             await shot("12-disk-health", wait: 2.5)
             model.showDiskHealth = false
 
+            await historyShots(model: model, shot: shot)
+
+            if let tree = model.tree, let dmg = tree.index(ofPath: tree.rootPath + "/Projects/app/build.dmg") {
+                model.explainItem(dmg)
+                await shot("22-what-is-this", wait: 1.5)
+                model.showExplain = false
+                try? await Task.sleep(for: .seconds(1))
+            }
+
             await accuracyShots(model: model, shot: shot)
 
             await menuBarShots(model: model, directory: directory)
@@ -88,6 +97,48 @@ enum ScreenTour {
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
         }
+    }
+
+    /// The Space Freed history, by date with one clean opened and by tool. When this Mac has no history of its own
+    /// it shows made-up cleans, kept in memory only.
+    private static func historyShots(model: AppModel, shot: @MainActor (String, Double) async -> Void) async {
+        try? await Task.sleep(for: .seconds(1))
+        model.openHistory()
+        let start = Date()
+        while !model.history.loaded && Date().timeIntervalSince(start) < 20 {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        if model.history.history.entries.isEmpty { model.history.show(sampleHistory()) }
+        print("tour: history has \(model.history.history.entries.count) cleans, \(model.history.history.freedBytes) bytes")
+        if let first = model.history.history.entries.first { model.history.expanded = ["entry-\(first.id)"] }
+        await shot("20-space-freed", 2)
+        model.history.grouping = .tool
+        if let top = model.history.history.tools.first { model.history.expanded = ["tool-" + top.id] }
+        await shot("21-space-freed-by-tool", 1.5)
+        model.history.grouping = .date
+        model.history.expanded = []
+        model.showHistory = false
+    }
+
+    private static func sampleHistory() -> [CleanupReport] {
+        let day: TimeInterval = 86_400
+        let now = Date()
+        func moved(_ path: String, _ megabytes: Double) -> CleanupResult {
+            CleanupResult(path: NSHomeDirectory() + path, bytes: Int64(megabytes * 1_000_000), trashedTo: nil, error: nil)
+        }
+        return [
+            CleanupReport(date: now.addingTimeInterval(-300 * day), results: [moved("/Library/Caches/com.example.old", 900)], tool: .smartClean),
+            CleanupReport(date: now.addingTimeInterval(-200 * day), results: [moved("/Downloads/Installer.dmg", 2_400)], tool: .spaceHunters),
+            CleanupReport(date: now.addingTimeInterval(-150 * day), results: [moved("/Applications/Old Editor.app", 1_300),
+                                                                             moved("/Library/Application Support/Old Editor", 600)], tool: .uninstaller),
+            CleanupReport(date: now.addingTimeInterval(-95 * day), results: [moved("/Library/Caches/com.example.browser", 1_800)], tool: .smartClean),
+            CleanupReport(date: now.addingTimeInterval(-60 * day), results: [moved("/Movies/holiday copy.mov", 3_100)], tool: .duplicates),
+            CleanupReport(date: now.addingTimeInterval(-33 * day), results: [moved("/Library/Logs/DiagnosticReports", 450)], tool: .quickClean),
+            CleanupReport(date: now.addingTimeInterval(-1 * day), results: [moved("/Projects/app/build.dmg", 1_200)], tool: .review),
+            CleanupReport(date: now.addingTimeInterval(-600), results: [moved("/Library/Caches/com.example.flowcache", 2_050),
+                                                                       moved("/Library/Logs/FlowExample", 320),
+                                                                       moved("/Library/Developer/Xcode/DerivedData", 4_700)], tool: .smartClean),
+        ]
     }
 
     /// A clone selected in the list, with what it shares in the caption, and the disk overview after "Free Purgeable

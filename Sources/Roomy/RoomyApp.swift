@@ -46,12 +46,17 @@ struct RoomyApp: App {
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Disk Health…") { model.openDiskHealth() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
+                Button("Space Freed History…") { model.openHistory() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }
                     .keyboardShortcut(.upArrow, modifiers: .command)
                 Button("Quick Look") { model.toggleQuickLook() }
                     .keyboardShortcut("y")
+                    .disabled(model.selection == nil)
+                Button("What Is This?") { if let node = model.selection { model.explainItem(node) } }
+                    .keyboardShortcut("i")
                     .disabled(model.selection == nil)
                 Divider()
                 Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
