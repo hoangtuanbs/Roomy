@@ -32,6 +32,18 @@
     <key>NSDocumentsFolderUsageDescription</key><string>RoomyDisk measures file sizes in Documents so you can see what uses space.</string>
     <key>NSDownloadsFolderUsageDescription</key><string>RoomyDisk measures file sizes in Downloads so you can see what uses space.</string>
     <key>NSRemovableVolumesUsageDescription</key><string>RoomyDisk measures file sizes on external disks so you can see what uses space.</string>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict><key>default</key><string>Uninstall with RoomyDisk</string></dict>
+            <key>NSMessage</key><string>uninstallApp</string>
+            <key>NSPortName</key><string>RoomyDisk</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key>
+            <array><string>com.apple.application-bundle</string></array>
+        </dict>
+    </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>

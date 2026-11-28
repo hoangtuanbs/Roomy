@@ -54,6 +54,8 @@ enum ScreenTour {
             model.uninstaller.section = .installers
             await waitWhile({ !model.receipts.loaded }, limit: 60)
             await shot("18-installers", wait: 2)
+            model.uninstaller.section = .updates
+            await shot("19-updates", wait: 2)
             model.uninstaller.section = .apps
             model.showUninstaller = false
 

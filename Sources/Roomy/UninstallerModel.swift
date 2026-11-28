@@ -28,6 +28,7 @@ final class UninstallerModel {
         case apps = "Apps"
         case loginItems = "Login Items"
         case installers = "Installers"
+        case updates = "Updates"
         var id: String { rawValue }
         var label: String { NSLocalizedString(rawValue, comment: "") }
         var symbol: String {
@@ -35,6 +36,7 @@ final class UninstallerModel {
             case .apps: return "square.grid.2x2"
             case .loginItems: return "power"
             case .installers: return "shippingbox"
+            case .updates: return "arrow.triangle.2.circlepath"
             }
         }
     }
@@ -182,6 +184,7 @@ final class UninstallerModel {
             self.apps = list.filter { !$0.isApple && !$0.path.hasPrefix("/System/") }
             self.measured = []
             self.phase = .ready
+            self.choosePending()
             await self.measureApps()
         }
     }
@@ -254,7 +257,38 @@ final class UninstallerModel {
         }
     }
 
-    /// Shows the leftovers of apps that are gone. Nothing is ticked: they are guesses to review.
+    /// The app the Finder service asked for, chosen once the list is read.
+    @ObservationIgnored private var pendingPath: String?
+
+    /// Chooses the app at `path` once the apps are listed.
+    func choose(path: String) {
+        pendingPath = Self.standardize(path)
+        section = .apps
+        if phase == .ready { choosePending() }
+    }
+
+    private func choosePending() {
+        guard let path = pendingPath, phase == .ready else { return }
+        pendingPath = nil
+        if apps.first(where: { $0.path == path }) == nil, let app = AppUninstaller.readApp(at: path) {
+            // An app outside the app folders: listed so it can be chosen. Apps of macOS stay out, as in the list.
+            guard !app.isApple, !app.path.hasPrefix("/System/") else { return }
+            apps.append(app)
+            allApps.append(app)
+            Task { [weak self] in
+                let bytes = await Self.size(of: path)
+                guard let self else { return }
+                if let i = self.apps.firstIndex(where: { $0.path == path }) { self.apps[i].bytes = bytes }
+                self.measured.insert(path)
+            }
+        }
+        if let app = apps.first(where: { $0.path == path }) {
+            focus = nil
+            select(app)
+        }
+    }
+
+    /// Shows the leftovers of apps that are gone. Only items named exactly by an app known to be gone start ticked.
     func showOrphans() {
         guard phase == .ready else { return }
         detailTask?.cancel()
@@ -271,7 +305,7 @@ final class UninstallerModel {
             let groups = await Task.detached { () -> [OrphanGroup] in
                 let removed = uninstaller.removedApps() + extraRemoved
                 let found = uninstaller.orphans(installed: installed, knownIDs: running, removed: removed,
-                                                isRegistered: Self.isRegistered)
+                                                isRegistered: { Self.isRegistered($0) })
                 let measured = await AppUninstaller.measure(found.flatMap(\.items))
                 let byPath = Dictionary(measured.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
                 return found.map { group in

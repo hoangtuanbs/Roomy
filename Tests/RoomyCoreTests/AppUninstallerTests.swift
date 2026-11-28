@@ -294,6 +294,19 @@ final class AppUninstallerTests: XCTestCase {
         XCTAssertTrue(orphans.isEmpty, "\(orphans)")
     }
 
+    func testTheFinderServiceTakesOnlyAppBundles() throws {
+        let app = try makeApp("Picked", id: "com.example.picked")
+        let fake = apps + "/Fake.app"
+        try Data(count: 10).write(to: URL(fileURLWithPath: fake))
+        let empty = apps + "/Empty.app"
+        try fm.createDirectory(atPath: empty, withIntermediateDirectories: true)
+        let film = home + "/film.mov"
+        try Data(count: 10).write(to: URL(fileURLWithPath: film))
+        XCTAssertEqual(AppUninstaller.appBundle(among: [film, fake, empty, app + "/"]), app)
+        XCTAssertNil(AppUninstaller.appBundle(among: [film, fake, empty]))
+        XCTAssertNil(AppUninstaller.appBundle(among: []))
+    }
+
     func testBundleIDShapes() {
         XCTAssertTrue(AppUninstaller.looksLikeBundleID("com.maker.app"))
         XCTAssertTrue(AppUninstaller.looksLikeBundleID("org.some-thing.App_2"))

@@ -127,6 +127,8 @@ final class AppModel {
     let loginItems = LoginItemsModel()
     /// The Uninstaller's Installers tab.
     let receipts = ReceiptsModel()
+    /// The Uninstaller's Updates tab.
+    let appUpdates = AppUpdatesModel()
     let spaceHunters = SpaceHuntersModel()
     var showSpaceHunters = false
     let cloudSpace = CloudSpaceModel()
@@ -856,6 +858,14 @@ final class AppModel {
         showUninstallerSection(uninstaller.section)
     }
 
+    /// Opens the Uninstaller with an app chosen, as the Finder service asks. An app outside the app folders is
+    /// added to the list.
+    func openUninstaller(choosing path: String) {
+        if uninstaller.phase == .done { uninstaller.showList() }
+        openUninstaller(section: .apps)
+        uninstaller.choose(path: path)
+    }
+
     /// Reads what a tab of the Uninstaller shows the first time it is opened, once the apps are listed.
     func showUninstallerSection(_ section: UninstallerModel.Section) {
         Task {
@@ -863,6 +873,7 @@ final class AppModel {
             switch section {
             case .apps: break
             case .loginItems: if !loginItems.loaded && !loginItems.isLoading { loginItems.load(installed: uninstaller.installedApps) }
+            case .updates: appUpdates.prepare(installed: uninstaller.apps)
             case .installers:
                 if !receipts.loaded && !receipts.isLoading { receipts.load(installedNames: Set(uninstaller.installedApps.map(\.name))) }
             }

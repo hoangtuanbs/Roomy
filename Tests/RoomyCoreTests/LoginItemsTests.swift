@@ -33,6 +33,7 @@ final class LoginItemsTests: XCTestCase {
         return path
     }
 
+    @discardableResult
     private func agent(_ label: String, program: String = "/usr/bin/true") throws -> String {
         try plist(home + "/Library/LaunchAgents/\(label).plist", ["Label": label, "ProgramArguments": [program, "--x"],
                                                                   "RunAtLoad": true])

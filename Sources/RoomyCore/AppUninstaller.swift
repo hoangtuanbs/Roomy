@@ -18,9 +18,16 @@ public struct InstalledApp: Sendable, Hashable, Identifiable {
     /// Bundle identifiers of helpers, login items and extensions inside the bundle. They count as installed, but their
     /// files are not offered as leftovers, because other apps from the same maker may share them.
     public let embeddedIDs: [String]
+    /// `CFBundleVersion`, which Sparkle compares with an update feed.
+    public let buildVersion: String?
+    /// The Sparkle update feed (`SUFeedURL`), when the app has one.
+    public let feedURL: String?
+    /// Installed from the Mac App Store (it has `Contents/_MASReceipt`).
+    public let isFromAppStore: Bool
 
     public init(path: String, name: String, bundleID: String?, version: String?, iconPath: String?,
-                bytes: Int64 = 0, lastUsed: Date? = nil, embeddedIDs: [String] = []) {
+                bytes: Int64 = 0, lastUsed: Date? = nil, embeddedIDs: [String] = [], buildVersion: String? = nil,
+                feedURL: String? = nil, isFromAppStore: Bool = false) {
         self.path = path
         self.name = name
         self.bundleID = bundleID
@@ -29,6 +36,9 @@ public struct InstalledApp: Sendable, Hashable, Identifiable {
         self.bytes = bytes
         self.lastUsed = lastUsed
         self.embeddedIDs = embeddedIDs
+        self.buildVersion = buildVersion
+        self.feedURL = feedURL
+        self.isFromAppStore = isFromAppStore
     }
 
     public var isApple: Bool { bundleID?.lowercased().hasPrefix("com.apple.") ?? false }
@@ -220,6 +230,14 @@ public struct AppUninstaller: Sendable {
         return apps.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// The first app bundle among paths handed over by Finder (the "Uninstall with RoomyDisk" service), or nil.
+    public static func appBundle(among paths: [String]) -> String? {
+        paths.map(DiskScanner.standardize).first { path in
+            path.lowercased().hasSuffix(".app") && DirectoryReader.entry(atPath: path)?.kind == .directory
+                && DirectoryReader.entry(atPath: path + "/Contents")?.kind == .directory
+        }
+    }
+
     /// Reads an app's Info.plist. Returns nil when the folder is not an app bundle.
     public static func readApp(at path: String) -> InstalledApp? {
         let contents = path + "/Contents"
@@ -238,8 +256,11 @@ public struct AppUninstaller: Sendable {
             if DirectoryReader.entry(atPath: candidate) != nil { iconPath = candidate }
         }
         let bundleID = (info["CFBundleIdentifier"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let feed = (info["SUFeedURL"] as? String).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+        let fromStore = DirectoryReader.entry(atPath: contents + "/_MASReceipt/receipt") != nil
         return InstalledApp(path: path, name: name, bundleID: bundleID, version: version, iconPath: iconPath,
-                            lastUsed: lastUsedDate(path), embeddedIDs: embeddedIDs(in: contents))
+                            lastUsed: lastUsedDate(path), embeddedIDs: embeddedIDs(in: contents),
+                            buildVersion: info["CFBundleVersion"] as? String, feedURL: feed, isFromAppStore: fromStore)
     }
 
     /// Bundle identifiers of helper apps, login items, extensions and XPC services inside an app.

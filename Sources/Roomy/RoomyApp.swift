@@ -104,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         NSApplication.shared.activate(ignoringOtherApps: true)
         MainActor.assumeIsolated { _ = AppUpdater.shared }
         UNUserNotificationCenter.current().delegate = self
+        MainActor.assumeIsolated { UninstallService.register() }
     }
 
     // Keep running with the menu bar icon after the last window closes.

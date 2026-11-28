@@ -44,6 +44,29 @@ enum AppEnvironment {
     static let signatureChecker: any SignatureChecking = flowSandbox == nil
         ? SystemSignatureChecker() : FixedSignatureChecker(.unsigned)
 
+    /// Downloads app update feeds. The flow test answers from a made-up feed, so it never goes to the network.
+    static let appcastFetcher: any AppcastFetching = flowSandbox == nil
+        ? URLSessionAppcastFetcher() : FixedAppcastFetcher([flowFeedURL: Data(flowFeed.utf8)])
+    static let flowFeedURL = "https://updates.example.invalid/feedy/appcast.xml"
+    static let flowFeed = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+            <item>
+              <title>Feedy 1.2</title>
+              <sparkle:releaseNotesLink>https://updates.example.invalid/feedy/1.2.html</sparkle:releaseNotesLink>
+              <enclosure url="https://updates.example.invalid/feedy/Feedy-1.2.zip" sparkle:version="120"
+                         sparkle:shortVersionString="1.2" length="1000" type="application/octet-stream"/>
+            </item>
+            <item>
+              <title>Feedy 1.1</title>
+              <enclosure url="https://updates.example.invalid/feedy/Feedy-1.1.zip" sparkle:version="110"
+                         sparkle:shortVersionString="1.1" length="1000" type="application/octet-stream"/>
+            </item>
+          </channel>
+        </rss>
+        """
+
     /// Moves items to the Trash under these rules, and notes each clean in the history.
     static func cleanupService() -> CleanupService {
         CleanupService(policy: policy, history: history)

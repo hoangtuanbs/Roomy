@@ -81,6 +81,8 @@ final class FlowTest {
         await run("login-items") { try await self.loginItemsScenario() }
         await run("installers") { try await self.installersScenario() }
         await run("unused-languages") { try await self.languagesScenario() }
+        await run("finder-service") { try await self.finderServiceScenario() }
+        await run("app-updates") { try await self.appUpdatesScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
@@ -192,6 +194,19 @@ final class FlowTest {
         for language in ["en", "Base", "de", "ja"] {
             try write(poly + "/Resources/\(language).lproj/Localizable.strings", bytes: 8_000, fill: 14)
         }
+
+        // Apps for Updates: one with a newer version in its feed, one already up to date, one whose feed cannot be
+        // reached, and one from the App Store.
+        for (name, build, feed) in [("Feedy", "100", AppEnvironment.flowFeedURL), ("Fresh", "120", AppEnvironment.flowFeedURL),
+                                    ("Lost", "1", "https://updates.example.invalid/lost/appcast.xml")] {
+            try writePlist("Applications/\(name).app/Contents/Info.plist", [
+                "CFBundleIdentifier": "io.github.roomy.\(name.lowercased())", "CFBundleName": name, "CFBundlePackageType": "APPL",
+                "CFBundleShortVersionString": "1.0", "CFBundleVersion": build, "SUFeedURL": feed,
+            ])
+        }
+        try writePlist("Applications/Storey.app/Contents/Info.plist", ["CFBundleIdentifier": "io.github.roomy.storey",
+                                                                       "CFBundleName": "Storey", "CFBundlePackageType": "APPL"])
+        try write("Applications/Storey.app/Contents/_MASReceipt/receipt", bytes: 2_000, fill: 16)
 
         let backup = "Library/Application Support/MobileSync/Backup/00008110-00FLOWTEST0001"
         try writePlist(backup + "/Info.plist", ["Device Name": "Flow iPhone", "Product Type": "iPhone15,2",
@@ -794,6 +809,74 @@ final class FlowTest {
         try checkTrashed(report.results)
         try expect(exists(appPath) && exists(resources + "ja.lproj"), "the app or another language was moved")
         uninstaller.showList()
+    }
+
+    /// "Uninstall with RoomyDisk" in Finder's Services menu: the Info.plist offers it for apps, and handing the service
+    /// an app opens the Uninstaller with it chosen, also for an app outside the app folders. Nothing is removed.
+    private func finderServiceScenario() async throws {
+        let services = Bundle.main.object(forInfoDictionaryKey: "NSServices") as? [[String: Any]] ?? []
+        guard let entry = services.first(where: { $0["NSMessage"] as? String == "uninstallApp" }) else {
+            throw Failure("the Info.plist offers no uninstall service: \(services)")
+        }
+        try expect((entry["NSSendFileTypes"] as? [String])?.contains("com.apple.application-bundle") == true,
+                   "the service is not offered for apps: \(entry)")
+        try expect(UninstallService.shared.responds(to: Selector(("uninstallApp:userData:error:"))), "the service method is missing")
+
+        func send(_ paths: [String]) -> String? {
+            let board = NSPasteboard(name: NSPasteboard.Name("io.github.roomy.flow-service"))
+            board.clearContents()
+            board.writeObjects(paths.map { URL(fileURLWithPath: $0) as NSURL })
+            var error: NSString?
+            UninstallService.shared.uninstallApp(board, userData: nil, error: &error)
+            board.releaseGlobally()
+            return error as String?
+        }
+        let uninstaller = model.uninstaller
+        try expect(send([home + "/Movies/holiday.mov"]) != nil, "a film was accepted as an app")
+        try expect(!model.showUninstaller, "the Uninstaller opened for a film")
+
+        let polyglot = home + "/Applications/Polyglot.app"
+        try expect(send([home + "/Movies/holiday.mov", polyglot]) == nil, "the app was refused")
+        try await expectSheet("Uninstaller")
+        try await waitUntil("Polyglot to be chosen", limit: 30) { uninstaller.selectedApp?.path == polyglot }
+        try expect(uninstaller.section == .apps, "the Uninstaller shows \(uninstaller.section)")
+        try await waitUntil("its leftovers", limit: 30) { !uninstaller.isFindingLeftovers }
+        await closeSheets()
+
+        // An app somewhere else, as when it is run from Downloads.
+        let elsewhere = "Downloads/Elsewhere.app/Contents"
+        try writePlist(elsewhere + "/Info.plist", ["CFBundleIdentifier": "io.github.roomy.elsewhere", "CFBundleName": "Elsewhere",
+                                                   "CFBundlePackageType": "APPL"])
+        let path = home + "/Downloads/Elsewhere.app"
+        try expect(send([path]) == nil, "the app outside Applications was refused")
+        try await expectSheet("Uninstaller")
+        try await waitUntil("Elsewhere to be chosen", limit: 30) { uninstaller.selectedApp?.path == path }
+        try expect(uninstaller.ticked.contains(path), "the chosen app is not ticked for review")
+        try expect(exists(path), "the app was moved")
+    }
+
+    /// Updates lists the apps with feeds and from the App Store, asks nothing until Check, then finds Feedy's newer
+    /// version from the made-up feed. Nothing is opened or downloaded.
+    private func appUpdatesScenario() async throws {
+        let updates = model.appUpdates
+        let uninstaller = model.uninstaller
+        model.openUninstaller(section: .updates)
+        defer { uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the apps to check", limit: 60) { uninstaller.phase == .ready && !updates.apps.isEmpty }
+        let names = Set(updates.apps.map(\.name))
+        try expect(names == ["Feedy", "Fresh", "Lost", "Storey"], "apps to check: \(names.sorted())")
+        try expect(updates.available.isEmpty && updates.checkedAt == nil && !updates.isChecking, "it checked before being asked")
+        try expect(updates.appStoreApps.map(\.name) == ["Storey"], "App Store apps: \(updates.appStoreApps.map(\.name))")
+
+        updates.check()
+        try await waitUntil("the check", limit: 30) { !updates.isChecking }
+        try expect(updates.available.map(\.app.name) == ["Feedy"], "updates: \(updates.available.map(\.app.name))")
+        let item = updates.available[0].item
+        try expect(item.displayVersion == "1.2" && item.downloadURL?.absoluteString == "https://updates.example.invalid/feedy/Feedy-1.2.zip",
+                   "the update reads as \(item)")
+        try expect(updates.upToDateCount == 1, "\(updates.upToDateCount) up to date")
+        try expect(updates.failed.map(\.app.name) == ["Lost"], "failed: \(updates.failed.map(\.app.name))")
     }
 
     /// Smart Clean finds the caches, logs and an Xcode archive, and moves only what it ticks by itself.

@@ -9,6 +9,8 @@ enum MainWindow {
     /// Where a click on a RoomyDisk notification leads.
     enum Route: Sendable {
         case main, smartClean, diskHealth
+        /// The Uninstaller with this app chosen, from the Finder service.
+        case uninstall(String)
     }
 
     nonisolated(unsafe) static var openAction: OpenWindowAction?
@@ -20,6 +22,7 @@ enum MainWindow {
         case .main: break
         case .smartClean: model?.openSmartClean()
         case .diskHealth: model?.openDiskHealth()
+        case .uninstall(let path): model?.openUninstaller(choosing: path)
         }
         bringForward()
     }

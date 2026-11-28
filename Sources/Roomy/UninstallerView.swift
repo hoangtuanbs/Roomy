@@ -146,7 +146,7 @@ private struct UninstallerBrowser: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(maxWidth: 460)
+            .frame(maxWidth: 560)
             .padding(.top, 10)
             .padding(.bottom, 4)
 
@@ -160,6 +160,9 @@ private struct UninstallerBrowser: View {
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
                 case .installers:
                     InstallersPanel()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .updates:
+                    UpdatesPanel()
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
             }
