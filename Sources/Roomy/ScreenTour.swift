@@ -83,6 +83,13 @@ enum ScreenTour {
 
             await historyShots(model: model, shot: shot)
 
+            if let tree = model.tree, let dmg = tree.index(ofPath: tree.rootPath + "/Projects/app/build.dmg") {
+                model.explainItem(dmg)
+                await shot("22-what-is-this", wait: 1.5)
+                model.showExplain = false
+                try? await Task.sleep(for: .seconds(1))
+            }
+
             await accuracyShots(model: model, shot: shot)
 
             await menuBarShots(model: model, directory: directory)

@@ -27,6 +27,16 @@ A macOS app that shows what is using space on your disk and helps you free it up
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
   to zoom in and click the centre to go up.
+- **What Is This?** (select an item and press ⌘I, choose it in the context menu, or click the button under the map)
+  explains what a file or folder is and whether it can go: **Safe to remove**, **Removable, app will rebuild it** or
+  **Keep**. A built-in list of over 100 places answers first: the folders in your Library, developer caches (Xcode,
+  simulators, npm, Gradle, Cargo, CocoaPods and more), the data of well-known apps, system folders, and names known
+  anywhere such as `node_modules`, `.git` or `.DS_Store`. An item inside a known folder says which one. RoomyDisk's
+  safety rules always have the last word: anything they protect is shown as Keep with the reason. For items the list
+  doesn't know, on macOS 26 with Apple Intelligence turned on, **Ask Apple Intelligence** asks Apple's on-device model
+  (the Foundation Models framework) from the item's path, size and the names inside it; nothing leaves the Mac. Its
+  answer is labelled as a guess, and the safety rules are applied to it in code, so a guess can never make a protected
+  item removable. On older macOS, or with Apple Intelligence off, the button doesn't show.
 - **Quick Look**: select an item in a list, the treemap or the rings and press Space (or ⌘Y). The arrow keys move the
   preview through the list.
 - **Collect** items in the **tray** at the bottom of the window: drag them there from any list, the treemap or the

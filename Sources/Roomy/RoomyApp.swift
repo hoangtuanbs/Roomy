@@ -55,6 +55,9 @@ struct RoomyApp: App {
                 Button("Quick Look") { model.toggleQuickLook() }
                     .keyboardShortcut("y")
                     .disabled(model.selection == nil)
+                Button("What Is This?") { if let node = model.selection { model.explainItem(node) } }
+                    .keyboardShortcut("i")
+                    .disabled(model.selection == nil)
                 Divider()
                 Picker("Map", selection: Binding(get: { model.mapStyle }, set: { model.mapStyle = $0 })) {
                     ForEach(MapStyle.allCases) { Text($0.label).tag($0) }

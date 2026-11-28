@@ -139,6 +139,9 @@ final class AppModel {
     /// What RoomyDisk freed over time, from the cleanup history.
     let history = HistoryModel()
     var showHistory = false
+    /// What Is This? for the chosen item.
+    let explain = ExplainModel()
+    var showExplain = false
     /// The background junk check behind the menu bar's Quick Clean.
     let autoCheck = AutoCheckModel()
 
@@ -687,7 +690,7 @@ final class AppModel {
 
     private var anySheetOpen: Bool {
         showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
-            || showCloudSpace || showDiskHealth || showHistory || showOnboarding
+            || showCloudSpace || showDiskHealth || showHistory || showExplain || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -899,6 +902,15 @@ final class AppModel {
     func openCloudSpace() {
         showCloudSpace = true
         if !cloudSpace.isBusy { cloudSpace.find() }
+    }
+
+    /// Explains what the item is and whether it can go.
+    func explainItem(_ node: ScanTree.Index) {
+        guard let tree else { return }
+        let children = tree.kind(node).isContainer ? tree.children(node).prefix(12).map { tree.name($0) } : []
+        explain.show(ExplainModel.Item(path: tree.path(of: node), name: tree.name(node), bytes: tree.size(node),
+                                       isFolder: tree.kind(node).isContainer, childNames: Array(children)))
+        showExplain = true
     }
 
     /// Opens the Space Freed history and reads the history file again.

@@ -58,6 +58,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showHistory) {
             HistoryView().environment(model)
         }
+        .sheet(isPresented: $model.showExplain) {
+            ExplainView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }
@@ -553,6 +556,16 @@ struct HoverCaption: View {
                             .transition(.opacity)
                     }
                     Spacer()
+                    if model.hovered == nil || model.hovered == model.selection {
+                        Button {
+                            model.explainItem(node)
+                        } label: {
+                            Label("What Is This?", systemImage: "questionmark.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Explain what this is and whether it is safe to remove")
+                        .transition(.opacity)
+                    }
                     if tree.kind(node) == .directory {
                         Text(model.mapStyle == .rings ? "Click to open" : "Double-click to open").foregroundStyle(.tertiary)
                     }

@@ -72,6 +72,7 @@ final class FlowTest {
         await run("clones") { try await self.clonesScenario() }
         await run("quick-rescan") { try await self.quickRescanScenario() }
         await run("blocked-path") { try self.blockedPathScenario() }
+        await run("what-is-this") { try await self.explainScenario() }
         await run("review-and-clean") { try await self.reviewScenario() }
         await run("compress-and-clean") { try await self.compressScenario() }
         await run("space-hunters") { try await self.spaceHuntersScenario() }
@@ -351,6 +352,7 @@ final class FlowTest {
         model.showCloudSpace = false
         model.showDiskHealth = false
         model.showHistory = false
+        model.showExplain = false
         model.showOnboarding = false
         let start = Date()
         while mainWindow?.attachedSheet != nil && Date().timeIntervalSince(start) < 5 {
@@ -922,6 +924,37 @@ final class FlowTest {
         try expect(exists(home + "/Library/CloudStorage/Dropbox/Documents/report.pdf"), "a Dropbox file is gone")
     }
 
+    /// What Is This? explains known folders from the list, keeps what the safety rules block, and labels a guess
+    /// (from a stand-in that calls everything safe) as a guess that still can't make a blocked item removable.
+    private func explainScenario() async throws {
+        let explain = model.explain
+        model.explainItem(try node(home + "/Library/Caches"))
+        try await expectSheet("What Is This?")
+        try expect(explain.explanation?.title == "App caches" && explain.explanation?.safety == .rebuilds
+                   && explain.explanation?.source == .builtIn, "caches: \(String(describing: explain.explanation))")
+
+        model.explainItem(try node(keychainPath))
+        try expect(explain.explanation?.safety == .keep && explain.explanation?.blockedReason != nil,
+                   "keychains: \(String(describing: explain.explanation))")
+
+        let notes = home + "/Projects/app/notes.txt"
+        model.explainItem(try node(notes))
+        try expect(explain.explanation == nil && explain.canGuess, "notes.txt should be unknown and offer a guess")
+        explain.guess()
+        try await waitUntil("the guess", limit: 10) { explain.explanation != nil }
+        try expect(explain.explanation?.source == .guess && explain.explanation?.safety == .safe,
+                   "notes guess: \(String(describing: explain.explanation))")
+
+        // Outside the sandbox everything is blocked: the careless guess must come back as Keep.
+        let outside = "/private/var/roomy-unknown-item"
+        explain.show(ExplainModel.Item(path: outside, name: "roomy-unknown-item", bytes: 1, isFolder: false, childNames: []))
+        explain.guess()
+        try await waitUntil("the guess", limit: 10) { explain.explanation != nil }
+        try expect(explain.explanation?.source == .guess && explain.explanation?.safety == .keep
+                   && explain.explanation?.blockedReason != nil, "blocked guess: \(String(describing: explain.explanation))")
+        try expect(exists(notes), "explaining changed a file")
+    }
+
     /// The Space Freed history lists the cleans of the scenarios before it, by tool, with their items still in the
     /// Trash; it only reads.
     private func historyScenario() async throws {
@@ -1189,7 +1222,8 @@ final class FlowTest {
         } else {
             try expect(ContentTab.files.label == "Biggest Files", "English shows \(ContentTab.files.label)")
             try expect(keychainReason == "Keychains hold your passwords.", "English shows \(keychainReason ?? "nil")")
-            let keys = ["Biggest Files", "Move to Trash", "Smart Clean", "Keychains hold your passwords.", "App caches", "Can be freed"]
+            let keys = ["Biggest Files", "Move to Trash", "Smart Clean", "Keychains hold your passwords.", "App caches", "Can be freed",
+                        "Safe to remove", "Space Freed", "Xcode build data"]
             for code in ["vi", "es", "de", "fr", "ja", "zh-Hans"] {
                 guard let path = Bundle.main.path(forResource: code, ofType: "lproj"), let bundle = Bundle(path: path) else {
                     throw Failure("there is no \(code).lproj in the app")
