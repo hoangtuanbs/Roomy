@@ -125,6 +125,8 @@ final class AppModel {
     var showUninstaller = false
     /// The Uninstaller's Login Items tab.
     let loginItems = LoginItemsModel()
+    /// The Uninstaller's Installers tab.
+    let receipts = ReceiptsModel()
     let spaceHunters = SpaceHuntersModel()
     var showSpaceHunters = false
     let cloudSpace = CloudSpaceModel()
@@ -160,7 +162,11 @@ final class AppModel {
         refreshLocations()
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
-        uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        uninstaller.onRemoved = { [weak self] paths in
+            self?.applyRemoved(paths)
+            self?.receipts.removed(paths)
+        }
+        receipts.onFound = { [weak self] apps in self?.uninstaller.removedByReceipts = apps }
         loginItems.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
@@ -845,6 +851,7 @@ final class AppModel {
         if !uninstaller.isBusy && uninstaller.phase != .done {
             uninstaller.load()
             loginItems.reset()
+            receipts.reset()
         }
         showUninstallerSection(uninstaller.section)
     }
@@ -856,6 +863,8 @@ final class AppModel {
             switch section {
             case .apps: break
             case .loginItems: if !loginItems.loaded && !loginItems.isLoading { loginItems.load(installed: uninstaller.installedApps) }
+            case .installers:
+                if !receipts.loaded && !receipts.isLoading { receipts.load(installedNames: Set(uninstaller.installedApps.map(\.name))) }
             }
         }
     }

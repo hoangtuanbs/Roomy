@@ -158,6 +158,9 @@ private struct UninstallerBrowser: View {
                 case .loginItems:
                     LoginItemsPanel()
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .installers:
+                    InstallersPanel()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -513,9 +516,14 @@ private struct AppDetail: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
                     }
+                    if let languages = un.languages {
+                        LanguagesSection(finding: languages, disabled: blocked != nil || un.ticked.contains(app.path))
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
                 }
                 .padding(16)
                 .animation(Motion.spring.unless(reduceMotion), value: un.leftovers.map(\.path))
+                .animation(Motion.spring.unless(reduceMotion), value: un.languages)
                 .animation(Motion.smooth.unless(reduceMotion), value: un.isFindingLeftovers)
             }
 
@@ -574,6 +582,47 @@ private struct AppDetail: View {
     private func color(_ index: Int) -> Color {
         let colors = JunkCategory.allCases.map(\.color)
         return colors[index % colors.count]
+    }
+}
+
+/// Translations for languages you do not use. Removable only from apps that are not signed; for signed apps the
+/// size is shown with why nothing is offered.
+private struct LanguagesSection: View {
+    @Environment(AppModel.self) private var model
+    let finding: LanguageFinding
+    let disabled: Bool
+
+    private static let color = Color(red: 0.36, green: 0.55, blue: 0.95)
+
+    var body: some View {
+        let count = finding.folders.count
+        if finding.canRemove {
+            LeftoverSection(title: String(localized: "Unused languages"), symbol: "globe", color: Self.color,
+                            rows: finding.folders.map {
+                                LeftoverRow(path: $0.path, name: ($0.path as NSString).lastPathComponent, bytes: $0.bytes, needsReview: true)
+                            },
+                            disabled: disabled, subtitle: String(localized: "Not signed, so removing them breaks nothing. Review first."))
+        } else {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "globe").foregroundStyle(Self.color).frame(width: 18)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("Unused languages").font(.headline)
+                        Spacer()
+                        CountingBytes(finding.bytes)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("\(count) \(Plural.word(count, "language", "languages")) you do not use. This app is signed, and removing files from it would break its signature, so macOS could refuse to open it. Shown for information only.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.card))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+        }
     }
 }
 

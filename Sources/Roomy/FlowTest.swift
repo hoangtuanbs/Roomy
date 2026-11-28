@@ -79,6 +79,8 @@ final class FlowTest {
         await run("uninstaller") { try await self.uninstallerScenario() }
         await run("removed-app-leftovers") { try await self.orphansScenario() }
         await run("login-items") { try await self.loginItemsScenario() }
+        await run("installers") { try await self.installersScenario() }
+        await run("unused-languages") { try await self.languagesScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
@@ -180,6 +182,17 @@ final class FlowTest {
         try writeSandbox("system/Library/LaunchDaemons/io.github.roomy.flowdaemon.plist",
                          ["Label": "io.github.roomy.flowdaemon", "Program": "/usr/bin/true", "KeepAlive": true])
 
+        // What the made-up installer package of the removed "Flow Tool" left (see AppEnvironment.packageDatabase).
+        try writeSandboxFile("system/Library/Application Support/FlowTool/engine.bin", bytes: 50_000)
+        try writeSandboxFile("system/usr/local/bin/flowtool", bytes: 25_000)
+        // An app with translations for languages nobody here uses.
+        let poly = "Applications/Polyglot.app/Contents"
+        try writePlist(poly + "/Info.plist", ["CFBundleIdentifier": "io.github.roomy.polyglot", "CFBundleName": "Polyglot",
+                                              "CFBundlePackageType": "APPL", "CFBundleDevelopmentRegion": "en"])
+        for language in ["en", "Base", "de", "ja"] {
+            try write(poly + "/Resources/\(language).lproj/Localizable.strings", bytes: 8_000, fill: 14)
+        }
+
         let backup = "Library/Application Support/MobileSync/Backup/00008110-00FLOWTEST0001"
         try writePlist(backup + "/Info.plist", ["Device Name": "Flow iPhone", "Product Type": "iPhone15,2",
                                                 "Product Version": "17.5",
@@ -234,6 +247,13 @@ final class FlowTest {
                                                 withIntermediateDirectories: true)
         let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
         try data.write(to: URL(fileURLWithPath: path))
+    }
+
+    private func writeSandboxFile(_ relative: String, bytes: Int) throws {
+        let path = try sandboxed(sandbox + "/" + relative)
+        try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
+                                                withIntermediateDirectories: true)
+        try Data(repeating: 15, count: bytes).write(to: URL(fileURLWithPath: path))
     }
 
     private func sandboxed(_ path: String) throws -> String {
@@ -683,6 +703,8 @@ final class FlowTest {
         try checkTrashed(report.results)
         try expect(exists(byName) && exists(unknown), "an unticked item was moved")
         uninstaller.showList()
+        // The made-up Trash would show up in Smart Clean; it moves out of the home, still inside the sandbox.
+        try FileManager.default.moveItem(atPath: try sandboxed(home + "/.Trash"), toPath: try sandboxed(state + "/old-trash"))
     }
 
     /// Login Items lists the sandbox's launch agents and daemon, refuses Apple's and the daemon, and turns off your
@@ -711,6 +733,67 @@ final class FlowTest {
         try expect(control.bootedOut == [Self.agentLabel], "launchd was asked to stop \(control.bootedOut)")
         try expect(!login.items.contains { $0.label == Self.agentLabel }, "the agent is still listed")
         try expect(exists(home + "/Library/LaunchAgents/com.apple.flowtest.plist"), "Apple's agent was moved")
+    }
+
+    /// Installers finds the made-up package whose app is gone, offers what it left unticked, and moves only what
+    /// is ticked.
+    private func installersScenario() async throws {
+        let receipts = model.receipts
+        let uninstaller = model.uninstaller
+        model.openUninstaller(section: .installers)
+        defer { uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the receipts", limit: 60) { receipts.loaded && !receipts.isLoading }
+        guard let finding = receipts.findings.first(where: { $0.package.id == "io.github.roomy.flowpkg" }) else {
+            throw Failure("findings: \(receipts.findings.map(\.package.id))")
+        }
+        let system = sandbox + "/system"
+        let engine = system + "/Library/Application Support/FlowTool"
+        let tool = system + "/usr/local/bin/flowtool"
+        try expect(finding.appName == "Flow Tool", "the app is named \(finding.appName)")
+        try expect(Set(finding.leftovers.map(\.path)) == [engine, tool], "leftovers: \(finding.leftovers.map(\.path))")
+        try expect(receipts.ticked.isEmpty, "something was ticked by itself: \(receipts.ticked.sorted())")
+        try expect(uninstaller.removedByReceipts.contains { $0.name == "Flow Tool" }, "the removed app was not passed on")
+        try await waitUntil("the app list", limit: 30) { uninstaller.phase == .ready }
+
+        receipts.toggle(tool)
+        let items = receipts.tickedItems
+        uninstaller.removeFiles(items.map(\.path), sizes: Dictionary(items.map { ($0.path, $0.bytes) }, uniquingKeysWith: { a, _ in a }))
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [tool], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(engine), "an unticked leftover was moved")
+        try expect(receipts.findings.first?.leftovers.map(\.path) == [engine], "the moved file is still listed")
+        uninstaller.showList()
+    }
+
+    /// The unused languages of an unsigned app are offered unticked; a ticked one goes to the Trash and the app stays.
+    private func languagesScenario() async throws {
+        let uninstaller = model.uninstaller
+        let appPath = home + "/Applications/Polyglot.app"
+        model.openUninstaller(section: .apps)
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the app list", limit: 60) { uninstaller.phase == .ready && uninstaller.measured.contains(appPath) }
+        guard let app = uninstaller.apps.first(where: { $0.path == appPath }) else { throw Failure("Polyglot is not listed") }
+        uninstaller.select(app)
+        try await waitUntil("the languages", limit: 30) { !uninstaller.isFindingLeftovers && uninstaller.languages != nil }
+        let resources = appPath + "/Contents/Resources/"
+        let folders = Set(uninstaller.removableLanguages.map(\.path))
+        try expect(folders.isSuperset(of: [resources + "de.lproj", resources + "ja.lproj"]) &&
+                   !folders.contains(resources + "en.lproj") && !folders.contains(resources + "Base.lproj"),
+                   "offered: \(folders.sorted())")
+        try expect(uninstaller.ticked.isDisjoint(with: folders), "a language was ticked by itself")
+
+        uninstaller.toggle(appPath)
+        uninstaller.toggle(resources + "de.lproj")
+        uninstaller.uninstall()
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [resources + "de.lproj"], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(appPath) && exists(resources + "ja.lproj"), "the app or another language was moved")
+        uninstaller.showList()
     }
 
     /// Smart Clean finds the caches, logs and an Xcode archive, and moves only what it ticks by itself.

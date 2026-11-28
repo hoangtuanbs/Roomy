@@ -92,6 +92,18 @@ A macOS app that shows what is using space on your disk and helps you free it up
   it on again. Apple's agents are never offered. Items for all users need an administrator and app helpers are managed
   by their apps, so for those RoomyDisk offers **Open Login Items Settings** (System Settings › General › Login Items)
   instead.
+- **Installers** (the Uninstaller's third tab) reads the receipts Installer keeps (`pkgutil --pkgs` and `--files`,
+  no admin rights) and lists packages of other makers whose app is gone, with the files they left. Only items the
+  package alone lists, outside shared folders such as `/Library/Application Support` or `/usr/local/bin`, are shown,
+  and only those you can change without an administrator can be ticked; the others are counted and left alone, and
+  so are the receipts themselves. Nothing starts ticked. The removed apps' names also help **Leftovers of removed
+  apps** find their Library folders.
+- **Unused languages**: choosing an app shows the translations it carries for languages you do not use
+  (`Contents/Resources/*.lproj`; your languages, its own language, English and Base are always kept). Removing files
+  from a signed app breaks its code signature (checked with `SecStaticCodeCheckValidity`), after which macOS may refuse
+  to open it or it may lose its permissions, so for signed apps, which is nearly all of them, the size is shown for
+  information only. Only apps that are not signed at all offer their unused languages, unticked. Apps of macOS and apps
+  signed by Apple are never touched.
 - **Space Hunters** (below the Uninstaller in the sidebar, the toolbar, or ⇧⌘H) hunts for big things you may have
   forgotten, each on its own card with a total that counts up:
   - **iPhone & iPad backups** in `~/Library/Application Support/MobileSync/Backup`, with the device's name, model,

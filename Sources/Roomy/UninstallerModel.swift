@@ -27,12 +27,14 @@ final class UninstallerModel {
     enum Section: String, CaseIterable, Identifiable {
         case apps = "Apps"
         case loginItems = "Login Items"
+        case installers = "Installers"
         var id: String { rawValue }
         var label: String { NSLocalizedString(rawValue, comment: "") }
         var symbol: String {
             switch self {
             case .apps: return "square.grid.2x2"
             case .loginItems: return "power"
+            case .installers: return "shippingbox"
             }
         }
     }
@@ -58,6 +60,8 @@ final class UninstallerModel {
 
     private(set) var leftovers: [Leftover] = []
     private(set) var isFindingLeftovers = false
+    /// The chosen app's translations for languages you do not use.
+    private(set) var languages: LanguageFinding?
     var ticked: Set<String> = []
 
     private(set) var orphans: [OrphanGroup] = []
@@ -81,6 +85,7 @@ final class UninstallerModel {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var detailTask: Task<Void, Never>?
     @ObservationIgnored let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
+    @ObservationIgnored let languageFinder = LanguageFinder(checker: AppEnvironment.signatureChecker, policy: AppEnvironment.policy)
 
     var isBusy: Bool { phase == .loading || phase == .removing }
 
@@ -123,16 +128,22 @@ final class UninstallerModel {
     var totalAppBytes: Int64 { apps.reduce(0) { $0 + $1.bytes } }
     var leftoverBytes: Int64 { leftovers.reduce(0) { $0 + $1.bytes } }
 
-    /// What Uninstall would move to the Trash, with sizes.
+    /// Unused language folders that can be removed: only those of apps that are not signed.
+    var removableLanguages: [ReceiptFile] { languages.map { $0.canRemove ? $0.folders : [] } ?? [] }
+
+    /// What Uninstall would move to the Trash, with sizes. Language folders inside a ticked app count with the app.
     var tickedBytes: Int64 {
         guard let app = selectedApp else { return 0 }
-        let bundle = ticked.contains(app.path) ? app.bytes : 0
-        return bundle + leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
+        if ticked.contains(app.path) { return app.bytes + leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes } }
+        return leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
+            + removableLanguages.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
     }
 
     var tickedCount: Int {
         guard let app = selectedApp else { return 0 }
-        return (ticked.contains(app.path) ? 1 : 0) + leftovers.filter { ticked.contains($0.path) }.count
+        let rest = leftovers.filter { ticked.contains($0.path) }.count
+        if ticked.contains(app.path) { return 1 + rest }
+        return rest + removableLanguages.filter { ticked.contains($0.path) }.count
     }
 
     var orphanBytes: Int64 { orphans.reduce(0) { $0 + $1.bytes } }
@@ -219,6 +230,7 @@ final class UninstallerModel {
         focus = .app(app.path)
         isFindingOrphans = false
         leftovers = []
+        languages = nil
         refreshRunning()
         ticked = blockReason(for: app) == nil ? [app.path] : []
         isFindingLeftovers = true
@@ -234,6 +246,11 @@ final class UninstallerModel {
             // Items matched only through a dotted child id may belong to another app, so they start unticked.
             if self.blockReason(for: app) == nil { self.ticked.formUnion(found.filter { !$0.needsReview }.map(\.path)) }
             self.isFindingLeftovers = false
+            // Unused languages are measured last; they are only ever offered unticked.
+            let finder = self.languageFinder
+            let languages = await Task.detached { finder.find(app: app).map(LanguageFinder.measure) }.value
+            guard !Task.isCancelled, self.focus == .app(app.path) else { return }
+            self.languages = languages
         }
     }
 
@@ -328,8 +345,11 @@ final class UninstallerModel {
         }
         var sizes: [String: Int64] = [app.path: app.bytes]
         for item in leftovers { sizes[item.path] = item.bytes }
+        for folder in removableLanguages { sizes[folder.path] = folder.bytes }
+        let languagePaths = ticked.contains(app.path) ? [] : removableLanguages.map(\.path).filter { ticked.contains($0) }
         // Leftovers first, so the app is still there if something goes wrong on the way.
-        let paths = leftovers.map(\.path).filter { ticked.contains($0) } + (ticked.contains(app.path) ? [app.path] : [])
+        let paths = leftovers.map(\.path).filter { ticked.contains($0) } + languagePaths
+            + (ticked.contains(app.path) ? [app.path] : [])
         start(paths: paths, sizes: sizes, app: app)
     }
 
@@ -338,6 +358,13 @@ final class UninstallerModel {
         guard phase == .ready else { return }
         let items = orphanTickedItems
         start(paths: items.map(\.path), sizes: Dictionary(items.map { ($0.path, $0.bytes) }, uniquingKeysWith: { a, _ in a }), app: nil)
+    }
+
+    /// Moves files found by another tab (such as an installer's leftovers) to the Trash, with the same progress
+    /// ring and result as an uninstall.
+    func removeFiles(_ paths: [String], sizes: [String: Int64]) {
+        guard phase == .ready else { return }
+        start(paths: paths, sizes: sizes, app: nil)
     }
 
     private func start(paths: [String], sizes: [String: Int64], app: InstalledApp?) {
@@ -389,6 +416,10 @@ final class UninstallerModel {
         apps.removeAll { removed.contains($0.path) }
         allApps.removeAll { removed.contains($0.path) }
         leftovers.removeAll { removed.contains($0.path) }
+        if var found = languages {
+            found.folders.removeAll { removed.contains($0.path) }
+            languages = found.folders.isEmpty ? nil : found
+        }
         ticked.subtract(removed)
         orphans = orphans.compactMap { group in
             let left = group.items.filter { !removed.contains($0.path) }

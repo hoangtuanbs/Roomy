@@ -32,6 +32,18 @@ enum AppEnvironment {
     static let launchControl: any LaunchControlling = flowSandbox == nil
         ? SystemLaunchControl() : RecordingLaunchControl(loaded: ["io.github.roomy.flowagent"])
 
+    /// Reads installer receipts. The flow test uses a made-up package in its sandbox, so pkgutil is never run there.
+    static let packageDatabase: any PackageDatabase = flowSandbox.map { sandbox in
+        StaticPackageDatabase([(PackageInfo(id: "io.github.roomy.flowpkg", version: "2.0", volume: sandbox + "/system"), [
+            "Applications", "Applications/Flow Tool.app", "Applications/Flow Tool.app/Contents", "Library",
+            "Library/Application Support", "Library/Application Support/FlowTool",
+            "Library/Application Support/FlowTool/engine.bin", "usr", "usr/local", "usr/local/bin", "usr/local/bin/flowtool",
+        ])])
+    } ?? SystemPackageDatabase()
+    /// Checks code signatures. The flow test's made-up apps are not signed.
+    static let signatureChecker: any SignatureChecking = flowSandbox == nil
+        ? SystemSignatureChecker() : FixedSignatureChecker(.unsigned)
+
     /// Moves items to the Trash under these rules, and notes each clean in the history.
     static func cleanupService() -> CleanupService {
         CleanupService(policy: policy, history: history)
