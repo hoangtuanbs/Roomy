@@ -10,6 +10,17 @@ struct UpdatesPanel: View {
 
     var body: some View {
         let updates = model.appUpdates
+        if updates.apps.isEmpty {
+            ContentUnavailableView("No apps to check", systemImage: "arrow.triangle.2.circlepath",
+                                   description: Text("None of your apps has an update feed RoomyDisk can read, and none is from the App Store."))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+        } else {
+            list(updates)
+        }
+    }
+
+    private func list(_ updates: AppUpdatesModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 UpdatesHeader()
@@ -35,10 +46,6 @@ struct UpdatesPanel: View {
                     }
                 } else if !updates.unchecked.isEmpty {
                     WaitingApps(apps: updates.unchecked)
-                }
-                if updates.apps.isEmpty {
-                    ContentUnavailableView("No apps to check", systemImage: "arrow.triangle.2.circlepath",
-                                           description: Text("None of your apps has an update feed RoomyDisk can read, and none is from the App Store."))
                 }
             }
             .padding(16)
