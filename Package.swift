@@ -20,7 +20,12 @@ products.append(.executable(name: "Roomy", targets: ["Roomy"]))
 dependencies.append(.package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"))
 targets.append(.executableTarget(
     name: "Roomy",
-    dependencies: ["RoomyCore", .product(name: "Sparkle", package: "Sparkle")]
+    dependencies: ["RoomyCore", .product(name: "Sparkle", package: "Sparkle")],
+    // Release builds keep the compile-time values of the Shortcuts actions, which scripts/app-intents-metadata.sh
+    // turns into the metadata Shortcuts reads (Xcode does both steps itself).
+    swiftSettings: [.unsafeFlags(["-emit-const-values", "-Xfrontend", "-const-gather-protocols-file",
+                                  "-Xfrontend", Context.packageDirectory + "/scripts/app-intents-protocols.json"],
+                                 .when(configuration: .release))]
 ))
 #endif
 

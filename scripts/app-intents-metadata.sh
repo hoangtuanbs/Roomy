@@ -14,7 +14,7 @@ TOOLCHAIN="$(dirname "$(dirname "$(dirname "$(xcrun --find swift)")")")"
 XCODE_BUILD="$(xcodebuild -version 2>/dev/null | awk '/Build version/ {print $3}')"
 ARCH="$(uname -m)"
 find "$(pwd)/Sources/Roomy" -name '*.swift' > "$WORK/sources.txt"
-find "$BIN_DIR" -name '*.swiftconstvalues' -path '*Roomy*' > "$WORK/constvalues.txt" 2>/dev/null
+find "$BIN_DIR/Roomy.build" "$BIN_DIR" -maxdepth 2 -name '*.swiftconstvalues' 2>/dev/null | sort -u > "$WORK/constvalues.txt"
 : > "$WORK/metadata.txt"
 : > "$WORK/static-metadata.txt"
 echo "app intents: $(wc -l < "$WORK/constvalues.txt" | tr -d ' ') const value files, Xcode ${XCODE_BUILD:-?}"
@@ -35,9 +35,12 @@ echo "app intents: $(wc -l < "$WORK/constvalues.txt" | tr -d ' ') const value fi
     --metadata-file-list "$WORK/metadata.txt" \
     --static-metadata-file-list "$WORK/static-metadata.txt" \
     --swift-const-vals-list "$WORK/constvalues.txt" \
+    --compile-time-extraction \
+    --deployment-aware-processing \
     --force > "$WORK/log.txt" 2>&1
 status=$?
 tail -20 "$WORK/log.txt"
+head -3 "$WORK/constvalues.txt"
 if [[ -d "$APP/Contents/Resources/Metadata.appintents" ]]; then
     echo "app intents: made Metadata.appintents: $(ls "$APP/Contents/Resources/Metadata.appintents" | tr '\n' ' ')"
     grep -o '"identifier" *: *"[A-Za-z]*Intent"' "$APP/Contents/Resources/Metadata.appintents/extract.actionsdata" 2>/dev/null | sort -u
