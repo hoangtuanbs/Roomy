@@ -2,7 +2,7 @@ import Foundation
 @testable import RoomyCore
 
 /// Moves items into a folder of the test instead of the real Trash, and records each move.
-final class FolderTrasher: Trasher, @unchecked Sendable {
+final class TestTrasher: Trasher, @unchecked Sendable {
     let folder: String
     private let lock = NSLock()
     private var moves: [String] = []

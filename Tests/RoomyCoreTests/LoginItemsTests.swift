@@ -88,7 +88,7 @@ final class LoginItemsTests: XCTestCase {
         let path = try agent("com.example.agent")
         let item = try XCTUnwrap(finder.find(installed: [], control: RecordingLaunchControl()).first)
         let control = RecordingLaunchControl(loaded: ["com.example.agent"])
-        let trasher = FolderTrasher(folder: root + "/Trash")
+        let trasher = TestTrasher(folder: root + "/Trash")
         let cleanup = CleanupService(policy: SafetyPolicy(homePath: home), trasher: trasher, history: nil)
 
         XCTAssertNil(finder.refusal(for: item))
@@ -103,7 +103,7 @@ final class LoginItemsTests: XCTestCase {
         let path = try agent("com.example.stubborn")
         let item = try XCTUnwrap(finder.find(installed: [], control: RecordingLaunchControl()).first)
         let control = RecordingLaunchControl(failing: ["com.example.stubborn"])
-        let trasher = FolderTrasher(folder: root + "/Trash")
+        let trasher = TestTrasher(folder: root + "/Trash")
         let result = finder.turnOff(item, control: control,
                                     cleanup: CleanupService(policy: SafetyPolicy(homePath: home), trasher: trasher, history: nil))
         XCTAssertFalse(result.succeeded)
@@ -113,7 +113,7 @@ final class LoginItemsTests: XCTestCase {
 
     func testRefusesWhatIsNotYourOwnAgent() throws {
         let control = RecordingLaunchControl()
-        let trasher = FolderTrasher(folder: root + "/Trash")
+        let trasher = TestTrasher(folder: root + "/Trash")
         let cleanup = CleanupService(policy: SafetyPolicy(homePath: home), trasher: trasher, history: nil)
 
         let daemonPath = try plist(shared + "/LaunchDaemons/com.vendor.d.plist", ["Label": "com.vendor.d", "Program": "/x"])

@@ -668,3 +668,4 @@
 "~/Library/LaunchAgents · start when you log in. You can turn these off." = "~/Library/LaunchAgents · 在你登录时启动，可以关闭。";
 "/Library/LaunchAgents and LaunchDaemons · changing these needs an administrator." = "/Library/LaunchAgents 和 LaunchDaemons · 更改需要管理员权限。";
 "RoomyDisk stops it and moves %@ to the Trash, so it no longer starts when you log in. Put it back from the Trash to turn it on again. Its app may turn it on again when you open the app." = "RoomyDisk 会停止它并将 %@ 移到废纸篓，这样登录时它就不再启动。从废纸篓放回即可重新开启。打开其应用时，应用可能会再次开启它。";
+"Starts when you log in" = "在你登录时启动";
