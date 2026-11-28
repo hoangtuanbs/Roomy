@@ -137,8 +137,44 @@ private struct UninstallerBrowser: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        @Bindable var un = model.uninstaller
+        VStack(spacing: 0) {
+            Picker("Show", selection: $un.section) {
+                ForEach(UninstallerModel.Section.allCases) { section in
+                    Label(section.label, systemImage: section.symbol).tag(section)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 560)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ZStack {
+                switch un.section {
+                case .apps:
+                    appsBrowser
+                        .transition(.opacity)
+                case .loginItems:
+                    LoginItemsPanel()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .installers:
+                    InstallersPanel()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .updates:
+                    UpdatesPanel()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(Motion.smooth.unless(reduceMotion), value: un.section)
+        }
+        .onChange(of: un.section) { _, section in model.showUninstallerSection(section) }
+    }
+
+    private var appsBrowser: some View {
         let un = model.uninstaller
-        HStack(spacing: 0) {
+        return HStack(spacing: 0) {
             AppGrid()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             if let focus = un.focus {
@@ -483,9 +519,14 @@ private struct AppDetail: View {
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
                     }
+                    if let languages = un.languages {
+                        LanguagesSection(finding: languages, disabled: blocked != nil || un.ticked.contains(app.path))
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
                 }
                 .padding(16)
                 .animation(Motion.spring.unless(reduceMotion), value: un.leftovers.map(\.path))
+                .animation(Motion.spring.unless(reduceMotion), value: un.languages)
                 .animation(Motion.smooth.unless(reduceMotion), value: un.isFindingLeftovers)
             }
 
@@ -544,6 +585,47 @@ private struct AppDetail: View {
     private func color(_ index: Int) -> Color {
         let colors = JunkCategory.allCases.map(\.color)
         return colors[index % colors.count]
+    }
+}
+
+/// Translations for languages you do not use. Removable only from apps that are not signed; for signed apps the
+/// size is shown with why nothing is offered.
+private struct LanguagesSection: View {
+    @Environment(AppModel.self) private var model
+    let finding: LanguageFinding
+    let disabled: Bool
+
+    private static let color = Color(red: 0.36, green: 0.55, blue: 0.95)
+
+    var body: some View {
+        let count = finding.folders.count
+        if finding.canRemove {
+            LeftoverSection(title: String(localized: "Unused languages"), symbol: "globe", color: Self.color,
+                            rows: finding.folders.map {
+                                LeftoverRow(path: $0.path, name: ($0.path as NSString).lastPathComponent, bytes: $0.bytes, needsReview: true)
+                            },
+                            disabled: disabled, subtitle: String(localized: "Not signed, so removing them breaks nothing. Review first."))
+        } else {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "globe").foregroundStyle(Self.color).frame(width: 18)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("Unused languages").font(.headline)
+                        Spacer()
+                        CountingBytes(finding.bytes)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("\(count) \(Plural.word(count, "language", "languages")) you do not use. This app is signed, and removing files from it would break its signature, so macOS could refuse to open it. Shown for information only.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.card))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
+        }
     }
 }
 
@@ -660,7 +742,7 @@ private struct OrphansDetail: View {
                         Text("Leftovers of removed apps").font(.title3.weight(.semibold))
                         Badge(text: "Review first", color: .orange)
                     }
-                    Text("Library items named after apps that are not installed in Applications. Some may belong to tools, helpers or apps kept elsewhere, so nothing is ticked.")
+                    Text("Library items named after apps that are no longer installed. Only items named exactly by an app that was removed are ticked; review the others first.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -692,12 +774,13 @@ private struct OrphansDetail: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 8) {
-                            ForEach(un.orphans) { group in
+                            ForEach(Array(un.orphans.enumerated()), id: \.element.id) { index, group in
                                 OrphanCard(group: group, isExpanded: expanded.contains(group.id)) {
                                     withAnimation(Motion.spring.unless(reduceMotion)) {
                                         if expanded.contains(group.id) { expanded.remove(group.id) } else { expanded.insert(group.id) }
                                     }
                                 }
+                                .entrance(index: min(index, 12), offset: 8)
                                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             }
                         }
@@ -765,11 +848,20 @@ private struct OrphanCard: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(group.bundleID).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
-                    Text(Set(group.items.map(\.kind.title)).sorted().joined(separator: ", "))
+                    HStack(spacing: 6) {
+                        if let name = group.appName {
+                            Text(name).font(.callout.weight(.medium)).lineLimit(1)
+                        } else {
+                            Text(group.bundleID).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
+                        }
+                        ConfidenceBadge(confidence: group.confidence)
+                    }
+                    Text((group.appName == nil ? "" : group.bundleID + " · ")
+                         + Set(group.items.map(\.kind.title)).sorted().joined(separator: ", "))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 Spacer(minLength: 6)
                 Text(group.bytes.bytes).font(.callout.weight(.semibold)).monospacedDigit()
@@ -792,6 +884,9 @@ private struct OrphanCard: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(item.name).lineLimit(1).truncationMode(.middle)
                                 Text("~/Library/" + item.kind.folder).font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            if let confidence = item.confidence, confidence != group.confidence {
+                                ConfidenceBadge(confidence: confidence)
                             }
                             Spacer(minLength: 6)
                             Text(item.bytes.bytes).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -818,6 +913,30 @@ private struct OrphanCard: View {
                 .strokeBorder(state == .none ? Color.primary.opacity(0.06) : Self.color.opacity(0.5), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+/// How sure RoomyDisk is that an item belonged to a removed app, as a small coloured capsule.
+struct ConfidenceBadge: View {
+    let confidence: OrphanConfidence
+
+    var body: some View {
+        Text(confidence.title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(color.opacity(0.15)))
+            .help(confidence.explanation)
+            .accessibilityLabel(confidence.explanation)
+    }
+
+    private var color: Color {
+        switch confidence {
+        case .high: return .green
+        case .medium: return .orange
+        case .low: return .secondary
+        }
     }
 }
 

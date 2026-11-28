@@ -184,6 +184,12 @@ struct ItemRow: View {
                         if flags.contains(.otherVolume) {
                             Text("other disk").font(.caption2).foregroundStyle(.tertiary)
                         }
+                        if flags.contains(.unavailable) {
+                            Text(CloudGuard.unavailableNote(for: tree.path(of: node)))
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .lineLimit(1)
+                        }
                         if flags.contains(.dataless) {
                             Image(systemName: "icloud")
                                 .font(.caption2)

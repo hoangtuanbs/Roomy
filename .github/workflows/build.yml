@@ -151,8 +151,8 @@ jobs:
           wait "$pid" || { echo "::error::RoomyDisk exited with an error during the tour"; exit 1; }
           ls -l "$out"
           count=$(ls "$out"/*.png 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$count" -lt 15 ]; then
-            echo "::error::Expected 15 screenshots, got $count (is there a window session on this runner?)"
+          if [ "$count" -lt 18 ]; then
+            echo "::error::Expected 18 screenshots, got $count (is there a window session on this runner?)"
             exit 1
           fi
 

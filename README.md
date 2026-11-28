@@ -19,6 +19,10 @@ A macOS app that shows what is using space on your disk and helps you free it up
   They show a small cloud icon; hover or select one to see its size in the cloud. Cloud-only folders are not opened,
   so a scan never makes macOS download anything. They cannot go to the tray, Duplicates and Similar photos never read
   them, and a folder that holds some says so in the review, since moving them to the Trash frees nothing here.
+  A cloud drive whose app is not running (such as Google Drive after you quit it) can make macOS wait forever when
+  its folder is opened. RoomyDisk reads the folders in `~/Library/CloudStorage` on a thread of their own and gives up
+  after 4 seconds: the drive shows as "Not available (Google Drive isn't running)" with 0 bytes, and the scan, Cloud
+  Space and the other tools carry on without it.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
@@ -62,7 +66,8 @@ A macOS app that shows what is using space on your disk and helps you free it up
   waste first, with thumbnails; one copy is kept (the oldest one with the plainest path, not one in Downloads or the
   Trash or named like "photo copy.jpg"), and you can pick another with its **Keep** button. **Move Duplicates to
   Trash** moves the rest to the Trash, never every copy.
-- **Uninstaller** (below Duplicates in the sidebar, the toolbar, or ⇧⌘U) lists the apps in `/Applications` and
+- **Uninstaller** (below Duplicates in the sidebar, the toolbar, or ⇧⌘U) has four tabs: Apps, Login Items,
+  Installers and Updates. **Apps** lists the apps in `/Applications` and
   `~/Applications` with their icons, sizes and when you last used them; search them and sort by size, name or last
   use. Choose an app to see its bundle and the files it left in your Library, grouped (app data, caches, settings,
   saved window state, sandbox and shared containers, web storage, WebKit data, cookies, logs and launch agents).
@@ -71,8 +76,45 @@ A macOS app that shows what is using space on your disk and helps you free it up
   may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
   items to the Trash. Apps of macOS are not listed, and an app
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
-  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
-  no longer installed. They are guesses, so nothing there is ticked until you review it.
+  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items (app data, caches,
+  settings, containers, shared containers, saved window state, web storage, WebKit data, logs and launch agents) named
+  after apps that are no longer installed: not in `/Applications`, `~/Applications` or `/System/Applications`, not open,
+  and unknown to Launch Services. Each gets a confidence. **Sure**: named exactly by the identifier of an app known to be
+  gone (one in the Trash, one that left saved windows, or one whose installer receipt remains). **Likely**: named by
+  that app's name or a related identifier, or a shared container of it. **Unsure**: any other identifier no installed
+  app owns. Only Sure items start ticked. Items of macOS, names shared by many apps, launch agents whose program is
+  still there and anything the safety rules block are never listed.
+- **Uninstall with RoomyDisk** in Finder: right-click an app and choose Services › Uninstall with RoomyDisk (the
+  first time, you may need to turn it on in System Settings › Keyboard › Keyboard Shortcuts › Services). The
+  Uninstaller opens with that app chosen, even one outside the Applications folders; nothing is removed until you
+  press Uninstall.
+- **Login Items** (the Uninstaller's second tab, or ⌥⌘L) lists what starts with your Mac: your own launch agents in
+  `~/Library/LaunchAgents`, the agents and daemons for all users in `/Library/LaunchAgents` and `/Library/LaunchDaemons`,
+  and the helpers apps carry and turn on themselves (`Contents/Library/LoginItems`, `LaunchAgents` and `LaunchDaemons`
+  inside an app). Each shows its app, whether it is running and the program it starts ("Program missing" when that is
+  gone). **Turn Off** works only for your own agents: after you confirm, RoomyDisk asks launchd to stop it
+  (`launchctl bootout gui/<your user id>/<label>`, no admin rights) and moves its plist to the Trash, so Put Back turns
+  it on again. Apple's agents are never offered. Items for all users need an administrator and app helpers are managed
+  by their apps, so for those RoomyDisk offers **Open Login Items Settings** (System Settings › General › Login Items)
+  instead.
+- **Installers** (the Uninstaller's third tab) reads the receipts Installer keeps (`pkgutil --pkgs` and `--files`,
+  no admin rights) and lists packages of other makers whose app is gone, with the files they left. Only items the
+  package alone lists, outside shared folders such as `/Library/Application Support` or `/usr/local/bin`, are shown,
+  and only those you can change without an administrator can be ticked; the others are counted and left alone, and
+  so are the receipts themselves. Nothing starts ticked. The removed apps' names also help **Leftovers of removed
+  apps** find their Library folders.
+- **Updates** (the Uninstaller's fourth tab) lists apps that update with Sparkle (an `SUFeedURL` in their
+  Info.plist) and apps from the Mac App Store (`Contents/_MASReceipt`). Only when you press **Check for Updates** does
+  RoomyDisk download each app's update feed and compare its newest version (one that runs on your macOS, betas left
+  out) with the installed one, the way Sparkle does. An app with a newer version shows **Update available** with
+  **Open App** (so the app updates itself), **Download** (the update in your browser) and **Release Notes**; App
+  Store apps get **Open in App Store**. RoomyDisk never downloads or installs an update itself.
+- **Unused languages**: choosing an app shows the translations it carries for languages you do not use
+  (`Contents/Resources/*.lproj`; your languages, its own language, English and Base are always kept). Removing files
+  from a signed app breaks its code signature (checked with `SecStaticCodeCheckValidity`), after which macOS may refuse
+  to open it or it may lose its permissions, so for signed apps, which is nearly all of them, the size is shown for
+  information only. Only apps that are not signed at all offer their unused languages, unticked. Apps of macOS and apps
+  signed by Apple are never touched.
 - **Space Hunters** (below the Uninstaller in the sidebar, the toolbar, or ⇧⌘H) hunts for big things you may have
   forgotten, each on its own card with a total that counts up:
   - **iPhone & iPad backups** in `~/Library/Application Support/MobileSync/Backup`, with the device's name, model,

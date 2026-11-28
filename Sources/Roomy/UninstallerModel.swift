@@ -23,6 +23,24 @@ final class UninstallerModel {
         var label: String { NSLocalizedString(rawValue, comment: "") }
     }
 
+    /// The tabs of the Uninstaller.
+    enum Section: String, CaseIterable, Identifiable {
+        case apps = "Apps"
+        case loginItems = "Login Items"
+        case installers = "Installers"
+        case updates = "Updates"
+        var id: String { rawValue }
+        var label: String { NSLocalizedString(rawValue, comment: "") }
+        var symbol: String {
+            switch self {
+            case .apps: return "square.grid.2x2"
+            case .loginItems: return "power"
+            case .installers: return "shippingbox"
+            case .updates: return "arrow.triangle.2.circlepath"
+            }
+        }
+    }
+
     /// What the detail panel shows.
     enum Focus: Equatable {
         case app(String)
@@ -34,13 +52,18 @@ final class UninstallerModel {
     private(set) var apps: [InstalledApp] = []
     /// Every bundle found, Apple's too, so their files never count as leftovers.
     @ObservationIgnored private var allApps: [InstalledApp] = []
+    /// The apps of macOS in /System/Applications: never listed, but their files are theirs.
+    @ObservationIgnored private var ownerApps: [InstalledApp] = []
     private(set) var measured: Set<String> = []
     var searchText = ""
     var sort: SortOrder = .size
     var focus: Focus?
+    var section: Section = .apps
 
     private(set) var leftovers: [Leftover] = []
     private(set) var isFindingLeftovers = false
+    /// The chosen app's translations for languages you do not use.
+    private(set) var languages: LanguageFinding?
     var ticked: Set<String> = []
 
     private(set) var orphans: [OrphanGroup] = []
@@ -63,9 +86,13 @@ final class UninstallerModel {
     @ObservationIgnored var onRemoved: (([String]) -> Void)?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var detailTask: Task<Void, Never>?
-    @ObservationIgnored private let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
+    @ObservationIgnored let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
+    @ObservationIgnored let languageFinder = LanguageFinder(checker: AppEnvironment.signatureChecker, policy: AppEnvironment.policy)
 
     var isBusy: Bool { phase == .loading || phase == .removing }
+
+    /// Every app found in the app folders, Apple's too.
+    var installedApps: [InstalledApp] { allApps }
 
     var selectedApp: InstalledApp? {
         guard case .app(let path) = focus else { return nil }
@@ -103,16 +130,22 @@ final class UninstallerModel {
     var totalAppBytes: Int64 { apps.reduce(0) { $0 + $1.bytes } }
     var leftoverBytes: Int64 { leftovers.reduce(0) { $0 + $1.bytes } }
 
-    /// What Uninstall would move to the Trash, with sizes.
+    /// Unused language folders that can be removed: only those of apps that are not signed.
+    var removableLanguages: [ReceiptFile] { languages.map { $0.canRemove ? $0.folders : [] } ?? [] }
+
+    /// What Uninstall would move to the Trash, with sizes. Language folders inside a ticked app count with the app.
     var tickedBytes: Int64 {
         guard let app = selectedApp else { return 0 }
-        let bundle = ticked.contains(app.path) ? app.bytes : 0
-        return bundle + leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
+        if ticked.contains(app.path) { return app.bytes + leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes } }
+        return leftovers.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
+            + removableLanguages.filter { ticked.contains($0.path) }.reduce(0) { $0 + $1.bytes }
     }
 
     var tickedCount: Int {
         guard let app = selectedApp else { return 0 }
-        return (ticked.contains(app.path) ? 1 : 0) + leftovers.filter { ticked.contains($0.path) }.count
+        let rest = leftovers.filter { ticked.contains($0.path) }.count
+        if ticked.contains(app.path) { return 1 + rest }
+        return rest + removableLanguages.filter { ticked.contains($0.path) }.count
     }
 
     var orphanBytes: Int64 { orphans.reduce(0) { $0 + $1.bytes } }
@@ -144,12 +177,14 @@ final class UninstallerModel {
 
         let uninstaller = uninstaller
         loadTask = Task {
-            let list = await Task.detached { uninstaller.listApps() }.value
+            let (list, owners) = await Task.detached { (uninstaller.listApps(), uninstaller.listOwnerApps()) }.value
             guard !Task.isCancelled else { return }
             self.allApps = list
+            self.ownerApps = owners
             self.apps = list.filter { !$0.isApple && !$0.path.hasPrefix("/System/") }
             self.measured = []
             self.phase = .ready
+            self.choosePending()
             await self.measureApps()
         }
     }
@@ -198,6 +233,7 @@ final class UninstallerModel {
         focus = .app(app.path)
         isFindingOrphans = false
         leftovers = []
+        languages = nil
         refreshRunning()
         ticked = blockReason(for: app) == nil ? [app.path] : []
         isFindingLeftovers = true
@@ -213,10 +249,46 @@ final class UninstallerModel {
             // Items matched only through a dotted child id may belong to another app, so they start unticked.
             if self.blockReason(for: app) == nil { self.ticked.formUnion(found.filter { !$0.needsReview }.map(\.path)) }
             self.isFindingLeftovers = false
+            // Unused languages are measured last; they are only ever offered unticked.
+            let finder = self.languageFinder
+            let languages = await Task.detached { finder.find(app: app).map(LanguageFinder.measure) }.value
+            guard !Task.isCancelled, self.focus == .app(app.path) else { return }
+            self.languages = languages
         }
     }
 
-    /// Shows the leftovers of apps that are gone. Nothing is ticked: they are guesses to review.
+    /// The app the Finder service asked for, chosen once the list is read.
+    @ObservationIgnored private var pendingPath: String?
+
+    /// Chooses the app at `path` once the apps are listed.
+    func choose(path: String) {
+        pendingPath = Self.standardize(path)
+        section = .apps
+        if phase == .ready { choosePending() }
+    }
+
+    private func choosePending() {
+        guard let path = pendingPath, phase == .ready else { return }
+        pendingPath = nil
+        if apps.first(where: { $0.path == path }) == nil, let app = AppUninstaller.readApp(at: path) {
+            // An app outside the app folders: listed so it can be chosen. Apps of macOS stay out, as in the list.
+            guard !app.isApple, !app.path.hasPrefix("/System/") else { return }
+            apps.append(app)
+            allApps.append(app)
+            Task { [weak self] in
+                let bytes = await Self.size(of: path)
+                guard let self else { return }
+                if let i = self.apps.firstIndex(where: { $0.path == path }) { self.apps[i].bytes = bytes }
+                self.measured.insert(path)
+            }
+        }
+        if let app = apps.first(where: { $0.path == path }) {
+            focus = nil
+            select(app)
+        }
+    }
+
+    /// Shows the leftovers of apps that are gone. Only items named exactly by an app known to be gone start ticked.
     func showOrphans() {
         guard phase == .ready else { return }
         detailTask?.cancel()
@@ -227,23 +299,42 @@ final class UninstallerModel {
         refreshRunning()
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         let uninstaller = uninstaller
-        let installed = allApps
+        let installed = allApps + ownerApps
+        let extraRemoved = removedByReceipts
         detailTask = Task {
             let groups = await Task.detached { () -> [OrphanGroup] in
-                let found = uninstaller.orphans(installed: installed, knownIDs: running)
+                let removed = uninstaller.removedApps() + extraRemoved
+                let found = uninstaller.orphans(installed: installed, knownIDs: running, removed: removed,
+                                                isRegistered: { Self.isRegistered($0) })
                 let measured = await AppUninstaller.measure(found.flatMap(\.items))
                 let byPath = Dictionary(measured.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
                 return found.map { group in
-                    OrphanGroup(bundleID: group.bundleID,
+                    OrphanGroup(bundleID: group.bundleID, appName: group.appName,
                                 items: group.items.compactMap { byPath[$0.path] }.sorted { $0.bytes > $1.bytes })
                 }
-                .sorted { $0.bytes != $1.bytes ? $0.bytes > $1.bytes : $0.bundleID < $1.bundleID }
+                // Surest first, then largest.
+                .sorted { a, b in
+                    if a.confidence != b.confidence { return a.confidence > b.confidence }
+                    return a.bytes != b.bytes ? a.bytes > b.bytes : a.bundleID < b.bundleID
+                }
             }.value
             guard !Task.isCancelled else { return }
             self.orphans = groups
+            // Only items named exactly by an app that is gone start ticked.
+            self.orphanTicked = Set(groups.flatMap(\.items).filter { $0.confidence == .high }.map(\.path))
             self.orphansLoaded = true
             self.isFindingOrphans = false
         }
+    }
+
+    /// Apps whose installer receipt remains though the app is gone, from the Installers tab.
+    @ObservationIgnored var removedByReceipts: [RemovedApp] = []
+
+    /// True when Launch Services knows an app with this identifier that is still on the Mac (not in the Trash).
+    nonisolated static func isRegistered(_ bundleID: String) -> Bool {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return false }
+        let path = url.path
+        return !path.contains("/.Trash/") && FileManager.default.fileExists(atPath: path)
     }
 
     func closeDetail() {
@@ -288,8 +379,11 @@ final class UninstallerModel {
         }
         var sizes: [String: Int64] = [app.path: app.bytes]
         for item in leftovers { sizes[item.path] = item.bytes }
+        for folder in removableLanguages { sizes[folder.path] = folder.bytes }
+        let languagePaths = ticked.contains(app.path) ? [] : removableLanguages.map(\.path).filter { ticked.contains($0) }
         // Leftovers first, so the app is still there if something goes wrong on the way.
-        let paths = leftovers.map(\.path).filter { ticked.contains($0) } + (ticked.contains(app.path) ? [app.path] : [])
+        let paths = leftovers.map(\.path).filter { ticked.contains($0) } + languagePaths
+            + (ticked.contains(app.path) ? [app.path] : [])
         start(paths: paths, sizes: sizes, app: app)
     }
 
@@ -298,6 +392,13 @@ final class UninstallerModel {
         guard phase == .ready else { return }
         let items = orphanTickedItems
         start(paths: items.map(\.path), sizes: Dictionary(items.map { ($0.path, $0.bytes) }, uniquingKeysWith: { a, _ in a }), app: nil)
+    }
+
+    /// Moves files found by another tab (such as an installer's leftovers) to the Trash, with the same progress
+    /// ring and result as an uninstall.
+    func removeFiles(_ paths: [String], sizes: [String: Int64]) {
+        guard phase == .ready else { return }
+        start(paths: paths, sizes: sizes, app: nil)
     }
 
     private func start(paths: [String], sizes: [String: Int64], app: InstalledApp?) {
@@ -349,10 +450,14 @@ final class UninstallerModel {
         apps.removeAll { removed.contains($0.path) }
         allApps.removeAll { removed.contains($0.path) }
         leftovers.removeAll { removed.contains($0.path) }
+        if var found = languages {
+            found.folders.removeAll { removed.contains($0.path) }
+            languages = found.folders.isEmpty ? nil : found
+        }
         ticked.subtract(removed)
         orphans = orphans.compactMap { group in
             let left = group.items.filter { !removed.contains($0.path) }
-            return left.isEmpty ? nil : OrphanGroup(bundleID: group.bundleID, items: left)
+            return left.isEmpty ? nil : OrphanGroup(bundleID: group.bundleID, appName: group.appName, items: left)
         }
         orphanTicked.subtract(removed)
         if let app = removingApp, removed.contains(app.path) {

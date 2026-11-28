@@ -36,8 +36,10 @@ struct RoomyApp: App {
                     .keyboardShortcut("k", modifiers: [.command, .shift])
                 Button("Find Duplicates…") { model.openDuplicates() }
                     .keyboardShortcut("d", modifiers: [.command, .shift])
-                Button("Uninstall Apps…") { model.openUninstaller() }
+                Button("Uninstall Apps…") { model.openUninstaller(section: .apps) }
                     .keyboardShortcut("u", modifiers: [.command, .shift])
+                Button("Login Items…") { model.openUninstaller(section: .loginItems) }
+                    .keyboardShortcut("l", modifiers: [.command, .option])
                 Button("Space Hunters…") { model.openSpaceHunters() }
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Free Up Cloud Space…") { model.openCloudSpace() }
@@ -102,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         NSApplication.shared.activate(ignoringOtherApps: true)
         MainActor.assumeIsolated { _ = AppUpdater.shared }
         UNUserNotificationCenter.current().delegate = self
+        MainActor.assumeIsolated { UninstallService.register() }
     }
 
     // Keep running with the menu bar icon after the last window closes.

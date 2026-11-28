@@ -210,8 +210,101 @@ final class AppUninstallerTests: XCTestCase {
         XCTAssertEqual(orphans.map(\.bundleID), ["com.example.gone"])
         XCTAssertEqual(names(orphans[0].items), [
             "Caches/com.example.gone", "Preferences/com.example.gone.plist",
-            "Saved Application State/com.example.gone.savedState",
+            "Saved Application State/com.example.gone.savedState", "Group Containers/ABCDE12345.com.example.gone",
         ])
+        // It left saved windows, so it was an app: its own items are sure, its shared container only likely.
+        let byName = Dictionary(orphans[0].items.map { ($0.name, $0.confidence) }, uniquingKeysWith: { a, _ in a })
+        XCTAssertEqual(byName["com.example.gone"], .high)
+        XCTAssertEqual(byName["com.example.gone.plist"], .high)
+        XCTAssertEqual(byName["ABCDE12345.com.example.gone"], .medium)
+        XCTAssertEqual(orphans[0].confidence, .high)
+    }
+
+    private func makeTrashedApp(_ name: String, id: String) throws {
+        try makeApp(name, id: id, folder: home + "/.Trash")
+    }
+
+    func testAnAppInTheTrashGivesSureAndLikelyLeftovers() throws {
+        try makeTrashedApp("Gone App", id: "com.example.trashed")
+        try library("Application Support/com.example.trashed")
+        try library("Caches/Gone App")
+        try library("Caches/com.example.trashed.helper")
+        try library("Preferences/com.example.unknown.plist")
+        try library("Group Containers/group.com.example.unknown")
+        try library("Logs/Unrelated Name")
+
+        let orphans = uninstaller.orphans(installed: uninstaller.listApps())
+        XCTAssertEqual(orphans.map(\.bundleID), ["com.example.trashed", "com.example.unknown"], "surest first")
+        let trashed = orphans[0]
+        XCTAssertEqual(trashed.appName, "Gone App")
+        let byName = Dictionary(trashed.items.map { ($0.name, $0.confidence) }, uniquingKeysWith: { a, _ in a })
+        XCTAssertEqual(byName, ["com.example.trashed": .high, "Gone App": .medium, "com.example.trashed.helper": .medium])
+        XCTAssertEqual(orphans[1].items.map(\.name), ["com.example.unknown.plist"],
+                       "a shared container of an app not known to be gone is left out")
+        XCTAssertEqual(orphans[1].confidence, .low)
+    }
+
+    func testANameMatchNeedsTheNameToBeFree() throws {
+        try makeTrashedApp("Notes Pro", id: "com.example.notespro")
+        try makeApp("Notes Pro", id: "com.other.notespro")
+        try library("Application Support/Notes Pro")
+        let orphans = uninstaller.orphans(installed: uninstaller.listApps())
+        XCTAssertTrue(orphans.flatMap(\.items).isEmpty, "an installed app uses that name: \(orphans)")
+    }
+
+    func testAppsLaunchServicesStillKnowsAreInstalled() throws {
+        try library("Caches/com.example.elsewhere")
+        try library("Caches/com.example.forgotten")
+        let orphans = uninstaller.orphans(installed: [], isRegistered: { $0 == "com.example.elsewhere" })
+        XCTAssertEqual(orphans.map(\.bundleID), ["com.example.forgotten"])
+    }
+
+    func testAppsOfMacOSOwnTheirFiles() throws {
+        let system = (home as NSString).deletingLastPathComponent + "/System Applications"
+        try fm.createDirectory(atPath: system, withIntermediateDirectories: true)
+        try makeApp("Maker Tool", id: "com.maker.tool", folder: system)
+        try library("Caches/com.maker.tool")
+        try library("Caches/com.apple.Notes")
+        try library("Saved Application State/com.apple.Notes.savedState")
+        let finder = AppUninstaller(homePath: home, appFolders: [apps], ownerFolders: [system])
+        XCTAssertEqual(finder.listApps().count, 0, "apps of the owner folders are not listed")
+        let orphans = finder.orphans(installed: finder.listApps() + finder.listOwnerApps())
+        XCTAssertTrue(orphans.isEmpty, "\(orphans)")
+    }
+
+    func testLaunchAgentsWhoseProgramIsThereAreKept() throws {
+        let tool = (home as NSString).deletingLastPathComponent + "/tool"
+        try Data(count: 10).write(to: URL(fileURLWithPath: tool))
+        for (label, program) in [("com.example.alive", tool), ("com.example.dead", "/nonexistent/tool")] {
+            let data = try PropertyListSerialization.data(fromPropertyList: ["Label": label, "Program": program],
+                                                          format: .xml, options: 0)
+            try fm.createDirectory(atPath: home + "/Library/LaunchAgents", withIntermediateDirectories: true)
+            try data.write(to: URL(fileURLWithPath: home + "/Library/LaunchAgents/\(label).plist"))
+        }
+        let orphans = uninstaller.orphans(installed: [])
+        XCTAssertEqual(orphans.map(\.bundleID), ["com.example.dead"])
+    }
+
+    func testNothingOfMacOSIsOffered() throws {
+        try library("Caches/com.apple.Safari")
+        try library("Group Containers/group.com.apple.notes")
+        try library("Containers/com.apple.mail")
+        try library("Group Containers/systemgroup.com.apple.x")
+        let orphans = uninstaller.orphans(installed: [], removed: [RemovedApp(bundleID: "com.apple.Safari", name: "Safari")])
+        XCTAssertTrue(orphans.isEmpty, "\(orphans)")
+    }
+
+    func testTheFinderServiceTakesOnlyAppBundles() throws {
+        let app = try makeApp("Picked", id: "com.example.picked")
+        let fake = apps + "/Fake.app"
+        try Data(count: 10).write(to: URL(fileURLWithPath: fake))
+        let empty = apps + "/Empty.app"
+        try fm.createDirectory(atPath: empty, withIntermediateDirectories: true)
+        let film = home + "/film.mov"
+        try Data(count: 10).write(to: URL(fileURLWithPath: film))
+        XCTAssertEqual(AppUninstaller.appBundle(among: [film, fake, empty, app + "/"]), app)
+        XCTAssertNil(AppUninstaller.appBundle(among: [film, fake, empty]))
+        XCTAssertNil(AppUninstaller.appBundle(among: []))
     }
 
     func testBundleIDShapes() {

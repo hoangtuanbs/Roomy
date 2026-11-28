@@ -26,6 +26,47 @@ enum AppEnvironment {
     /// Where the Uninstaller looks for apps; nil for the usual app folders.
     static let appFolders: [String]? = flowSandbox.map { _ in [home + "/Applications"] }
 
+    /// The folder with the shared LaunchAgents and LaunchDaemons: `/Library`, or `<sandbox>/system/Library`.
+    static let sharedLibrary: String = flowSandbox.map { $0 + "/system/Library" } ?? "/Library"
+    /// Asks launchd about jobs. The flow test uses a stand-in, so launchctl is never run there.
+    static let launchControl: any LaunchControlling = flowSandbox == nil
+        ? SystemLaunchControl() : RecordingLaunchControl(loaded: ["io.github.roomy.flowagent"])
+
+    /// Reads installer receipts. The flow test uses a made-up package in its sandbox, so pkgutil is never run there.
+    static let packageDatabase: any PackageDatabase = flowSandbox.map { sandbox in
+        StaticPackageDatabase([(PackageInfo(id: "io.github.roomy.flowpkg", version: "2.0", volume: sandbox + "/system"), [
+            "Applications", "Applications/Flow Tool.app", "Applications/Flow Tool.app/Contents", "Library",
+            "Library/Application Support", "Library/Application Support/FlowTool",
+            "Library/Application Support/FlowTool/engine.bin", "usr", "usr/local", "usr/local/bin", "usr/local/bin/flowtool",
+        ])])
+    } ?? SystemPackageDatabase()
+    /// Checks code signatures. The flow test's made-up apps are not signed.
+    static let signatureChecker: any SignatureChecking = flowSandbox == nil
+        ? SystemSignatureChecker() : FixedSignatureChecker(.unsigned)
+
+    /// Downloads app update feeds. The flow test answers from a made-up feed, so it never goes to the network.
+    static let appcastFetcher: any AppcastFetching = flowSandbox == nil
+        ? URLSessionAppcastFetcher() : FixedAppcastFetcher([flowFeedURL: Data(flowFeed.utf8)])
+    static let flowFeedURL = "https://updates.example.invalid/feedy/appcast.xml"
+    static let flowFeed = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+          <channel>
+            <item>
+              <title>Feedy 1.2</title>
+              <sparkle:releaseNotesLink>https://updates.example.invalid/feedy/1.2.html</sparkle:releaseNotesLink>
+              <enclosure url="https://updates.example.invalid/feedy/Feedy-1.2.zip" sparkle:version="120"
+                         sparkle:shortVersionString="1.2" length="1000" type="application/octet-stream"/>
+            </item>
+            <item>
+              <title>Feedy 1.1</title>
+              <enclosure url="https://updates.example.invalid/feedy/Feedy-1.1.zip" sparkle:version="110"
+                         sparkle:shortVersionString="1.1" length="1000" type="application/octet-stream"/>
+            </item>
+          </channel>
+        </rss>
+        """
+
     /// Moves items to the Trash under these rules, and notes each clean in the history.
     static func cleanupService() -> CleanupService {
         CleanupService(policy: policy, history: history)

@@ -531,6 +531,12 @@ struct HoverCaption: View {
                     IconTile(symbol: category.symbol, gradient: .tile(category.color), size: 18)
                     Text(tree.name(node)).fontWeight(.medium).lineLimit(1)
                     Text(tree.size(node).bytes).foregroundStyle(.secondary).monospacedDigit()
+                    if tree.flags(node).contains(.unavailable) {
+                        Label(CloudGuard.unavailableNote(for: tree.path(of: node)), systemImage: "icloud.slash")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    }
                     if tree.flags(node).contains(.dataless) {
                         Label(SpaceNotes.cloudCaption(node, in: tree), systemImage: "icloud")
                             .foregroundStyle(.secondary)

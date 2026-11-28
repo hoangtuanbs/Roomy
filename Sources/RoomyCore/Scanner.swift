@@ -17,19 +17,23 @@ public struct ScanOptions: Sendable {
     public var progressInterval: Duration
     /// Asks APFS which files are clones, so their shared blocks are counted once.
     public var detectClones: Bool
+    /// Reads the folders. Cloud folders whose app does not answer are given up on after a short wait.
+    public var reader: FolderReader
 
     public init(
         maxConcurrentReads: Int = max(4, ProcessInfo.processInfo.activeProcessorCount * 2),
         stayOnVolume: Bool = true,
         excludedPaths: Set<String> = [],
         progressInterval: Duration = .milliseconds(100),
-        detectClones: Bool = true
+        detectClones: Bool = true,
+        reader: FolderReader = .standard
     ) {
         self.maxConcurrentReads = maxConcurrentReads
         self.stayOnVolume = stayOnVolume
         self.excludedPaths = excludedPaths
         self.progressInterval = progressInterval
         self.detectClones = detectClones
+        self.reader = reader
     }
 }
 
@@ -78,6 +82,7 @@ public struct DiskScanner: Sendable {
         var counter = SpaceCounter(cloneFamilies: cloneFamilies)
         let maxReads = max(1, options.maxConcurrentReads)
         let clones = options.detectClones
+        let reader = options.reader
 
         try await withThrowingTaskGroup(of: Listing.self) { group in
             var pending: [(ScanTree.Index, String)] = [(ScanTree.root, root)]
@@ -86,7 +91,7 @@ public struct DiskScanner: Sendable {
             while true {
                 while running < maxReads, let (node, path) = pending.popLast() {
                     group.addTask {
-                        Listing(node: node, path: path, entries: DirectoryReader.list(path: path, clones: clones))
+                        Listing(node: node, path: path, outcome: reader.list(path, clones: clones))
                     }
                     running += 1
                 }
@@ -94,8 +99,15 @@ public struct DiskScanner: Sendable {
                 running -= 1
                 try Task.checkCancellation()
 
-                guard let entries = listing.entries else {
+                let entries: [RawEntry]
+                switch listing.outcome {
+                case .entries(let listed): entries = listed
+                case .unreadable:
                     tree.insertFlags(.inaccessible, at: listing.node)
+                    continue
+                case .unavailable:
+                    // A cloud drive whose app is not running: nothing of it is counted, and the scan goes on.
+                    tree.insertFlags(.unavailable, at: listing.node)
                     continue
                 }
                 stats.directories += 1
@@ -155,7 +167,7 @@ public struct DiskScanner: Sendable {
 private struct Listing: Sendable {
     let node: ScanTree.Index
     let path: String
-    let entries: [RawEntry]?
+    let outcome: GuardedListing
 }
 
 struct InodeKey: Hashable {

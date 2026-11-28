@@ -83,7 +83,7 @@ public struct CloudLocations: Sendable {
     public func providers() -> [CloudProvider] {
         var found: [CloudProvider] = []
         if Self.isDirectory(mobileDocuments + "/" + Self.iCloudDriveFolder) { found.append(iCloud) }
-        if let entries = DirectoryReader.list(path: cloudStorage) {
+        if let entries = FolderReader.standard.entries(cloudStorage) {
             for entry in entries.sorted(by: { $0.name < $1.name }) where entry.kind == .directory {
                 if let provider = Self.provider(folderName: entry.name, rootPath: DiskScanner.join(cloudStorage, entry.name)) {
                     found.append(provider)
@@ -319,10 +319,13 @@ public struct CloudSpaceFinder: Sendable {
         public var providers: [CloudProviderFindings] = []
         /// True when a provider had more files than are checked, so some were not looked at.
         public var capped = false
+        /// Cloud drives whose app did not answer (it is not running), so they were not read.
+        public var unavailable: [CloudProvider] = []
 
-        public init(providers: [CloudProviderFindings] = [], capped: Bool = false) {
+        public init(providers: [CloudProviderFindings] = [], capped: Bool = false, unavailable: [CloudProvider] = []) {
             self.providers = providers
             self.capped = capped
+            self.unavailable = unavailable
         }
 
         public var evictableBytes: Int64 { providers.reduce(0) { $0 + $1.evictableBytes } }
@@ -339,19 +342,25 @@ public struct CloudSpaceFinder: Sendable {
     public let providers: [CloudProvider]
     public var status: any CloudStatusReading
     public var fileLimit: Int
+    /// Reads the provider's own folder with a time limit, since a cloud app that is not running never answers.
+    public var reader: FolderReader
 
     public init(providers: [CloudProvider], status: any CloudStatusReading = SystemCloudStatus(),
-                fileLimit: Int = CloudSpaceFinder.fileLimit) {
+                fileLimit: Int = CloudSpaceFinder.fileLimit, reader: FolderReader = .standard) {
         self.providers = providers
         self.status = status
         self.fileLimit = fileLimit
+        self.reader = reader
     }
 
     public func find(progress: (@Sendable (Progress) -> Void)? = nil) -> Findings {
         var findings = Findings()
         for provider in providers {
             if Task.isCancelled { break }
-            let (items, capped) = walk(provider, progress: progress)
+            guard let (items, capped) = walk(provider, progress: progress) else {
+                findings.unavailable.append(provider)
+                continue
+            }
             findings.capped = findings.capped || capped
             let groups = Self.group(items, in: provider)
             if !groups.isEmpty { findings.providers.append(CloudProviderFindings(provider: provider, groups: groups)) }
@@ -382,13 +391,26 @@ public struct CloudSpaceFinder: Sendable {
     }
 
     /// Lists the files with a local copy. Files that take no space are skipped without asking for their status.
-    private func walk(_ provider: CloudProvider, progress: (@Sendable (Progress) -> Void)?) -> ([CloudItem], Bool) {
+    /// Nil when the provider's folder did not answer in time.
+    private func walk(_ provider: CloudProvider, progress: (@Sendable (Progress) -> Void)?) -> ([CloudItem], Bool)? {
         var items: [CloudItem] = []
         var checked = 0
         var stack = [provider.rootPath]
+        var first = true
         while let dir = stack.popLast() {
             if Task.isCancelled { break }
-            guard let entries = DirectoryReader.list(path: dir) else { continue }
+            let listing: [RawEntry]?
+            if first {
+                first = false
+                switch reader.list(dir) {
+                case .entries(let entries): listing = entries
+                case .unreadable: listing = nil
+                case .unavailable: return nil
+                }
+            } else {
+                listing = DirectoryReader.list(path: dir)
+            }
+            guard let entries = listing else { continue }
             for entry in entries where !entry.name.hasPrefix(".") {
                 let path = DiskScanner.join(dir, entry.name)
                 switch entry.kind {

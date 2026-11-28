@@ -67,6 +67,7 @@ final class FlowTest {
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         await run("scan") { try await self.scanScenario() }
+        await run("stuck-cloud-drive") { try await self.stuckCloudScenario() }
         await run("scan-cache") { try await self.scanCacheScenario() }
         await run("clones") { try await self.clonesScenario() }
         await run("quick-rescan") { try await self.quickRescanScenario() }
@@ -76,6 +77,12 @@ final class FlowTest {
         await run("space-hunters") { try await self.spaceHuntersScenario() }
         await run("duplicates") { try await self.duplicatesScenario() }
         await run("uninstaller") { try await self.uninstallerScenario() }
+        await run("removed-app-leftovers") { try await self.orphansScenario() }
+        await run("login-items") { try await self.loginItemsScenario() }
+        await run("installers") { try await self.installersScenario() }
+        await run("unused-languages") { try await self.languagesScenario() }
+        await run("finder-service") { try await self.finderServiceScenario() }
+        await run("app-updates") { try await self.appUpdatesScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
@@ -112,6 +119,7 @@ final class FlowTest {
             let name = "\(i + 1)-" + (item.original as NSString).lastPathComponent
             if (try? FileManager.default.moveItem(atPath: item.trash, toPath: back + "/" + name)) != nil { returned += 1 }
         }
+        stuckRelease.signal()
         say("flow: moved \(returned) of \(trashed.count) trashed items back into the sandbox")
         AppEnvironment.defaults.removePersistentDomain(forName: AppEnvironment.flowDefaultsSuite)
         say("flow: \(passed) passed, \(failed) failed")
@@ -161,6 +169,45 @@ final class FlowTest {
         try writePlist("Library/Preferences/\(Self.appID).plist", ["flow": true])
         try write("Library/Saved Application State/\(Self.appID).savedState/windows.plist", bytes: 3_000, fill: 7)
 
+        // An app that was dragged to the Trash, and what it left: one item named by its identifier, one by its name,
+        // and an item of some other app that is not installed.
+        try writePlist(".Trash/Gone App.app/Contents/Info.plist", ["CFBundleIdentifier": Self.goneID, "CFBundleName": "Gone App",
+                                                                   "CFBundlePackageType": "APPL"])
+        try write("Library/Application Support/\(Self.goneID)/data.bin", bytes: 70_000, fill: 12)
+        try write("Library/Application Support/Gone App/cache.bin", bytes: 30_000, fill: 13)
+        try writePlist("Library/Preferences/io.github.roomy.unknowntool.plist", ["flow": true])
+
+        // Launch agents: one of yours that can be turned off, one that claims to be Apple's, and a daemon for all users.
+        try writePlist("Library/LaunchAgents/\(Self.agentLabel).plist", ["Label": Self.agentLabel,
+                                                                        "ProgramArguments": ["/usr/bin/true"], "RunAtLoad": true])
+        try writePlist("Library/LaunchAgents/com.apple.flowtest.plist", ["Label": "com.apple.flowtest", "Program": "/usr/bin/true"])
+        try writeSandbox("system/Library/LaunchDaemons/io.github.roomy.flowdaemon.plist",
+                         ["Label": "io.github.roomy.flowdaemon", "Program": "/usr/bin/true", "KeepAlive": true])
+
+        // What the made-up installer package of the removed "Flow Tool" left (see AppEnvironment.packageDatabase).
+        try writeSandboxFile("system/Library/Application Support/FlowTool/engine.bin", bytes: 50_000)
+        try writeSandboxFile("system/usr/local/bin/flowtool", bytes: 25_000)
+        // An app with translations for languages nobody here uses.
+        let poly = "Applications/Polyglot.app/Contents"
+        try writePlist(poly + "/Info.plist", ["CFBundleIdentifier": "io.github.roomy.polyglot", "CFBundleName": "Polyglot",
+                                              "CFBundlePackageType": "APPL", "CFBundleDevelopmentRegion": "en"])
+        for language in ["en", "Base", "de", "ja"] {
+            try write(poly + "/Resources/\(language).lproj/Localizable.strings", bytes: 8_000, fill: 14)
+        }
+
+        // Apps for Updates: one with a newer version in its feed, one already up to date, one whose feed cannot be
+        // reached, and one from the App Store.
+        for (name, build, feed) in [("Feedy", "100", AppEnvironment.flowFeedURL), ("Fresh", "120", AppEnvironment.flowFeedURL),
+                                    ("Lost", "1", "https://updates.example.invalid/lost/appcast.xml")] {
+            try writePlist("Applications/\(name).app/Contents/Info.plist", [
+                "CFBundleIdentifier": "io.github.roomy.\(name.lowercased())", "CFBundleName": name, "CFBundlePackageType": "APPL",
+                "CFBundleShortVersionString": "1.0", "CFBundleVersion": build, "SUFeedURL": feed,
+            ])
+        }
+        try writePlist("Applications/Storey.app/Contents/Info.plist", ["CFBundleIdentifier": "io.github.roomy.storey",
+                                                                       "CFBundleName": "Storey", "CFBundlePackageType": "APPL"])
+        try write("Applications/Storey.app/Contents/_MASReceipt/receipt", bytes: 2_000, fill: 16)
+
         let backup = "Library/Application Support/MobileSync/Backup/00008110-00FLOWTEST0001"
         try writePlist(backup + "/Info.plist", ["Device Name": "Flow iPhone", "Product Type": "iPhone15,2",
                                                 "Product Version": "17.5",
@@ -169,10 +216,19 @@ final class FlowTest {
         try write(backup + "/00/0011223344", bytes: 400_000, fill: 8)
 
         try write("Library/CloudStorage/Dropbox/Documents/report.pdf", bytes: 40_000, fill: 9)
+        // A Google Drive folder whose app "is not running": reading it waits until the test ends.
+        try write("Library/CloudStorage/\(Self.stuckDrive)/My Drive/plan.txt", bytes: 20_000, fill: 11)
+        FolderReader.standard = .withStuckFolders([stuckDrivePath], timeout: 1.5, release: stuckRelease)
         try write("Library/Mobile Documents/com~apple~CloudDocs/Notes/note.txt", bytes: 20_000, fill: 10)
     }
 
     static let appID = "io.github.roomy.flowsample"
+    static let goneID = "io.github.roomy.goneapp"
+    static let agentLabel = "io.github.roomy.flowagent"
+    static let stuckDrive = "GoogleDrive-flow@example.com"
+    private var stuckDrivePath: String { home + "/Library/CloudStorage/" + Self.stuckDrive }
+    /// Lets the stuck Google Drive reads finish when the test ends.
+    private let stuckRelease = DispatchSemaphore(value: 0)
     private var cachePath: String { home + "/Library/Caches/com.example.flowcache" }
     private var logPath: String { home + "/Library/Logs/FlowExample" }
     private var archivePath: String { home + "/Library/Developer/Xcode/Archives/2026-01-01/Flow.xcarchive" }
@@ -197,6 +253,22 @@ final class FlowTest {
                                                 withIntermediateDirectories: true)
         let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
         try data.write(to: URL(fileURLWithPath: path))
+    }
+
+    /// A plist at a path inside the sandbox but outside its home.
+    private func writeSandbox(_ relative: String, _ values: [String: Any]) throws {
+        let path = try sandboxed(sandbox + "/" + relative)
+        try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
+                                                withIntermediateDirectories: true)
+        let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
+        try data.write(to: URL(fileURLWithPath: path))
+    }
+
+    private func writeSandboxFile(_ relative: String, bytes: Int) throws {
+        let path = try sandboxed(sandbox + "/" + relative)
+        try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
+                                                withIntermediateDirectories: true)
+        try Data(repeating: 15, count: bytes).write(to: URL(fileURLWithPath: path))
     }
 
     private func sandboxed(_ path: String) throws -> String {
@@ -307,6 +379,25 @@ final class FlowTest {
         let folders = Set(model.visibleChildren.map { tree.name($0) })
         try expect(folders.isSuperset(of: ["Movies", "Downloads", "Projects", "Pictures", "Library", "Applications"]),
                    "the folder list is \(folders.sorted())")
+    }
+
+    /// A cloud drive whose app does not answer is shown as not available, and neither a scan nor Cloud Space waits
+    /// for it.
+    private func stuckCloudScenario() async throws {
+        if model.tree?.rootPath != home {
+            model.scan(path: home, useCache: false)
+            try await waitUntil("the scan", limit: 30) { if case .ready = model.state { return !model.isRefreshing }; return false }
+        }
+        let drive = try node(stuckDrivePath)
+        let scan = try tree
+        try expect(scan.flags(drive).contains(.unavailable), "the stuck drive has flags \(scan.flags(drive).rawValue)")
+        try expect(scan.children(drive).isEmpty && scan.size(drive) <= 4096, "the stuck drive was counted")
+        let note = CloudGuard.unavailableNote(for: stuckDrivePath)
+        try expect(note.contains("Google Drive"), "the note reads \(note)")
+        let start = Date()
+        model.scan(path: home, useCache: false)
+        try await waitUntil("the second scan", limit: 20) { if case .ready = model.state { return !model.isRefreshing }; return false }
+        try expect(Date().timeIntervalSince(start) < 15, "the second scan took \(Int(Date().timeIntervalSince(start))) s")
     }
 
     /// The scan is cached in the sandbox, read back the same, and shown from the cache on the next scan.
@@ -596,6 +687,198 @@ final class FlowTest {
         uninstaller.showList()
     }
 
+    /// Leftovers of removed apps: only the item named exactly by the app in the Trash starts ticked, and only it moves.
+    private func orphansScenario() async throws {
+        let uninstaller = model.uninstaller
+        model.openUninstaller()
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the app list", limit: 60) { uninstaller.phase == .ready }
+        uninstaller.showOrphans()
+        try await waitUntil("the leftovers of removed apps", limit: 60) { uninstaller.orphansLoaded && !uninstaller.isFindingOrphans }
+        let library = home + "/Library/"
+        let sure = library + "Application Support/\(Self.goneID)"
+        let byName = library + "Application Support/Gone App"
+        let unknown = library + "Preferences/io.github.roomy.unknowntool.plist"
+        guard let gone = uninstaller.orphans.first(where: { $0.bundleID == Self.goneID }) else {
+            throw Failure("groups: \(uninstaller.orphans.map(\.bundleID))")
+        }
+        try expect(gone.appName == "Gone App", "the app is named \(gone.appName ?? "nil")")
+        let levels = Dictionary(gone.items.map { ($0.path, $0.confidence) }, uniquingKeysWith: { a, _ in a })
+        try expect(levels == [sure: .high, byName: .medium], "its items: \(levels)")
+        let all = uninstaller.orphans.flatMap(\.items)
+        try expect(all.first { $0.path == unknown }?.confidence == .low, "the unknown tool's item: \(all.map(\.path))")
+        try expect(!all.contains { $0.path.contains("/com.apple.") }, "an item of macOS was offered")
+        try expect(uninstaller.orphanTicked == [sure], "ticked: \(uninstaller.orphanTicked.sorted())")
+        try expect(uninstaller.orphans.first?.confidence == .high, "the surest group is not first")
+
+        uninstaller.removeOrphans()
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [sure], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(byName) && exists(unknown), "an unticked item was moved")
+        uninstaller.showList()
+        // The made-up Trash would show up in Smart Clean; it moves out of the home, still inside the sandbox.
+        try FileManager.default.moveItem(atPath: try sandboxed(home + "/.Trash"), toPath: try sandboxed(state + "/old-trash"))
+    }
+
+    /// Login Items lists the sandbox's launch agents and daemon, refuses Apple's and the daemon, and turns off your
+    /// own agent: launchd (a stand-in here) is asked to stop it and its plist goes to the Trash.
+    private func loginItemsScenario() async throws {
+        let login = model.loginItems
+        guard let control = AppEnvironment.launchControl as? RecordingLaunchControl else { throw Failure("launchctl is not stood in for") }
+        model.openUninstaller(section: .loginItems)
+        defer { model.uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the login items", limit: 60) { login.loaded && !login.isLoading }
+        let byLabel = Dictionary(login.items.map { ($0.label, $0) }, uniquingKeysWith: { a, _ in a })
+        guard let agent = byLabel[Self.agentLabel] else { throw Failure("items: \(login.items.map(\.label))") }
+        try expect(agent.domain == .userAgent && agent.isLoaded == true && agent.program == "/usr/bin/true",
+                   "the agent reads as \(agent)")
+        guard let daemon = byLabel["io.github.roomy.flowdaemon"] else { throw Failure("no daemon in \(login.items.map(\.label))") }
+        try expect(daemon.domain == .systemDaemon && login.refusal(for: daemon) != nil, "the daemon could be turned off")
+        guard let apple = byLabel["com.apple.flowtest"] else { throw Failure("no Apple agent") }
+        try expect(login.refusal(for: apple) != nil, "Apple's agent could be turned off")
+        try expect(login.refusal(for: agent) == nil, "the agent is refused: \(login.refusal(for: agent) ?? "")")
+
+        login.turnOff(agent)
+        try await waitUntil("turning off", limit: 30) { login.turningOff == nil && login.lastResult != nil }
+        guard let result = login.lastResult else { throw Failure("no result") }
+        try checkTrashed([result])
+        try expect(control.bootedOut == [Self.agentLabel], "launchd was asked to stop \(control.bootedOut)")
+        try expect(!login.items.contains { $0.label == Self.agentLabel }, "the agent is still listed")
+        try expect(exists(home + "/Library/LaunchAgents/com.apple.flowtest.plist"), "Apple's agent was moved")
+    }
+
+    /// Installers finds the made-up package whose app is gone, offers what it left unticked, and moves only what
+    /// is ticked.
+    private func installersScenario() async throws {
+        let receipts = model.receipts
+        let uninstaller = model.uninstaller
+        model.openUninstaller(section: .installers)
+        defer { uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the receipts", limit: 60) { receipts.loaded && !receipts.isLoading }
+        guard let finding = receipts.findings.first(where: { $0.package.id == "io.github.roomy.flowpkg" }) else {
+            throw Failure("findings: \(receipts.findings.map(\.package.id))")
+        }
+        let system = sandbox + "/system"
+        let engine = system + "/Library/Application Support/FlowTool"
+        let tool = system + "/usr/local/bin/flowtool"
+        try expect(finding.appName == "Flow Tool", "the app is named \(finding.appName)")
+        try expect(Set(finding.leftovers.map(\.path)) == [engine, tool], "leftovers: \(finding.leftovers.map(\.path))")
+        try expect(receipts.ticked.isEmpty, "something was ticked by itself: \(receipts.ticked.sorted())")
+        try expect(uninstaller.removedByReceipts.contains { $0.name == "Flow Tool" }, "the removed app was not passed on")
+        try await waitUntil("the app list", limit: 30) { uninstaller.phase == .ready }
+
+        receipts.toggle(tool)
+        let items = receipts.tickedItems
+        uninstaller.removeFiles(items.map(\.path), sizes: Dictionary(items.map { ($0.path, $0.bytes) }, uniquingKeysWith: { a, _ in a }))
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [tool], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(engine), "an unticked leftover was moved")
+        try expect(receipts.findings.first?.leftovers.map(\.path) == [engine], "the moved file is still listed")
+        uninstaller.showList()
+    }
+
+    /// The unused languages of an unsigned app are offered unticked; a ticked one goes to the Trash and the app stays.
+    private func languagesScenario() async throws {
+        let uninstaller = model.uninstaller
+        let appPath = home + "/Applications/Polyglot.app"
+        model.openUninstaller(section: .apps)
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the app list", limit: 60) { uninstaller.phase == .ready && uninstaller.measured.contains(appPath) }
+        guard let app = uninstaller.apps.first(where: { $0.path == appPath }) else { throw Failure("Polyglot is not listed") }
+        uninstaller.select(app)
+        try await waitUntil("the languages", limit: 30) { !uninstaller.isFindingLeftovers && uninstaller.languages != nil }
+        let resources = appPath + "/Contents/Resources/"
+        let folders = Set(uninstaller.removableLanguages.map(\.path))
+        try expect(folders.isSuperset(of: [resources + "de.lproj", resources + "ja.lproj"]) &&
+                   !folders.contains(resources + "en.lproj") && !folders.contains(resources + "Base.lproj"),
+                   "offered: \(folders.sorted())")
+        try expect(uninstaller.ticked.isDisjoint(with: folders), "a language was ticked by itself")
+
+        uninstaller.toggle(appPath)
+        uninstaller.toggle(resources + "de.lproj")
+        uninstaller.uninstall()
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [resources + "de.lproj"], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(appPath) && exists(resources + "ja.lproj"), "the app or another language was moved")
+        uninstaller.showList()
+    }
+
+    /// "Uninstall with RoomyDisk" in Finder's Services menu: the Info.plist offers it for apps, and handing the service
+    /// an app opens the Uninstaller with it chosen, also for an app outside the app folders. Nothing is removed.
+    private func finderServiceScenario() async throws {
+        let services = Bundle.main.object(forInfoDictionaryKey: "NSServices") as? [[String: Any]] ?? []
+        guard let entry = services.first(where: { $0["NSMessage"] as? String == "uninstallApp" }) else {
+            throw Failure("the Info.plist offers no uninstall service: \(services)")
+        }
+        try expect((entry["NSSendFileTypes"] as? [String])?.contains("com.apple.application-bundle") == true,
+                   "the service is not offered for apps: \(entry)")
+        try expect(UninstallService.shared.responds(to: Selector(("uninstallApp:userData:error:"))), "the service method is missing")
+
+        func send(_ paths: [String]) -> String? {
+            let board = NSPasteboard(name: NSPasteboard.Name("io.github.roomy.flow-service"))
+            board.clearContents()
+            board.writeObjects(paths.map { URL(fileURLWithPath: $0) as NSURL })
+            var error: NSString?
+            UninstallService.shared.uninstallApp(board, userData: nil, error: &error)
+            board.releaseGlobally()
+            return error as String?
+        }
+        let uninstaller = model.uninstaller
+        try expect(send([home + "/Movies/holiday.mov"]) != nil, "a film was accepted as an app")
+        try expect(!model.showUninstaller, "the Uninstaller opened for a film")
+
+        let polyglot = home + "/Applications/Polyglot.app"
+        try expect(send([home + "/Movies/holiday.mov", polyglot]) == nil, "the app was refused")
+        try await expectSheet("Uninstaller")
+        try await waitUntil("Polyglot to be chosen", limit: 30) { uninstaller.selectedApp?.path == polyglot }
+        try expect(uninstaller.section == .apps, "the Uninstaller shows \(uninstaller.section)")
+        try await waitUntil("its leftovers", limit: 30) { !uninstaller.isFindingLeftovers }
+        await closeSheets()
+
+        // An app somewhere else, as when it is run from Downloads.
+        let elsewhere = "Downloads/Elsewhere.app/Contents"
+        try writePlist(elsewhere + "/Info.plist", ["CFBundleIdentifier": "io.github.roomy.elsewhere", "CFBundleName": "Elsewhere",
+                                                   "CFBundlePackageType": "APPL"])
+        let path = home + "/Downloads/Elsewhere.app"
+        try expect(send([path]) == nil, "the app outside Applications was refused")
+        try await expectSheet("Uninstaller")
+        try await waitUntil("Elsewhere to be chosen", limit: 30) { uninstaller.selectedApp?.path == path }
+        try expect(uninstaller.ticked.contains(path), "the chosen app is not ticked for review")
+        try expect(exists(path), "the app was moved")
+    }
+
+    /// Updates lists the apps with feeds and from the App Store, asks nothing until Check, then finds Feedy's newer
+    /// version from the made-up feed. Nothing is opened or downloaded.
+    private func appUpdatesScenario() async throws {
+        let updates = model.appUpdates
+        let uninstaller = model.uninstaller
+        model.openUninstaller(section: .updates)
+        defer { uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the apps to check", limit: 60) { uninstaller.phase == .ready && !updates.apps.isEmpty }
+        let names = Set(updates.apps.map(\.name))
+        try expect(names == ["Feedy", "Fresh", "Lost", "Storey"], "apps to check: \(names.sorted())")
+        try expect(updates.available.isEmpty && updates.checkedAt == nil && !updates.isChecking, "it checked before being asked")
+        try expect(updates.appStoreApps.map(\.name) == ["Storey"], "App Store apps: \(updates.appStoreApps.map(\.name))")
+
+        updates.check()
+        try await waitUntil("the check", limit: 30) { !updates.isChecking }
+        try expect(updates.available.map(\.app.name) == ["Feedy"], "updates: \(updates.available.map(\.app.name))")
+        let item = updates.available[0].item
+        try expect(item.displayVersion == "1.2" && item.downloadURL?.absoluteString == "https://updates.example.invalid/feedy/Feedy-1.2.zip",
+                   "the update reads as \(item)")
+        try expect(updates.upToDateCount == 1, "\(updates.upToDateCount) up to date")
+        try expect(updates.failed.map(\.app.name) == ["Lost"], "failed: \(updates.failed.map(\.app.name))")
+    }
+
     /// Smart Clean finds the caches, logs and an Xcode archive, and moves only what it ticks by itself.
     private func smartCleanScenario() async throws {
         try makeJunk()
@@ -627,7 +910,9 @@ final class FlowTest {
         try await expectSheet("Cloud Space")
         try await waitUntil("the cloud search", limit: 60) { cloud.phase == .ready }
         let names = Set(cloud.providers.map(\.name))
-        try expect(names == ["iCloud Drive", "Dropbox"], "providers: \(names.sorted())")
+        try expect(names == ["iCloud Drive", "Dropbox", "Google Drive"], "providers: \(names.sorted())")
+        try expect(cloud.findings.unavailable.map(\.rootPath) == [stuckDrivePath],
+                   "not available: \(cloud.findings.unavailable.map(\.rootPath))")
         try expect(cloud.findings.evictableBytes == 0 && cloud.selectedItems.isEmpty,
                    "files that are not in the cloud were offered: \(cloud.selectedItems.map(\.path))")
         cloud.removeDownloads()
