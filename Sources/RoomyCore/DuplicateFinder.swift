@@ -222,7 +222,7 @@ public struct DuplicateFinder: Sendable {
         while let node = stack.popLast() {
             for child in tree.children(node) {
                 let flags = tree.flags(child)
-                if flags.contains(.removed) || flags.contains(.hardLinkDuplicate) { continue }
+                if flags.contains(.removed) || flags.contains(.hardLinkDuplicate) || flags.contains(.dataless) { continue }
                 switch tree.kind(child) {
                 case .directory:
                     if !Self.skippedFolderNames.contains(tree.name(child)) { stack.append(child) }
@@ -234,7 +234,9 @@ public struct DuplicateFinder: Sendable {
                           entry.length > 0, entry.length >= minimumSize else { continue }
                     if entry.linkCount > 1, !seen.insert(FileID(device: entry.device, inode: entry.inode)).inserted { continue }
                     guard policy.verdict(for: path) == .allowed else { continue }
-                    out.append(Candidate(path: path, bytes: entry.allocated, length: entry.length,
+                    // A clone frees only its own blocks, which the scan counted.
+                    let bytes = flags.contains(.clone) ? min(entry.allocated, tree.size(child)) : entry.allocated
+                    out.append(Candidate(path: path, bytes: bytes, length: entry.length,
                                          modified: Date(timeIntervalSince1970: TimeInterval(entry.modified))))
                 case .package, .symlink, .other:
                     continue

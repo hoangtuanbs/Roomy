@@ -68,6 +68,8 @@ final class FlowTest {
 
         await run("scan") { try await self.scanScenario() }
         await run("scan-cache") { try await self.scanCacheScenario() }
+        await run("clones") { try await self.clonesScenario() }
+        await run("quick-rescan") { try await self.quickRescanScenario() }
         await run("blocked-path") { try self.blockedPathScenario() }
         await run("review-and-clean") { try await self.reviewScenario() }
         await run("compress-and-clean") { try await self.compressScenario() }
@@ -79,6 +81,7 @@ final class FlowTest {
         await run("automatic-check") { try await self.automaticCheckScenario() }
         await run("quick-clean") { try await self.quickCleanScenario() }
         await run("disk-health") { try await self.diskHealthScenario() }
+        await run("free-purgeable") { try await self.freePurgeableScenario() }
         await run("csv-export") { try await self.csvScenario() }
         await run("notification-route") { try await self.notificationScenario() }
         await run("settings") { try await self.settingsScenario() }
@@ -328,6 +331,132 @@ final class FlowTest {
         say("flow: note scan-cache: cached results were \(shownFromCache ? "" : "not ")seen before the fresh scan finished")
         let rescanned = try tree.size(ScanTree.root)
         try expect(rescanned == size, "the new scan found \(rescanned) bytes, not \(size)")
+    }
+
+    /// A clone of the film made with clonefile() counts once: rescanning its folder adds only the clone's own space,
+    /// the clone is marked and says what it shares, and the review warns about it. The clone is removed again after.
+    private func clonesScenario() async throws {
+        let original = home + "/Movies/holiday.mov"
+        let clone = try sandboxed(home + "/Movies/holiday clone.mov")
+        defer { try? FileManager.default.removeItem(atPath: clone) }
+        guard Darwin.clonefile(original, clone, 0) == 0 else {
+            say("flow: note clones: this disk cannot clone files (errno \(errno)), skipped")
+            return
+        }
+        let movies = try node(home + "/Movies")
+        let before = try tree.size(ScanTree.root)
+        model.rescanSubtree(movies)
+        try await waitUntil("the rescan of Movies", limit: 30) { model.rescanningNode == nil }
+        let tree = try self.tree
+        let copy = try node(clone)
+        let film = try node(original)
+        try expect(tree.flags(copy).contains(.clone) && tree.flags(film).contains(.clone),
+                   "the clones are not marked: \(tree.flags(copy)) \(tree.flags(film))")
+        let after = tree.size(ScanTree.root)
+        try expect(after - before < 1_048_576, "the clone added \(after - before) bytes to the total")
+        try expect(tree.cloneSiblingCount(copy) == 1, "the clone has \(tree.cloneSiblingCount(copy)) siblings")
+        let note = SpaceNotes.clone(copy, in: tree)
+        try expect(note.contains("1"), "the clone says \(note)")
+        try expect(model.warnings(for: copy).contains { $0.contains("clone") }, "the review gives no clone warning")
+
+        try FileManager.default.removeItem(atPath: clone)
+        model.rescanSubtree(movies)
+        try await waitUntil("the second rescan of Movies", limit: 30) { model.rescanningNode == nil }
+        let film2 = try node(original)
+        let last = try self.tree
+        try expect(!last.flags(film2).contains(.clone), "the film is still a clone after its clone went")
+        let total = last.size(ScanTree.root)
+        try expect(total == before, "the total is \(total), not \(before)")
+    }
+
+    /// Rescan after files were added, changed and removed reads only what changed (FSEvents), and comes out the same
+    /// as a full scan each time. Everything it makes is in the sandbox and removed again.
+    private func quickRescanScenario() async throws {
+        let fm = FileManager.default
+        let folder = try sandboxed(home + "/Quick")
+        let note = try sandboxed(home + "/Movies/notes.txt")
+        defer {
+            try? fm.removeItem(atPath: folder)
+            try? fm.removeItem(atPath: note)
+        }
+        try write("Quick/a.bin", bytes: 2_000_000, fill: 21)
+        try write("Quick/sub/b.bin", bytes: 1_200_000, fill: 22)
+        try write("Movies/notes.txt", bytes: 50_000, fill: 23)
+        try await quickRescan("new files")
+        try await expectSameAsFullScan()
+
+        try Data(repeating: 24, count: 3_000_000).write(to: URL(fileURLWithPath: folder + "/a.bin"))
+        try fm.removeItem(atPath: folder + "/sub/b.bin")
+        try write("Quick/sub/deeper/c.bin", bytes: 700_000, fill: 25)
+        try fm.removeItem(atPath: note)
+        try await quickRescan("changed files")
+        try await expectSameAsFullScan()
+
+        try fm.removeItem(atPath: folder)
+        try await quickRescan("a removed folder")
+        try await expectSameAsFullScan()
+        try expect(try tree.index(ofPath: folder) == nil, "the removed folder is still in the scan")
+    }
+
+    /// Presses Rescan and checks that it was a quick one.
+    private func quickRescan(_ what: String) async throws {
+        // FSEvents writes its history a moment after the change.
+        try? await Task.sleep(for: .seconds(1.5))
+        let start = Date()
+        model.rescan()
+        try await waitUntil("the rescan after \(what)", limit: 60) {
+            if case .ready = model.state { return !model.isRefreshing }
+            return false
+        }
+        guard case .quick(let report)? = model.lastRefresh else {
+            throw Failure("the rescan after \(what) was not quick: \(String(describing: model.lastRefresh))")
+        }
+        say(String(format: "flow: note quick-rescan: %@ took %.2f s, %ld folders listed, %ld scanned", what,
+                   Date().timeIntervalSince(start), report.listedFolders, report.scannedFolders))
+    }
+
+    /// The shown scan has the same items, sizes and totals as a full scan of the home folder now.
+    private func expectSameAsFullScan() async throws {
+        let quick = try tree
+        let full = try await DiskScanner().scan(root: home)
+        try expect(quick.size(ScanTree.root) == full.size(ScanTree.root),
+                   "the quick rescan found \(quick.size(ScanTree.root)) bytes, a full scan \(full.size(ScanTree.root))")
+        try expect(quick.fileCount(ScanTree.root) == full.fileCount(ScanTree.root),
+                   "the quick rescan counts \(quick.fileCount(ScanTree.root)) files, a full scan \(full.fileCount(ScanTree.root))")
+        var fullPaths = Set<String>()
+        for i in 0..<ScanTree.Index(full.count) where !full.flags(i).contains(.removed) {
+            let path = full.path(of: i)
+            fullPaths.insert(path)
+            guard let j = quick.index(ofPath: path) else { throw Failure("\(path) is missing after the quick rescan") }
+            try expect(quick.size(j) == full.size(i) && quick.kind(j) == full.kind(i),
+                       "\(path) is \(quick.size(j)) bytes after the quick rescan, \(full.size(i)) in a full scan")
+        }
+        var stack: [ScanTree.Index] = [ScanTree.root]
+        while let n = stack.popLast() {
+            let path = quick.path(of: n)
+            try expect(fullPaths.contains(path), "\(path) is in the quick rescan but not on disk")
+            stack.append(contentsOf: quick.children(n))
+        }
+    }
+
+    /// "Free Purgeable Space" with the pretend releaser the flow test always gets: free space before and after are
+    /// measured and the result is shown. macOS is never asked to free anything here.
+    private func freePurgeableScenario() async throws {
+        let disk = model.diskOverview
+        guard let rehearsal = disk.releaser as? RehearsalReleaser else {
+            throw Failure("the flow test is not using the pretend releaser: \(type(of: disk.releaser))")
+        }
+        model.refreshDiskOverview()
+        try await waitUntil("the disk overview", limit: 10) { disk.space != nil }
+        disk.freePurgeable(scanned: model.scannedBytes)
+        try expect(disk.purge.isRunning, "it did not start: \(disk.purge)")
+        try await waitUntil("free purgeable space", limit: 30) { !disk.purge.isRunning }
+        guard case .done(let outcome) = disk.purge else { throw Failure("it ended as \(disk.purge)") }
+        try expect(rehearsal.requests == 1, "the releaser was asked \(rehearsal.requests) times")
+        let freed = outcome.freedBytes
+        try expect(abs(freed - rehearsal.amount) < 200_000_000, "it measured \(freed) bytes freed, not about \(rehearsal.amount)")
+        disk.dismissPurgeResult()
+        try expect(disk.purge == .idle, "the result did not close")
     }
 
     /// The home folder and a keychain cannot go to the tray or the Trash, and the reason is said.

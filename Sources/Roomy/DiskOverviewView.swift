@@ -45,6 +45,10 @@ struct DiskOverviewCard: View {
                     header(space)
                     CapacityBar(space: space, grown: grown, hovered: $hovered) { part in explaining = part }
                     legend(space)
+                    if space.purgeable > 0 || disk.purge != .idle {
+                        PurgeSection(confirm: $confirmThin)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                     if expanded {
                         SnapshotSection(confirmDelete: $confirmDelete)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -65,6 +69,7 @@ struct DiskOverviewCard: View {
                 .animation(Motion.smooth.unless(reduceMotion), value: space)
                 .animation(Motion.spring.unless(reduceMotion), value: expanded)
                 .animation(Motion.smooth.unless(reduceMotion), value: disk.errorMessage)
+                .animation(Motion.spring.unless(reduceMotion), value: disk.purge)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .onAppear(perform: grow)
             }
@@ -321,9 +326,9 @@ private struct PartExplanation: View {
                         close()
                         disk.openStorageSettings()
                     }
-                    if !disk.timeMachineSnapshots.isEmpty, (disk.space?.purgeable ?? 0) > 0 {
+                    if (disk.space?.purgeable ?? 0) > 0 {
                         Button("Free Purgeable Space…", action: freePurgeable)
-                            .disabled(disk.isThinning)
+                            .disabled(disk.purge.isRunning)
                     }
                 }
             case .free:
@@ -339,6 +344,144 @@ private struct PartExplanation: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("•").foregroundStyle(.secondary)
             Text(text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// The purgeable space with its "Free Purgeable Space…" button, and what the last try did: free space before and
+/// after with the "space freed" moment, or a plain note when macOS freed nothing.
+private struct PurgeSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var confirm: Bool
+
+    var body: some View {
+        let disk = model.diskOverview
+        Group {
+            switch disk.purge {
+            case .idle:
+                HStack(spacing: 8) {
+                    Image(systemName: "wand.and.sparkles")
+                        .foregroundStyle(DiskPart.purgeable.color)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: String(localized: "%@ purgeable"), (disk.space?.purgeable ?? 0).bytes))
+                            .font(.callout.weight(.medium))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                        Text("macOS frees this by itself when it needs room.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Free Purgeable Space…") { confirm = true }
+                        .controlSize(.small)
+                        .fixedSize()
+                        .layoutPriority(1)
+                }
+            case .running(let before):
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Asking macOS to free purgeable space…").font(.callout)
+                    Spacer(minLength: 8)
+                    Text(String(format: String(localized: "Free: %@"), before.bytes))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            case .done(let outcome):
+                result(outcome)
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.card.opacity(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Palette.border))
+    }
+
+    @ViewBuilder
+    private func result(_ outcome: PurgeOutcome) -> some View {
+        let disk = model.diskOverview
+        switch outcome {
+        case .freed(let before, let after):
+            VStack(spacing: 6) {
+                FreedSpaceCelebration(bytes: after - before,
+                                      message: String(localized: "macOS released purgeable space on this disk."),
+                                      compact: true, maxWidth: 360) {
+                    BeforeAfter(before: before, after: after)
+                }
+                Button("Done") { disk.dismissPurgeResult() }
+                    .controlSize(.small)
+            }
+            .frame(maxWidth: .infinity)
+        case .nothingFreed, .nothingToFree, .failed:
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: isFailure(outcome) ? "exclamationmark.triangle.fill" : "info.circle")
+                    .foregroundStyle(isFailure(outcome) ? Color.orange : Color.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(message(outcome))
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Button("Open Storage Settings") { disk.openStorageSettings() }
+                        Button("OK") { disk.dismissPurgeResult() }
+                    }
+                    .controlSize(.small)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func isFailure(_ outcome: PurgeOutcome) -> Bool {
+        if case .failed = outcome { return true }
+        return false
+    }
+
+    private func message(_ outcome: PurgeOutcome) -> String {
+        switch outcome {
+        case .failed(let reason):
+            return String(format: String(localized: "Could not free purgeable space. %@"), reason)
+        case .nothingToFree:
+            return String(localized: "There is no purgeable space to free on this disk right now.")
+        default:
+            return String(localized: "macOS did not free any purgeable space this time. It frees it by itself when an app needs room.")
+        }
+    }
+}
+
+/// Free space before and after, the new number rolling up from the old one.
+private struct BeforeAfter: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let before: Int64
+    let after: Int64
+    @State private var shown: Int64?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            column(String(localized: "Free before"), before)
+            Image(systemName: "arrow.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            column(String(localized: "Free now"), shown ?? before)
+                .foregroundStyle(.green)
+        }
+        .onAppear {
+            guard shown == nil else { return }
+            if reduceMotion {
+                shown = after
+            } else {
+                withAnimation(Motion.smooth.delay(0.3)) { shown = after }
+            }
+        }
+    }
+
+    private func column(_ title: String, _ bytes: Int64) -> some View {
+        VStack(spacing: 1) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(bytes.bytes)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText(value: Double(bytes)))
         }
     }
 }
@@ -377,7 +520,7 @@ private struct SnapshotSection: View {
                         .background(Capsule().fill(Color.secondary.opacity(0.15)))
                         .contentTransition(.numericText())
                 }
-                if disk.snapshotState == .loading || disk.isThinning {
+                if disk.snapshotState == .loading || disk.purge.isRunning {
                     ProgressView().controlSize(.mini)
                 }
                 Spacer()

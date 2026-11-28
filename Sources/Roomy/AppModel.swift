@@ -332,6 +332,7 @@ final class AppModel {
         refreshProgress = nil
         refreshError = nil
         removedDuringRefresh = []
+        lastRefresh = nil
         AppEnvironment.defaults.set(path, forKey: "lastScanPath")
 
         let cache = scanCache
@@ -346,7 +347,52 @@ final class AppModel {
                     self.isRefreshing = true
                 }
             }
-            await self?.runScan(path: path)
+            await self?.refresh(path: path)
+        }
+    }
+
+    /// How the shown results were last brought up to date.
+    enum RefreshKind: Equatable {
+        /// Only the folders FSEvents says changed were read again.
+        case quick(QuickRescanReport)
+        /// Everything was scanned; the reason a quick rescan could not be used, if one was tried.
+        case full(String?)
+    }
+    private(set) var lastRefresh: RefreshKind?
+
+    /// Brings the shown results of `path` up to date: a quick rescan of what changed since they were made when the
+    /// FSEvents history allows it, otherwise a full scan.
+    private func refresh(path: String) async {
+        if let shown = tree, shown.rootPath == DiskScanner.standardize(path) {
+            if await quickRescan(shown) { return }
+        }
+        guard !Task.isCancelled, selectedPath == path else { return }
+        await runScan(path: path)
+    }
+
+    /// Patches a copy of `shown` off the main thread and shows it. False when a full scan is needed instead.
+    private func quickRescan(_ shown: ScanTree) async -> Bool {
+        let snapshot = shown.snapshot(scannedAt: scannedAt ?? Date())
+        let outcome = await Task.detached(priority: .userInitiated) { () -> (tree: ScanTree, result: QuickRescanResult)? in
+            let copy = ScanTree(snapshot: snapshot)
+            guard let result = try? await QuickRescan.run(copy) else { return nil }
+            return (copy, result)
+        }.value
+        guard !Task.isCancelled, tree === shown, let outcome else { return false }
+        switch outcome.result {
+        case .needsFullScan(let reason):
+            print("roomy: full scan of \(shown.rootPath): \(reason)")
+            lastRefresh = .full(reason)
+            return false
+        case .patched(let report):
+            print("roomy: quick rescan of \(shown.rootPath): \(report.listedFolders) folders listed, \(report.scannedFolders) scanned")
+            for removed in removedDuringRefresh {
+                if let node = outcome.tree.index(ofPath: removed) { outcome.tree.detach(node) }
+            }
+            install(outcome.tree, scannedAt: Date(), keepPlace: true)
+            lastRefresh = .quick(report)
+            saveCache()
+            return true
         }
     }
 
@@ -369,6 +415,10 @@ final class AppModel {
             }
             let keep = isRefreshing
             install(result, scannedAt: Date(), keepPlace: keep)
+            switch lastRefresh {
+            case .full?: break
+            default: lastRefresh = .full(nil)
+            }
             saveCache()
         } catch is CancellationError {
         } catch {
@@ -437,9 +487,10 @@ final class AppModel {
             return
         }
         let path = tree.path(of: node)
+        let families = tree.cloneFamilies(carriedOutside: node)
         rescanningNode = node
         subtreeTask = Task { [weak self] in
-            let fresh = try? await DiskScanner().scan(root: path)
+            let fresh = try? await DiskScanner().scan(root: path, cloneFamilies: families)
             guard let self, !Task.isCancelled else { return }
             self.rescanningNode = nil
             // Skip it if a new scan replaced the tree meanwhile, or the folder went to the Trash.
@@ -492,7 +543,8 @@ final class AppModel {
         isRefreshing = true
         refreshError = nil
         removedDuringRefresh = []
-        scanTask = Task { [weak self] in await self?.runScan(path: path) }
+        lastRefresh = nil
+        scanTask = Task { [weak self] in await self?.refresh(path: path) }
     }
 
     func open(_ node: ScanTree.Index) {
@@ -564,6 +616,9 @@ final class AppModel {
         let flags = tree.flags(node)
         if flags.contains(.otherVolume) { return .blocked(String(localized: "This is another disk.")) }
         if flags.contains(.removed) { return .blocked(String(localized: "Already moved to the Trash.")) }
+        if flags.contains(.dataless) {
+            return .blocked(String(localized: "It is stored only in the cloud, so removing it frees no space on this Mac."))
+        }
         return policy.verdict(for: tree.path(of: node))
     }
 
@@ -701,6 +756,16 @@ final class AppModel {
         guard let tree else { return [] }
         var out: [String] = []
         if let message = verdict(for: node).message { out.append(message) }
+        if tree.kind(node).isContainer {
+            let cloudOnly = tree.datalessCount(under: node)
+            if cloudOnly > 0 {
+                out.append(String(format: NSLocalizedString("Holds %lld %@ stored only in the cloud. They would go to the Trash too, but free no space on this Mac.", comment: ""),
+                                  cloudOnly, Plural.word(cloudOnly, "item", "items")))
+            }
+        }
+        if tree.flags(node).contains(.clone) {
+            out.append(String(localized: "This is a clone that shares space with other files. Moving it to the Trash frees only the space that is its own."))
+        }
         if tree.kind(node).isContainer && tree.containsDescendant(named: ".git", under: node) {
             out.append(String(localized: "Contains a Git repository. Check for work you have not pushed."))
         }
@@ -830,7 +895,7 @@ final class AppModel {
         let kind = tree.kind(node)
         guard kind == .file || kind.isContainer else { return false }
         let flags = tree.flags(node)
-        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) { return false }
+        if flags.contains(.inaccessible) || flags.contains(.removed) || flags.contains(.otherVolume) || flags.contains(.dataless) { return false }
         return tree.size(node) > 0 && !verdict(for: node).isBlocked
     }
 

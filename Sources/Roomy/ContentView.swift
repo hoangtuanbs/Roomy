@@ -525,12 +525,24 @@ struct HoverCaption: View {
 
     var body: some View {
         Group {
-            if let tree = model.tree, let node = model.hovered {
+            if let tree = model.tree, let node = model.hovered ?? model.selection, !tree.flags(node).contains(.removed) {
                 let category = model.category(of: node)
                 HStack(spacing: 8) {
                     IconTile(symbol: category.symbol, gradient: .tile(category.color), size: 18)
                     Text(tree.name(node)).fontWeight(.medium).lineLimit(1)
                     Text(tree.size(node).bytes).foregroundStyle(.secondary).monospacedDigit()
+                    if tree.flags(node).contains(.dataless) {
+                        Label(SpaceNotes.cloudCaption(node, in: tree), systemImage: "icloud")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    }
+                    if tree.flags(node).contains(.clone) {
+                        Label(SpaceNotes.clone(node, in: tree), systemImage: "square.on.square")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    }
                     Spacer()
                     if tree.kind(node) == .directory {
                         Text(model.mapStyle == .rings ? "Click to open" : "Double-click to open").foregroundStyle(.tertiary)
@@ -586,6 +598,7 @@ struct ScanStatusNote: View {
                     Button("Rescan") { model.rescan() }
                         .buttonStyle(.link)
                 }
+                .help(refreshHelp)
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
@@ -593,6 +606,14 @@ struct ScanStatusNote: View {
         .foregroundStyle(.secondary)
         .animation(Motion.quick.unless(reduceMotion), value: model.isRefreshing)
         .animation(Motion.quick.unless(reduceMotion), value: model.rescanningNode)
+    }
+
+    private var refreshHelp: String {
+        switch model.lastRefresh {
+        case .quick?: return String(localized: "Only the folders that changed since the last scan were read again.")
+        case .full?: return String(localized: "Everything was scanned again.")
+        case nil: return String(localized: "Rescan reads again only the folders that changed, when macOS still remembers what changed.")
+        }
     }
 
     private var updatingText: String {

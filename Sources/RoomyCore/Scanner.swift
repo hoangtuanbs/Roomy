@@ -15,17 +15,21 @@ public struct ScanOptions: Sendable {
     public var stayOnVolume: Bool
     public var excludedPaths: Set<String>
     public var progressInterval: Duration
+    /// Asks APFS which files are clones, so their shared blocks are counted once.
+    public var detectClones: Bool
 
     public init(
         maxConcurrentReads: Int = max(4, ProcessInfo.processInfo.activeProcessorCount * 2),
         stayOnVolume: Bool = true,
         excludedPaths: Set<String> = [],
-        progressInterval: Duration = .milliseconds(100)
+        progressInterval: Duration = .milliseconds(100),
+        detectClones: Bool = true
     ) {
         self.maxConcurrentReads = maxConcurrentReads
         self.stayOnVolume = stayOnVolume
         self.excludedPaths = excludedPaths
         self.progressInterval = progressInterval
+        self.detectClones = detectClones
     }
 }
 
@@ -49,33 +53,31 @@ public struct DiskScanner: Sendable {
         self.options = options
     }
 
+    /// Scans `rawRoot`. Clones of the `cloneFamilies` count only their own space, because another part of a larger
+    /// tree already carries the space they share.
     public func scan(
         root rawRoot: String,
+        cloneFamilies: Set<UInt64> = [],
         progress: (@Sendable (ScanProgress) -> Void)? = nil
     ) async throws -> ScanTree {
         let root = Self.standardize(rawRoot)
         guard let rootEntry = DirectoryReader.entry(atPath: root) else { throw ScanError.notFound(root) }
         guard rootEntry.kind == .directory else { throw ScanError.notADirectory(root) }
 
+        // Taken first, so whatever changes while the scan runs is in the history a quick rescan reads.
+        let journalID = ChangeJournal.currentEventID()
         let tree = ScanTree(rootPath: root, size: rootEntry.allocated, modified: rootEntry.modified)
-        var allowedDevices: Set<UInt64> = [rootEntry.device]
-        var excluded = options.excludedPaths
-        #if os(macOS)
-        if root == "/" {
-            if let data = DirectoryReader.entry(atPath: "/System/Volumes/Data") {
-                allowedDevices.insert(data.device)
-            }
-            excluded.insert("/System/Volumes/Data")
-        }
-        #endif
+        tree.journalID = journalID
+        tree.volumeID = ChangeJournal.volumeID(forPath: root)
+        let rules = EntryRules(root: root, rootDevice: rootEntry.device, options: options)
 
         let clock = ContinuousClock()
         let start = clock.now
         var lastReport = start
         var stats = ScanProgress()
-        var seenInodes = Set<InodeKey>()
+        var counter = SpaceCounter(cloneFamilies: cloneFamilies)
         let maxReads = max(1, options.maxConcurrentReads)
-        let stayOnVolume = options.stayOnVolume
+        let clones = options.detectClones
 
         try await withThrowingTaskGroup(of: Listing.self) { group in
             var pending: [(ScanTree.Index, String)] = [(ScanTree.root, root)]
@@ -84,7 +86,7 @@ public struct DiskScanner: Sendable {
             while true {
                 while running < maxReads, let (node, path) = pending.popLast() {
                     group.addTask {
-                        Listing(node: node, path: path, entries: DirectoryReader.list(path: path))
+                        Listing(node: node, path: path, entries: DirectoryReader.list(path: path, clones: clones))
                     }
                     running += 1
                 }
@@ -97,47 +99,27 @@ public struct DiskScanner: Sendable {
                     continue
                 }
                 stats.directories += 1
+                let inCloud = CloudPlaceholder.isInCloudFolder(listing.path)
 
                 for entry in entries {
-                    var size = entry.allocated
-                    var flags: NodeFlags = []
-                    var kind = entry.kind
-
-                    if kind != .directory && entry.linkCount > 1 {
-                        if !seenInodes.insert(InodeKey(device: entry.device, inode: entry.inode)).inserted {
-                            size = 0
-                            flags.insert(.hardLinkDuplicate)
-                        }
-                    }
-                    if kind == .directory && PackageTypes.isPackage(name: entry.name) {
-                        kind = .package
-                    }
-
                     let childPath = Self.join(listing.path, entry.name)
-                    var descend = kind.isContainer
-                    if descend && stayOnVolume && !allowedDevices.contains(entry.device) {
-                        flags.insert(.otherVolume)
-                        descend = false
-                    }
-                    if descend && excluded.contains(childPath) {
-                        flags.insert(.excluded)
-                        descend = false
-                    }
-
+                    let item = rules.classify(entry, path: childPath, inCloudFolder: inCloud, counter: &counter)
                     let index = tree.append(
                         name: entry.name,
                         parent: listing.node,
-                        kind: kind,
-                        size: size,
+                        kind: item.kind,
+                        size: item.size,
                         modified: entry.modified,
-                        flags: flags
+                        flags: item.flags
                     )
-                    if descend {
+                    if let clone = item.clone { tree.setClone(clone, at: index) }
+                    if let online = item.onlineBytes { tree.setOnlineSize(online, at: index) }
+                    if item.descend {
                         pending.append((index, childPath))
-                    } else if !kind.isContainer {
+                    } else if !item.kind.isContainer {
                         stats.files += 1
                     }
-                    stats.bytes += size
+                    stats.bytes += item.size
                 }
 
                 if let progress, clock.now - lastReport >= options.progressInterval {
@@ -158,7 +140,7 @@ public struct DiskScanner: Sendable {
         return tree
     }
 
-    static func standardize(_ path: String) -> String {
+    public static func standardize(_ path: String) -> String {
         var p = (path as NSString).expandingTildeInPath
         p = (p as NSString).standardizingPath
         while p.count > 1 && p.hasSuffix("/") { p.removeLast() }
@@ -176,9 +158,97 @@ private struct Listing: Sendable {
     let entries: [RawEntry]?
 }
 
-private struct InodeKey: Hashable {
+struct InodeKey: Hashable {
     let device: UInt64
     let inode: UInt64
+}
+
+/// Counts each piece of disk space once while entries are added: hard links after the first add nothing, and a
+/// clone after the first of its family adds only its private space.
+struct SpaceCounter {
+    var seenInodes = Set<InodeKey>()
+    var cloneFamilies = Set<UInt64>()
+
+    static func family(device: UInt64, id: UInt64) -> UInt64 {
+        id ^ (device &* 0x9E37_79B9_7F4A_7C15)
+    }
+}
+
+/// What the scanner makes of one directory entry.
+struct ClassifiedEntry {
+    var kind: NodeKind
+    var size: Int64
+    var flags: NodeFlags
+    var descend: Bool
+    var clone: CloneInfo?
+    var onlineBytes: Int64?
+}
+
+/// The rules of one scan for an entry: its kind, the space it adds, its flags, and whether to look inside it.
+/// Shared by full scans and quick rescans, so both count the same way.
+struct EntryRules: Sendable {
+    let allowedDevices: Set<UInt64>
+    let excluded: Set<String>
+    let stayOnVolume: Bool
+
+    init(root: String, rootDevice: UInt64, options: ScanOptions) {
+        var allowed: Set<UInt64> = [rootDevice]
+        var excluded = options.excludedPaths
+        #if os(macOS)
+        if root == "/" {
+            if let data = DirectoryReader.entry(atPath: "/System/Volumes/Data") {
+                allowed.insert(data.device)
+            }
+            excluded.insert("/System/Volumes/Data")
+        }
+        #endif
+        self.allowedDevices = allowed
+        self.excluded = excluded
+        self.stayOnVolume = options.stayOnVolume
+    }
+
+    func classify(_ entry: RawEntry, path: String, inCloudFolder: Bool, counter: inout SpaceCounter) -> ClassifiedEntry {
+        var out = ClassifiedEntry(kind: entry.kind, size: entry.allocated, flags: [], descend: false)
+
+        if CloudPlaceholder.isDataless(flags: entry.fileFlags, allocated: entry.allocated, length: entry.length,
+                                       isDirectory: entry.kind == .directory, inCloudFolder: inCloudFolder) {
+            // Its contents are in the cloud. Looking inside a cloud-only folder could make macOS fetch it.
+            out.flags.insert(.dataless)
+            out.size = 0
+            if entry.kind == .file { out.onlineBytes = entry.length }
+            if entry.kind == .directory && PackageTypes.isPackage(name: entry.name) { out.kind = .package }
+            return out
+        }
+
+        if out.kind != .directory && entry.linkCount > 1 {
+            if !counter.seenInodes.insert(InodeKey(device: entry.device, inode: entry.inode)).inserted {
+                out.size = 0
+                out.flags.insert(.hardLinkDuplicate)
+                return out
+            }
+        }
+        if let clone = entry.clone {
+            let family = SpaceCounter.family(device: entry.device, id: clone.id)
+            out.flags.insert(.clone)
+            let first = counter.cloneFamilies.insert(family).inserted
+            out.clone = CloneInfo(family: family, sharedBytes: entry.allocated - clone.privateBytes, carriesShared: first)
+            if !first { out.size = clone.privateBytes }
+        }
+        if out.kind == .directory && PackageTypes.isPackage(name: entry.name) {
+            out.kind = .package
+        }
+
+        out.descend = out.kind.isContainer
+        if out.descend && stayOnVolume && !allowedDevices.contains(entry.device) {
+            out.flags.insert(.otherVolume)
+            out.descend = false
+        }
+        if out.descend && excluded.contains(path) {
+            out.flags.insert(.excluded)
+            out.descend = false
+        }
+        return out
+    }
 }
 
 public enum PackageTypes {

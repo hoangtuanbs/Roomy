@@ -9,6 +9,16 @@ A macOS app that shows what is using space on your disk and helps you free it up
 *Folders sorted by size on the left and a treemap of the same folder on the right, with two items ticked for cleanup.*
 
 - **Scan** your home folder, any folder or a whole disk. Folders are read in parallel and hard links are counted once.
+  **APFS clones** (copies made with Finder's Duplicate, `cp -c` or apps that clone) share their blocks on disk, so the
+  space they share is counted once too: the first clone found carries it, and each other clone adds only the space that
+  is its own. A clone shows a small two-squares icon; hover or select it to see "Shares 1.2 GB with 2 clones". Moving a
+  clone to the Trash frees only its own space, and the review says so. A clone that was changed after copying gets
+  its own id from macOS and is counted in full. Only files of 32 KB or more are checked, which keeps scans quick.
+- **Cloud-only files** (iCloud Drive, Dropbox, OneDrive and other cloud drives that keep a file in the cloud until you
+  open it) take no space on your Mac, so they count as 0 bytes in the lists, the treemap, the rings and Biggest Files.
+  They show a small cloud icon; hover or select one to see its size in the cloud. Cloud-only folders are not opened,
+  so a scan never makes macOS download anything. They cannot go to the tray, Duplicates and Similar photos never read
+  them, and a folder that holds some says so in the review, since moving them to the Trash frees nothing here.
 - **See** it as a list, a list of the biggest files (filter by kind and age) or a treemap.
 - **See it as rings**: switch the map between **Treemap** and **Rings**. The rings chart shows four levels around the
   open folder, each item's angle by its size and coloured like the treemap; hover for its name and size, click a folder
@@ -19,8 +29,12 @@ A macOS app that shows what is using space on your disk and helps you free it up
   rings, choose **Add to Tray** in the context menu, or tick them. The tray shows each item with its size and the total,
   and **Review and Clean…** moves them to the Trash after you review them, so Put Back still works.
 - **Fast reopening**: each scan is cached in `~/Library/Caches/io.github.hoangtuanbs.Roomy/Scans`, so the last scan of
-  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while a fresh scan runs behind it. **Rescan This
-  Folder** in the context menu scans just that folder again and updates the totals around it.
+  a folder shows at once, with a "Scanned 2 hours ago · Rescan" note, while it is brought up to date behind it.
+  **Quick rescans**: macOS keeps a history of which folders changed (FSEvents), so the update after a relaunch and
+  the **Rescan** button read again only the folders that changed since the last scan and patch them into the shown
+  results. When the history cannot be trusted
+  (macOS dropped or merged events, the disk is a different one, or the scan is too old), RoomyDisk scans everything
+  again instead. **Rescan This Folder** in the context menu scans just that folder again and updates the totals around it.
 - **Smart Clean** (top of the sidebar, the toolbar, or ⇧⌘K) finds junk that is safe to remove: app caches, logs,
   Xcode build data, device support files and simulator caches, package manager caches (npm, Yarn, pnpm, pip, Homebrew,
   CocoaPods, Gradle, Cargo) and installers in Downloads older than 30 days. Xcode archives, simulators unused for
@@ -32,9 +46,15 @@ A macOS app that shows what is using space on your disk and helps you free it up
   found, **hidden** space (used, but not found: files RoomyDisk cannot read without Full Disk Access, macOS system files and
   snapshots), **purgeable** space (local snapshots, iCloud files and caches macOS frees on its own) and free space.
   Click a part to learn what it is. It also lists the disk's **local snapshots** with their dates; a Time Machine
-  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). **Free Purgeable
-  Space…** asks Time Machine to thin its snapshots (`tmutil thinlocalsnapshots`), or open Storage Settings instead.
-  Neither can be undone, so both ask first.
+  snapshot can be deleted after a confirmation (`tmutil deletelocalsnapshots`, no admin rights). When the disk
+  has purgeable space, the card shows it with a **Free Purgeable Space…** button. After you confirm, RoomyDisk asks
+  Time Machine to thin its own local snapshots until up to that much is free (`tmutil thinlocalsnapshots <disk> <bytes>
+  4`, the same request macOS makes when a disk runs low). It needs no admin rights and never touches your files;
+  snapshots made by macOS updates are left alone. The card then shows free space before and after, rolling up to the
+  new number, with the "space freed" moment, or says plainly that macOS freed nothing this time (purgeable iCloud
+  files and caches are freed by macOS itself when an app needs room; Storage Settings is a click away). RoomyDisk
+  does not fill the disk with a temporary file to force macOS to purge: that only works when the disk is nearly full
+  and writes gigabytes to the SSD. Removed snapshots cannot be brought back, so it asks first.
 - **Duplicates** (below Smart Clean in the sidebar, the toolbar, or ⇧⌘D) finds identical files of 1 MB or more in
   the current scan, or in a folder you choose. Files of the same size are compared by their first and last 64 KB, and
   only those that still match are read in full (SHA-256). Hard links, symbolic links, empty files, packages such as
@@ -134,7 +154,12 @@ There is also a command-line scanner:
 
 ```sh
 swift run roomy-scan ~ --top 20
+swift run -c release roomy-scan --benchmark /Applications   # scan time, item count and peak memory
 ```
+
+`--benchmark` scans the folder once, then twice more with the disk cache warm: once with and once without the APFS
+clone checks. It prints the times, the number of items, the peak memory and how much counting clones once saved.
+The CI build runs it on `/Applications` and `/usr` of the build machine.
 
 ## Language
 

@@ -1,4 +1,5 @@
 import AppKit
+import RoomyCore
 import SwiftUI
 
 /// Developer option for CI: `RoomyDisk --scan <folder> --tour <dir>` waits for the scan, then saves a PNG of each
@@ -71,11 +72,45 @@ enum ScreenTour {
             await shot("12-disk-health", wait: 2.5)
             model.showDiskHealth = false
 
+            await accuracyShots(model: model, shot: shot)
+
             await menuBarShots(model: model, directory: directory)
 
             await shot("6-main-after-sheets", wait: 1.5)
             NSApplication.shared.terminate(nil)
         }
+    }
+
+    /// A clone selected in the list, with what it shares in the caption, and the disk overview after "Free Purgeable
+    /// Space", run with a pretend releaser so macOS is never asked to free anything.
+    private static func accuracyShots(model: AppModel, shot: @MainActor (String, Double) async -> Void) async {
+        if let tree = model.tree,
+           let clone = (0..<ScanTree.Index(tree.count)).first(where: { tree.flags($0).contains(.clone) && tree.clones[$0]?.carriesShared == false }) {
+            if let folder = tree.parent(clone) { model.open(folder) }
+            try? await Task.sleep(for: .seconds(0.5))
+            model.selection = clone
+            print("tour: clone \(tree.path(of: clone)): \(SpaceNotes.clone(clone, in: tree))")
+            await shot("15-clone-detail", 1.5)
+            model.selection = nil
+            model.goUp()
+        } else {
+            print("tour: no clone in the scan")
+            await shot("15-clone-detail", 0.5)
+        }
+
+        let disk = model.diskOverview
+        disk.releaser = RehearsalReleaser()
+        model.refreshDiskOverview()
+        try? await Task.sleep(for: .seconds(1))
+        disk.freePurgeable(scanned: model.scannedBytes)
+        let start = Date()
+        while !(disk.purge != .idle && !disk.purge.isRunning) && Date().timeIntervalSince(start) < 20 {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        print("tour: free purgeable space: \(disk.purge)")
+        await shot("16-purgeable-freed", 2)
+        disk.dismissPurgeResult()
+        disk.releaser = TimeMachineThinner()
     }
 
     /// The menu bar popover after one background check and its Quick Clean confirmation, each shown in a
