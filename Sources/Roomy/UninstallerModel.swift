@@ -23,6 +23,20 @@ final class UninstallerModel {
         var label: String { NSLocalizedString(rawValue, comment: "") }
     }
 
+    /// The tabs of the Uninstaller.
+    enum Section: String, CaseIterable, Identifiable {
+        case apps = "Apps"
+        case loginItems = "Login Items"
+        var id: String { rawValue }
+        var label: String { NSLocalizedString(rawValue, comment: "") }
+        var symbol: String {
+            switch self {
+            case .apps: return "square.grid.2x2"
+            case .loginItems: return "power"
+            }
+        }
+    }
+
     /// What the detail panel shows.
     enum Focus: Equatable {
         case app(String)
@@ -34,10 +48,13 @@ final class UninstallerModel {
     private(set) var apps: [InstalledApp] = []
     /// Every bundle found, Apple's too, so their files never count as leftovers.
     @ObservationIgnored private var allApps: [InstalledApp] = []
+    /// The apps of macOS in /System/Applications: never listed, but their files are theirs.
+    @ObservationIgnored private var ownerApps: [InstalledApp] = []
     private(set) var measured: Set<String> = []
     var searchText = ""
     var sort: SortOrder = .size
     var focus: Focus?
+    var section: Section = .apps
 
     private(set) var leftovers: [Leftover] = []
     private(set) var isFindingLeftovers = false
@@ -63,9 +80,12 @@ final class UninstallerModel {
     @ObservationIgnored var onRemoved: (([String]) -> Void)?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var detailTask: Task<Void, Never>?
-    @ObservationIgnored private let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
+    @ObservationIgnored let uninstaller = AppUninstaller(homePath: AppEnvironment.home, appFolders: AppEnvironment.appFolders)
 
     var isBusy: Bool { phase == .loading || phase == .removing }
+
+    /// Every app found in the app folders, Apple's too.
+    var installedApps: [InstalledApp] { allApps }
 
     var selectedApp: InstalledApp? {
         guard case .app(let path) = focus else { return nil }
@@ -144,9 +164,10 @@ final class UninstallerModel {
 
         let uninstaller = uninstaller
         loadTask = Task {
-            let list = await Task.detached { uninstaller.listApps() }.value
+            let (list, owners) = await Task.detached { (uninstaller.listApps(), uninstaller.listOwnerApps()) }.value
             guard !Task.isCancelled else { return }
             self.allApps = list
+            self.ownerApps = owners
             self.apps = list.filter { !$0.isApple && !$0.path.hasPrefix("/System/") }
             self.measured = []
             self.phase = .ready
@@ -227,23 +248,42 @@ final class UninstallerModel {
         refreshRunning()
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         let uninstaller = uninstaller
-        let installed = allApps
+        let installed = allApps + ownerApps
+        let extraRemoved = removedByReceipts
         detailTask = Task {
             let groups = await Task.detached { () -> [OrphanGroup] in
-                let found = uninstaller.orphans(installed: installed, knownIDs: running)
+                let removed = uninstaller.removedApps() + extraRemoved
+                let found = uninstaller.orphans(installed: installed, knownIDs: running, removed: removed,
+                                                isRegistered: Self.isRegistered)
                 let measured = await AppUninstaller.measure(found.flatMap(\.items))
                 let byPath = Dictionary(measured.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
                 return found.map { group in
-                    OrphanGroup(bundleID: group.bundleID,
+                    OrphanGroup(bundleID: group.bundleID, appName: group.appName,
                                 items: group.items.compactMap { byPath[$0.path] }.sorted { $0.bytes > $1.bytes })
                 }
-                .sorted { $0.bytes != $1.bytes ? $0.bytes > $1.bytes : $0.bundleID < $1.bundleID }
+                // Surest first, then largest.
+                .sorted { a, b in
+                    if a.confidence != b.confidence { return a.confidence > b.confidence }
+                    return a.bytes != b.bytes ? a.bytes > b.bytes : a.bundleID < b.bundleID
+                }
             }.value
             guard !Task.isCancelled else { return }
             self.orphans = groups
+            // Only items named exactly by an app that is gone start ticked.
+            self.orphanTicked = Set(groups.flatMap(\.items).filter { $0.confidence == .high }.map(\.path))
             self.orphansLoaded = true
             self.isFindingOrphans = false
         }
+    }
+
+    /// Apps whose installer receipt remains though the app is gone, from the Installers tab.
+    @ObservationIgnored var removedByReceipts: [RemovedApp] = []
+
+    /// True when Launch Services knows an app with this identifier that is still on the Mac (not in the Trash).
+    nonisolated static func isRegistered(_ bundleID: String) -> Bool {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return false }
+        let path = url.path
+        return !path.contains("/.Trash/") && FileManager.default.fileExists(atPath: path)
     }
 
     func closeDetail() {
@@ -352,7 +392,7 @@ final class UninstallerModel {
         ticked.subtract(removed)
         orphans = orphans.compactMap { group in
             let left = group.items.filter { !removed.contains($0.path) }
-            return left.isEmpty ? nil : OrphanGroup(bundleID: group.bundleID, items: left)
+            return left.isEmpty ? nil : OrphanGroup(bundleID: group.bundleID, appName: group.appName, items: left)
         }
         orphanTicked.subtract(removed)
         if let app = removingApp, removed.contains(app.path) {

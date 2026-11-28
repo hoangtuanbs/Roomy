@@ -36,8 +36,10 @@ struct RoomyApp: App {
                     .keyboardShortcut("k", modifiers: [.command, .shift])
                 Button("Find Duplicates…") { model.openDuplicates() }
                     .keyboardShortcut("d", modifiers: [.command, .shift])
-                Button("Uninstall Apps…") { model.openUninstaller() }
+                Button("Uninstall Apps…") { model.openUninstaller(section: .apps) }
                     .keyboardShortcut("u", modifiers: [.command, .shift])
+                Button("Login Items…") { model.openUninstaller(section: .loginItems) }
+                    .keyboardShortcut("l", modifiers: [.command, .option])
                 Button("Space Hunters…") { model.openSpaceHunters() }
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Free Up Cloud Space…") { model.openCloudSpace() }

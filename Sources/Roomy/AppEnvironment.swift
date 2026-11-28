@@ -26,6 +26,12 @@ enum AppEnvironment {
     /// Where the Uninstaller looks for apps; nil for the usual app folders.
     static let appFolders: [String]? = flowSandbox.map { _ in [home + "/Applications"] }
 
+    /// The folder with the shared LaunchAgents and LaunchDaemons: `/Library`, or `<sandbox>/system/Library`.
+    static let sharedLibrary: String = flowSandbox.map { $0 + "/system/Library" } ?? "/Library"
+    /// Asks launchd about jobs. The flow test uses a stand-in, so launchctl is never run there.
+    static let launchControl: any LaunchControlling = flowSandbox == nil
+        ? SystemLaunchControl() : RecordingLaunchControl(loaded: ["io.github.roomy.flowagent"])
+
     /// Moves items to the Trash under these rules, and notes each clean in the history.
     static func cleanupService() -> CleanupService {
         CleanupService(policy: policy, history: history)

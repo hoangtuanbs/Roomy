@@ -48,6 +48,10 @@ enum ScreenTour {
             model.openUninstaller()
             await waitWhile { model.uninstaller.isBusy }
             await shot("5-uninstaller", wait: 3)
+            model.uninstaller.section = .loginItems
+            await waitWhile({ !model.loginItems.loaded }, limit: 30)
+            await shot("17-login-items", wait: 2)
+            model.uninstaller.section = .apps
             model.showUninstaller = false
 
             try? await Task.sleep(for: .seconds(1))

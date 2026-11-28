@@ -123,6 +123,8 @@ final class AppModel {
     var showDuplicates = false
     let uninstaller = UninstallerModel()
     var showUninstaller = false
+    /// The Uninstaller's Login Items tab.
+    let loginItems = LoginItemsModel()
     let spaceHunters = SpaceHuntersModel()
     var showSpaceHunters = false
     let cloudSpace = CloudSpaceModel()
@@ -159,6 +161,7 @@ final class AppModel {
         smartClean.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         duplicates.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         uninstaller.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
+        loginItems.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
         spaceHunters.onShowAccessHelp = { [weak self] in self?.showAccessHelpFromHunters() }
         autoCheck.onRemoved = { [weak self] paths in self?.applyRemoved(paths) }
@@ -836,9 +839,25 @@ final class AppModel {
     }
 
     /// Opens the Uninstaller and reads the installed apps again, unless it is busy.
-    func openUninstaller() {
+    func openUninstaller(section: UninstallerModel.Section? = nil) {
         showUninstaller = true
-        if !uninstaller.isBusy && uninstaller.phase != .done { uninstaller.load() }
+        if let section { uninstaller.section = section }
+        if !uninstaller.isBusy && uninstaller.phase != .done {
+            uninstaller.load()
+            loginItems.reset()
+        }
+        showUninstallerSection(uninstaller.section)
+    }
+
+    /// Reads what a tab of the Uninstaller shows the first time it is opened, once the apps are listed.
+    func showUninstallerSection(_ section: UninstallerModel.Section) {
+        Task {
+            while uninstaller.phase == .loading { try? await Task.sleep(for: .milliseconds(100)) }
+            switch section {
+            case .apps: break
+            case .loginItems: if !loginItems.loaded && !loginItems.isLoading { loginItems.load(installed: uninstaller.installedApps) }
+            }
+        }
     }
 
     /// Opens Space Hunters and hunts again, unless it is busy.

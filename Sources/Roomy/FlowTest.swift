@@ -77,6 +77,8 @@ final class FlowTest {
         await run("space-hunters") { try await self.spaceHuntersScenario() }
         await run("duplicates") { try await self.duplicatesScenario() }
         await run("uninstaller") { try await self.uninstallerScenario() }
+        await run("removed-app-leftovers") { try await self.orphansScenario() }
+        await run("login-items") { try await self.loginItemsScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
@@ -163,6 +165,21 @@ final class FlowTest {
         try writePlist("Library/Preferences/\(Self.appID).plist", ["flow": true])
         try write("Library/Saved Application State/\(Self.appID).savedState/windows.plist", bytes: 3_000, fill: 7)
 
+        // An app that was dragged to the Trash, and what it left: one item named by its identifier, one by its name,
+        // and an item of some other app that is not installed.
+        try writePlist(".Trash/Gone App.app/Contents/Info.plist", ["CFBundleIdentifier": Self.goneID, "CFBundleName": "Gone App",
+                                                                   "CFBundlePackageType": "APPL"])
+        try write("Library/Application Support/\(Self.goneID)/data.bin", bytes: 70_000, fill: 12)
+        try write("Library/Application Support/Gone App/cache.bin", bytes: 30_000, fill: 13)
+        try writePlist("Library/Preferences/io.github.roomy.unknowntool.plist", ["flow": true])
+
+        // Launch agents: one of yours that can be turned off, one that claims to be Apple's, and a daemon for all users.
+        try writePlist("Library/LaunchAgents/\(Self.agentLabel).plist", ["Label": Self.agentLabel,
+                                                                        "ProgramArguments": ["/usr/bin/true"], "RunAtLoad": true])
+        try writePlist("Library/LaunchAgents/com.apple.flowtest.plist", ["Label": "com.apple.flowtest", "Program": "/usr/bin/true"])
+        try writeSandbox("system/Library/LaunchDaemons/io.github.roomy.flowdaemon.plist",
+                         ["Label": "io.github.roomy.flowdaemon", "Program": "/usr/bin/true", "KeepAlive": true])
+
         let backup = "Library/Application Support/MobileSync/Backup/00008110-00FLOWTEST0001"
         try writePlist(backup + "/Info.plist", ["Device Name": "Flow iPhone", "Product Type": "iPhone15,2",
                                                 "Product Version": "17.5",
@@ -178,6 +195,8 @@ final class FlowTest {
     }
 
     static let appID = "io.github.roomy.flowsample"
+    static let goneID = "io.github.roomy.goneapp"
+    static let agentLabel = "io.github.roomy.flowagent"
     static let stuckDrive = "GoogleDrive-flow@example.com"
     private var stuckDrivePath: String { home + "/Library/CloudStorage/" + Self.stuckDrive }
     /// Lets the stuck Google Drive reads finish when the test ends.
@@ -202,6 +221,15 @@ final class FlowTest {
 
     private func writePlist(_ relative: String, _ values: [String: Any]) throws {
         let path = try sandboxed(home + "/" + relative)
+        try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
+                                                withIntermediateDirectories: true)
+        let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
+        try data.write(to: URL(fileURLWithPath: path))
+    }
+
+    /// A plist at a path inside the sandbox but outside its home.
+    private func writeSandbox(_ relative: String, _ values: [String: Any]) throws {
+        let path = try sandboxed(sandbox + "/" + relative)
         try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent,
                                                 withIntermediateDirectories: true)
         let data = try PropertyListSerialization.data(fromPropertyList: values, format: .xml, options: 0)
@@ -622,6 +650,67 @@ final class FlowTest {
         try expect(Set(report.results.map(\.path)) == expected.union([appPath]), "moved: \(report.results.map(\.path))")
         try expect(!uninstaller.apps.contains { $0.path == appPath }, "the app is still listed")
         uninstaller.showList()
+    }
+
+    /// Leftovers of removed apps: only the item named exactly by the app in the Trash starts ticked, and only it moves.
+    private func orphansScenario() async throws {
+        let uninstaller = model.uninstaller
+        model.openUninstaller()
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the app list", limit: 60) { uninstaller.phase == .ready }
+        uninstaller.showOrphans()
+        try await waitUntil("the leftovers of removed apps", limit: 60) { uninstaller.orphansLoaded && !uninstaller.isFindingOrphans }
+        let library = home + "/Library/"
+        let sure = library + "Application Support/\(Self.goneID)"
+        let byName = library + "Application Support/Gone App"
+        let unknown = library + "Preferences/io.github.roomy.unknowntool.plist"
+        guard let gone = uninstaller.orphans.first(where: { $0.bundleID == Self.goneID }) else {
+            throw Failure("groups: \(uninstaller.orphans.map(\.bundleID))")
+        }
+        try expect(gone.appName == "Gone App", "the app is named \(gone.appName ?? "nil")")
+        let levels = Dictionary(gone.items.map { ($0.path, $0.confidence) }, uniquingKeysWith: { a, _ in a })
+        try expect(levels == [sure: .high, byName: .medium], "its items: \(levels)")
+        let all = uninstaller.orphans.flatMap(\.items)
+        try expect(all.first { $0.path == unknown }?.confidence == .low, "the unknown tool's item: \(all.map(\.path))")
+        try expect(!all.contains { $0.path.contains("/com.apple.") }, "an item of macOS was offered")
+        try expect(uninstaller.orphanTicked == [sure], "ticked: \(uninstaller.orphanTicked.sorted())")
+        try expect(uninstaller.orphans.first?.confidence == .high, "the surest group is not first")
+
+        uninstaller.removeOrphans()
+        try await waitUntil("the removal", limit: 30) { uninstaller.phase == .done }
+        guard let report = uninstaller.report else { throw Failure("no report") }
+        try expect(report.results.map(\.path) == [sure], "moved: \(report.results.map(\.path))")
+        try checkTrashed(report.results)
+        try expect(exists(byName) && exists(unknown), "an unticked item was moved")
+        uninstaller.showList()
+    }
+
+    /// Login Items lists the sandbox's launch agents and daemon, refuses Apple's and the daemon, and turns off your
+    /// own agent: launchd (a stand-in here) is asked to stop it and its plist goes to the Trash.
+    private func loginItemsScenario() async throws {
+        let login = model.loginItems
+        guard let control = AppEnvironment.launchControl as? RecordingLaunchControl else { throw Failure("launchctl is not stood in for") }
+        model.openUninstaller(section: .loginItems)
+        defer { model.uninstaller.section = .apps }
+        try await expectSheet("Uninstaller")
+        try await waitUntil("the login items", limit: 60) { login.loaded && !login.isLoading }
+        let byLabel = Dictionary(login.items.map { ($0.label, $0) }, uniquingKeysWith: { a, _ in a })
+        guard let agent = byLabel[Self.agentLabel] else { throw Failure("items: \(login.items.map(\.label))") }
+        try expect(agent.domain == .userAgent && agent.isLoaded == true && agent.program == "/usr/bin/true",
+                   "the agent reads as \(agent)")
+        guard let daemon = byLabel["io.github.roomy.flowdaemon"] else { throw Failure("no daemon in \(login.items.map(\.label))") }
+        try expect(daemon.domain == .systemDaemon && login.refusal(for: daemon) != nil, "the daemon could be turned off")
+        guard let apple = byLabel["com.apple.flowtest"] else { throw Failure("no Apple agent") }
+        try expect(login.refusal(for: apple) != nil, "Apple's agent could be turned off")
+        try expect(login.refusal(for: agent) == nil, "the agent is refused: \(login.refusal(for: agent) ?? "")")
+
+        login.turnOff(agent)
+        try await waitUntil("turning off", limit: 30) { login.turningOff == nil && login.lastResult != nil }
+        guard let result = login.lastResult else { throw Failure("no result") }
+        try checkTrashed([result])
+        try expect(control.bootedOut == [Self.agentLabel], "launchd was asked to stop \(control.bootedOut)")
+        try expect(!login.items.contains { $0.label == Self.agentLabel }, "the agent is still listed")
+        try expect(exists(home + "/Library/LaunchAgents/com.apple.flowtest.plist"), "Apple's agent was moved")
     }
 
     /// Smart Clean finds the caches, logs and an Xcode archive, and moves only what it ticks by itself.

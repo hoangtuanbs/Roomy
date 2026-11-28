@@ -75,8 +75,23 @@ A macOS app that shows what is using space on your disk and helps you free it up
   may belong to another app, so they start unticked with a **Review first** badge. **Uninstall** moves the ticked
   items to the Trash. Apps of macOS are not listed, and an app
   that is open has to be quit first. Apps from the App Store or installed for all users may need an administrator;
-  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items named after apps that are
-  no longer installed. They are guesses, so nothing there is ticked until you review it.
+  RoomyDisk says so and never asks for one. **Leftovers of removed apps** lists Library items (app data, caches,
+  settings, containers, shared containers, saved window state, web storage, WebKit data, logs and launch agents) named
+  after apps that are no longer installed: not in `/Applications`, `~/Applications` or `/System/Applications`, not open,
+  and unknown to Launch Services. Each gets a confidence. **Sure**: named exactly by the identifier of an app known to be
+  gone (one in the Trash, one that left saved windows, or one whose installer receipt remains). **Likely**: named by
+  that app's name or a related identifier, or a shared container of it. **Unsure**: any other identifier no installed
+  app owns. Only Sure items start ticked. Items of macOS, names shared by many apps, launch agents whose program is
+  still there and anything the safety rules block are never listed.
+- **Login Items** (the Uninstaller's second tab, or ⌥⌘L) lists what starts with your Mac: your own launch agents in
+  `~/Library/LaunchAgents`, the agents and daemons for all users in `/Library/LaunchAgents` and `/Library/LaunchDaemons`,
+  and the helpers apps carry and turn on themselves (`Contents/Library/LoginItems`, `LaunchAgents` and `LaunchDaemons`
+  inside an app). Each shows its app, whether it is running and the program it starts ("Program missing" when that is
+  gone). **Turn Off** works only for your own agents: after you confirm, RoomyDisk asks launchd to stop it
+  (`launchctl bootout gui/<your user id>/<label>`, no admin rights) and moves its plist to the Trash, so Put Back turns
+  it on again. Apple's agents are never offered. Items for all users need an administrator and app helpers are managed
+  by their apps, so for those RoomyDisk offers **Open Login Items Settings** (System Settings › General › Login Items)
+  instead.
 - **Space Hunters** (below the Uninstaller in the sidebar, the toolbar, or ⇧⌘H) hunts for big things you may have
   forgotten, each on its own card with a total that counts up:
   - **iPhone & iPad backups** in `~/Library/Application Support/MobileSync/Backup`, with the device's name, model,
