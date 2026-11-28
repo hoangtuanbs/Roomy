@@ -1,10 +1,33 @@
 import Foundation
 import RoomyCore
+#if canImport(AppKit)
+import AppKit
+#endif
 
 // roomy-scan [folder] [--top N]       lists the largest items of a folder
 // roomy-scan --benchmark <folder>     times a scan and prints the item count and peak memory
+// roomy-scan clean [--dry-run] [--yes]
+//                                     moves what Smart Clean ticks by itself (caches, logs, build data, package
+//                                     caches, old installers) to the Trash after asking; --dry-run only lists it
 
 var args = Array(CommandLine.arguments.dropFirst())
+
+if args.first == "clean" {
+    guard let options = CleanCommand.options(Array(args.dropFirst())) else {
+        FileHandle.standardError.write(Data("usage: roomy-scan clean [--dry-run] [--yes]\n".utf8))
+        exit(2)
+    }
+    // Caches of apps that are open are left alone, as in the app.
+    var running: Set<String> = []
+    #if canImport(AppKit)
+    running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+    #endif
+    let home = NSHomeDirectory()
+    let service = CleanupService(policy: SafetyPolicy(homePath: home), history: .standard, tool: .commandLine)
+    let command = CleanCommand(clean: JunkClean(finder: JunkFinder(homePath: home, skippedCacheNames: running), service: service),
+                               dryRun: options.dryRun, assumeYes: options.yes)
+    exit(await command.run())
+}
 var top = 20
 if let i = args.firstIndex(of: "--top"), i + 1 < args.count, let n = Int(args[i + 1]) {
     top = n
