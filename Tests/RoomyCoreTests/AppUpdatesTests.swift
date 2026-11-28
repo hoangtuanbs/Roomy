@@ -82,8 +82,10 @@ final class AppUpdatesTests: XCTestCase {
                                     systemVersion: "14.5")
         guard case .available(let item) = await checker.check(app()) else { return XCTFail("no update found") }
         XCTAssertEqual(item.displayVersion, "2.1")
-        XCTAssertEqual(await checker.check(app(version: "2.1", build: "210")), .upToDate)
-        XCTAssertEqual(await checker.check(app(store: true)), .appStore)
+        let current = await checker.check(app(version: "2.1", build: "210"))
+        XCTAssertEqual(current, .upToDate)
+        let store = await checker.check(app(store: true))
+        XCTAssertEqual(store, .appStore)
         guard case .failed = await checker.check(app(feed: "https://example.com/missing.xml")) else { return XCTFail("a missing feed passed") }
         let empty = UpdateChecker(fetcher: FixedAppcastFetcher(["https://example.com/appcast.xml": Data("<rss/>".utf8)]))
         guard case .failed = await empty.check(app()) else { return XCTFail("an empty feed passed") }
