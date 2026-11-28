@@ -86,8 +86,10 @@ final class FlowTest {
         await run("app-updates") { try await self.appUpdatesScenario() }
         await run("smart-clean") { try await self.smartCleanScenario() }
         await run("cloud-space") { try await self.cloudSpaceScenario() }
+        await run("google-drive") { try await self.googleDriveScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
         await run("quick-clean") { try await self.quickCleanScenario() }
+        await run("shortcuts") { try await self.shortcutsScenario() }
         await run("space-freed-history") { try await self.historyScenario() }
         await run("disk-health") { try await self.diskHealthScenario() }
         await run("free-purgeable") { try await self.freePurgeableScenario() }
@@ -955,6 +957,23 @@ final class FlowTest {
         try expect(exists(notes), "explaining changed a file")
     }
 
+    /// The Shortcuts actions: Find Junk and Get Free Space only look; Clean Junk's work (after its confirmation,
+    /// which only Shortcuts can show) moves exactly Smart Clean's default-ticked items through the safety rules.
+    private func shortcutsScenario() async throws {
+        try makeJunk()
+        _ = try await FindJunkIntent().perform()
+        _ = try await GetFreeSpaceIntent().perform()
+        try expect(exists(cachePath) && exists(logPath), "Find Junk moved something")
+        let clean = ShortcutsJunk.clean(for: .shortcuts)
+        let items = await clean.items()
+        try expect(Set(items.map(\.path)) == [cachePath, logPath], "Clean Junk would move \(items.map(\.path))")
+        let report = clean.clean(items)
+        try checkTrashed(report.results)
+        try expect(exists(archivePath), "the Xcode archive, which needs a review first, was moved")
+        try expect(AppEnvironment.history?.load().last?.tool == .shortcuts, "the clean is not in the history as Shortcuts")
+        try expect(ShortcutText.cleaned(report).contains("\(report.succeeded.count)"), ShortcutText.cleaned(report))
+    }
+
     /// The Space Freed history lists the cleans of the scenarios before it, by tool, with their items still in the
     /// Trash; it only reads.
     private func historyScenario() async throws {
@@ -982,6 +1001,42 @@ final class FlowTest {
         try? await Task.sleep(for: .milliseconds(300))
         history.grouping = .date
         try expect(exists(item.trashedTo ?? ""), "opening the history changed the Trash")
+    }
+
+    /// A Google Drive whose app is running sits next to the one that isn't: its downloaded files are grouped inside
+    /// My Drive and "Remove Downloads" evicts them through the File Provider path (a stand-in here, so nothing is
+    /// changed), while the stuck one is skipped as "isn't running".
+    private func googleDriveScenario() async throws {
+        let root = home + "/Library/CloudStorage/GoogleDrive-work@example.com"
+        try write("Library/CloudStorage/GoogleDrive-work@example.com/My Drive/Reports/q3.pdf", bytes: 60_000, fill: 17)
+        let report = root + "/My Drive/Reports/q3.pdf"
+        let cloud = model.cloudSpace
+        let evictor = FlowEvictor()
+        cloud.status = FlowCloudStatus(uploadedUnder: root)
+        cloud.evictor = evictor
+        defer {
+            cloud.status = SystemCloudStatus()
+            cloud.evictor = SystemCloudEvictor()
+        }
+        model.openCloudSpace()
+        try await expectSheet("Cloud Space")
+        try await waitUntil("the cloud search", limit: 60) { cloud.phase == .ready }
+        try expect(cloud.findings.unavailable.map(\.rootPath) == [stuckDrivePath],
+                   "not available: \(cloud.findings.unavailable.map(\.rootPath))")
+        try expect(CloudGuard.unavailableNote(for: stuckDrivePath).contains("Google Drive isn't running"),
+                   CloudGuard.unavailableNote(for: stuckDrivePath))
+        guard let drive = cloud.findings.providers.first(where: { $0.provider.rootPath == root }) else {
+            throw Failure("the running Google Drive is not listed: \(cloud.findings.providers.map(\.provider.title))")
+        }
+        try expect(drive.provider.title == "Google Drive (work@example.com)", drive.provider.title)
+        try expect(drive.groups.map(\.name) == ["My Drive › Reports"], "groups: \(drive.groups.map(\.name))")
+        cloud.setAll(drive, selected: true)
+        try expect(cloud.selectedItems.map(\.path) == [report], "ticked: \(cloud.selectedItems.map(\.path))")
+        cloud.removeDownloads()
+        try await waitUntil("the downloads to be removed", limit: 20) { cloud.phase == .done }
+        try expect(evictor.evicted == [report], "evicted: \(evictor.evicted)")
+        try expect(cloud.report?.freedBytes ?? 0 > 0, "nothing freed")
+        try expect(exists(report), "the Google Drive file was moved or deleted")
     }
 
     /// The background check measures the junk and keeps its summary in the test's settings.
@@ -1253,5 +1308,26 @@ final class FlowTest {
             total += Int64(values.totalFileAllocatedSize ?? 0)
         }
         return total
+    }
+}
+
+/// Says the files under one folder are uploaded cloud files with a local copy, and nothing else is a cloud file.
+private struct FlowCloudStatus: CloudStatusReading {
+    let uploadedUnder: String
+
+    func status(of path: String) -> CloudStatus {
+        guard path.hasPrefix(uploadedUnder + "/") else { return CloudStatus() }
+        return CloudStatus(isCloudItem: true, download: .current, isUploaded: true, isUploading: false, hasConflicts: false)
+    }
+}
+
+/// Notes which local copies would be removed, and changes nothing.
+private final class FlowEvictor: CloudEvicting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var paths: [String] = []
+    var evicted: [String] { lock.withLock { paths } }
+
+    func evict(_ path: String) throws {
+        lock.withLock { paths.append(path) }
     }
 }

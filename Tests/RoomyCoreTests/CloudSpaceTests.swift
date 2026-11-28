@@ -257,4 +257,48 @@ final class CloudSpaceTests: XCTestCase {
             XCTAssertTrue(fm.fileExists(atPath: path))
         }
     }
+
+    // MARK: Google Drive
+
+    func testGoogleDriveIsFoundWithItsAccountAndGroupedInsideMyDrive() throws {
+        let root = home + "/Library/CloudStorage/GoogleDrive-anna@example.com"
+        let report = try file("Library/CloudStorage/GoogleDrive-anna@example.com/My Drive/Reports/q3.pdf", bytes: 80_000)
+        let loose = try file("Library/CloudStorage/GoogleDrive-anna@example.com/My Drive/notes.txt", bytes: 30_000)
+        let shared = try file("Library/CloudStorage/GoogleDrive-anna@example.com/Shared drives/Team/plan.key", bytes: 50_000)
+        let providers = CloudLocations(homePath: home).providers()
+        let drive = try XCTUnwrap(providers.first { $0.kind == .googleDrive })
+        XCTAssertEqual(drive.title, "Google Drive (anna@example.com)")
+        XCTAssertEqual(drive.rootPath, root)
+
+        XCTAssertEqual(CloudLocations.group(of: report, in: drive).name, "My Drive › Reports")
+        XCTAssertEqual(CloudLocations.group(of: report, in: drive).path, root + "/My Drive/Reports")
+        XCTAssertEqual(CloudLocations.group(of: loose, in: drive).name, "My Drive")
+        XCTAssertEqual(CloudLocations.group(of: shared, in: drive).name, "Shared drives › Team")
+
+        let findings = CloudSpaceFinder(providers: [drive], status: FakeStatus(byPath: [report: safe, loose: safe, shared: safe])).find()
+        XCTAssertEqual(findings.providers.first?.groups.map(\.name), ["My Drive › Reports", "Shared drives › Team", "My Drive"])
+        XCTAssertEqual(findings.evictableBytes, findings.groups.flatMap(\.items).reduce(0) { $0 + $1.bytes })
+
+        let evictor = FakeEvictor()
+        let removed = CloudEvictionService(providers: [drive], status: FakeStatus(byPath: [report: safe]), evictor: evictor)
+            .evict(findings.groups.flatMap(\.evictable))
+        XCTAssertEqual(evictor.evicted, [report], "only files that are still safely uploaded lose their local copy")
+        XCTAssertEqual(removed.succeeded.map(\.path), [report])
+        XCTAssertTrue(fm.fileExists(atPath: report) && fm.fileExists(atPath: loose) && fm.fileExists(atPath: shared))
+    }
+
+    func testAGoogleDriveThatDoesNotAnswerIsSkipped() throws {
+        let root = home + "/Library/CloudStorage/GoogleDrive-anna@example.com"
+        try file("Library/CloudStorage/GoogleDrive-anna@example.com/My Drive/a.txt")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        let drive = CloudProvider(kind: .googleDrive, name: "Google Drive", account: "anna@example.com", rootPath: root)
+        let start = Date()
+        let findings = CloudSpaceFinder(providers: [drive], status: FakeStatus(byPath: [:], fallback: safe),
+                                        reader: .withStuckFolders([root], timeout: 0.3, release: release)).find()
+        XCTAssertEqual(findings.unavailable, [drive])
+        XCTAssertTrue(findings.providers.isEmpty)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5, "the stuck drive was waited for")
+        XCTAssertEqual(CloudGuard.unavailableNote(for: root), "Not available (Google Drive isn't running)")
+    }
 }
