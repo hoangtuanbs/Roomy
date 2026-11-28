@@ -151,6 +151,12 @@ A macOS app that shows what is using space on your disk and helps you free it up
   their health; they show **Unknown**. The menu bar popover shows a dot in the health's colour next to each disk.
   RoomyDisk reads the disks every 6 hours while it runs, and sends one notification if a disk turns **Failing**;
   clicking it opens Disk Health.
+- **Space Freed** (below Disk Health in the sidebar, or ⇧⌘T, "Space Freed History…") shows what RoomyDisk has freed
+  from the cleanup history it keeps (`~/Library/Application Support/Roomy/cleanup-history.jsonl`): the total, a bar for
+  each of the last 12 months, and every clean by date or by tool (Smart Clean, Duplicates, Uninstaller, Space Hunters,
+  Review and Clean, Quick Clean, Compress, Login Items, Shortcuts and the command line). Open a clean to see each item
+  it moved; **Show in Trash** selects it in the Trash while it is still there, so Put Back brings it home. Cleans from
+  before tools were noted are listed as "Earlier cleans". It only reads.
 - **Settings** (⌘,) has three tabs: **General** (the menu bar icon), **Checks & Alerts** (automatic checks, their
   notice and the low-space alert) and **Updates**.
 - **Menu bar** (on by default, turn it off in Settings › General): an icon in the menu bar shows the startup disk and any

@@ -91,7 +91,7 @@ final class SmartCleanModel {
         phase = .cleaning
 
         Task.detached {
-            let service = AppEnvironment.cleanupService()
+            let service = AppEnvironment.cleanupService(.smartClean)
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan) { result in
                 Task { @MainActor in self.advance(result) }

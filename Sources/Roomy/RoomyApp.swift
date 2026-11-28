@@ -46,6 +46,8 @@ struct RoomyApp: App {
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Disk Health…") { model.openDiskHealth() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
+                Button("Space Freed History…") { model.openHistory() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
             }
             CommandGroup(after: .toolbar) {
                 Button("Enclosing Folder") { model.goUp() }

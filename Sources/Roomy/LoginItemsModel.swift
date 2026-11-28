@@ -57,7 +57,7 @@ final class LoginItemsModel {
         lastResult = nil
         let finder = finder, control = control
         Task {
-            let result = await Task.detached { finder.turnOff(item, control: control, cleanup: AppEnvironment.cleanupService()) }.value
+            let result = await Task.detached { finder.turnOff(item, control: control, cleanup: AppEnvironment.cleanupService(.loginItems)) }.value
             // Let the row's spinner be seen before it slides away.
             try? await Task.sleep(for: .milliseconds(300))
             self.turningOff = nil

@@ -136,6 +136,9 @@ final class AppModel {
     /// What each disk reports about its own health, shown in Disk Health and as dots in the menu bar.
     let diskHealth = DiskHealthModel()
     var showDiskHealth = false
+    /// What RoomyDisk freed over time, from the cleanup history.
+    let history = HistoryModel()
+    var showHistory = false
     /// The background junk check behind the menu bar's Quick Clean.
     let autoCheck = AutoCheckModel()
 
@@ -684,7 +687,7 @@ final class AppModel {
 
     private var anySheetOpen: Bool {
         showReview || showCompress || showSmartClean || showDuplicates || showUninstaller || showSpaceHunters
-            || showCloudSpace || showDiskHealth || showOnboarding
+            || showCloudSpace || showDiskHealth || showHistory || showOnboarding
     }
 
     /// Space opens and closes Quick Look for the selection, unless a text field is being edited.
@@ -798,7 +801,7 @@ final class AppModel {
         let policy = self.policy
 
         Task.detached {
-            let service = CleanupService(policy: policy, history: AppEnvironment.history)
+            let service = CleanupService(policy: policy, history: AppEnvironment.history, tool: .review)
             let plan = service.plan(paths: paths, sizeOf: { sizes[$0] ?? 0 })
             let report = service.execute(plan)
             await MainActor.run { [weak self] in
@@ -896,6 +899,12 @@ final class AppModel {
     func openCloudSpace() {
         showCloudSpace = true
         if !cloudSpace.isBusy { cloudSpace.find() }
+    }
+
+    /// Opens the Space Freed history and reads the history file again.
+    func openHistory() {
+        showHistory = true
+        history.load()
     }
 
     /// Opens Disk Health and reads the disks again, unless a read is already running.

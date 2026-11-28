@@ -68,8 +68,8 @@ enum AppEnvironment {
         """
 
     /// Moves items to the Trash under these rules, and notes each clean in the history.
-    static func cleanupService() -> CleanupService {
-        CleanupService(policy: policy, history: history)
+    static func cleanupService(_ tool: CleanupTool) -> CleanupService {
+        CleanupService(policy: policy, history: history, tool: tool)
     }
 
     private static func readFlowSandbox() -> String? {

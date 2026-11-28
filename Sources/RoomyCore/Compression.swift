@@ -101,7 +101,7 @@ public struct CompressionService: Sendable {
             let result = CompressionResult(sourcePath: path, archivePath: archive, originalBytes: originalBytes,
                                            archiveBytes: archiveBytes, trashedTo: destination, error: nil)
             let record = CleanupResult(path: path, bytes: result.savedBytes, trashedTo: destination, error: nil)
-            try? history?.append(CleanupReport(date: Date(), results: [record]))
+            try? history?.append(CleanupReport(date: Date(), results: [record], tool: .compress))
             return result
         } catch {
             return failure(String(format: String(localized: "The archive was created, but the original could not be moved to the Trash: %@"), error.localizedDescription),

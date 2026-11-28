@@ -55,6 +55,9 @@ struct ContentView: View {
         .sheet(isPresented: $model.showDiskHealth) {
             DiskHealthView().environment(model)
         }
+        .sheet(isPresented: $model.showHistory) {
+            HistoryView().environment(model)
+        }
         .sheet(isPresented: $model.showOnboarding) {
             OnboardingView().environment(model)
         }

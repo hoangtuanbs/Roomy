@@ -32,6 +32,8 @@ struct SidebarView: View {
                             help: "Free space by removing downloaded copies of cloud files; they stay in the cloud") { model.openCloudSpace() }
                     ToolRow(title: "Disk Health", symbol: "stethoscope", gradient: .diskHealth,
                             help: "See what your disks report about their own health") { model.openDiskHealth() }
+                    ToolRow(title: "Space Freed", symbol: "clock.arrow.circlepath", gradient: .history,
+                            help: "See how much space RoomyDisk freed, month by month and tool by tool") { model.openHistory() }
 
                     SidebarSection("Disks")
                     ForEach(model.volumes) { volume in

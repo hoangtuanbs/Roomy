@@ -87,6 +87,7 @@ final class FlowTest {
         await run("cloud-space") { try await self.cloudSpaceScenario() }
         await run("automatic-check") { try await self.automaticCheckScenario() }
         await run("quick-clean") { try await self.quickCleanScenario() }
+        await run("space-freed-history") { try await self.historyScenario() }
         await run("disk-health") { try await self.diskHealthScenario() }
         await run("free-purgeable") { try await self.freePurgeableScenario() }
         await run("csv-export") { try await self.csvScenario() }
@@ -349,6 +350,7 @@ final class FlowTest {
         model.showSpaceHunters = false
         model.showCloudSpace = false
         model.showDiskHealth = false
+        model.showHistory = false
         model.showOnboarding = false
         let start = Date()
         while mainWindow?.attachedSheet != nil && Date().timeIntervalSince(start) < 5 {
@@ -562,7 +564,7 @@ final class FlowTest {
         let rootVerdict = model.verdict(for: ScanTree.root)
         try expect(rootVerdict == .blocked(String(localized: "This is your home folder.")), "the home folder verdict is \(rootVerdict)")
 
-        let service = AppEnvironment.cleanupService()
+        let service = AppEnvironment.cleanupService(.review)
         let report = service.execute(service.plan(paths: [keychainPath], sizeOf: { _ in 0 }))
         try expect(report.failed.first?.error == reason, "CleanupService said \(report.results)")
         try expect(exists(keychainPath + "/login.keychain-db"), "the keychain is gone")
@@ -918,6 +920,35 @@ final class FlowTest {
         cloud.removeDownloads()
         try expect(cloud.phase == .ready, "removing with nothing ticked started")
         try expect(exists(home + "/Library/CloudStorage/Dropbox/Documents/report.pdf"), "a Dropbox file is gone")
+    }
+
+    /// The Space Freed history lists the cleans of the scenarios before it, by tool, with their items still in the
+    /// Trash; it only reads.
+    private func historyScenario() async throws {
+        let written = AppEnvironment.history?.load() ?? []
+        try expect(!written.isEmpty, "the cleanup history in the sandbox is empty")
+        let history = model.history
+        model.openHistory()
+        try await expectSheet("Space Freed")
+        try await waitUntil("the history to load", limit: 20) { history.loaded && !history.isLoading }
+        let summary = history.history
+        let tools = Set(summary.tools.map(\.tool))
+        try expect(summary.freedBytes == SpaceFreedHistory(reports: written).freedBytes && summary.freedBytes > 0,
+                   "freed \(summary.freedBytes)")
+        for tool in [CleanupTool.review, .smartClean, .duplicates] {
+            try expect(tools.contains(tool), "no \(tool.rawValue) cleans in the history: \(tools.map { $0?.rawValue ?? "none" })")
+        }
+        try expect(summary.months.count == 12 && summary.months.last?.freedBytes == summary.entries
+            .filter { Calendar.current.isDate($0.date, equalTo: Date(), toGranularity: .month) }.reduce(0) { $0 + $1.freedBytes },
+                   "this month's bar is \(summary.months.last?.freedBytes ?? -1)")
+        let smart = summary.entries(of: .smartClean).first
+        try expect(smart?.items.contains { $0.path == cachePath } == true, "the Smart Clean entry has \(smart?.items.map(\.path) ?? [])")
+        guard let item = smart?.items.first(where: { $0.path == cachePath }) else { throw Failure("no cache item") }
+        try expect(history.isInTrash(item), "the cleaned cache is not shown as still in the Trash")
+        history.grouping = .tool
+        try? await Task.sleep(for: .milliseconds(300))
+        history.grouping = .date
+        try expect(exists(item.trashedTo ?? ""), "opening the history changed the Trash")
     }
 
     /// The background check measures the junk and keeps its summary in the test's settings.
