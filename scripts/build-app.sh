@@ -20,6 +20,8 @@ for lproj in Localization/*.lproj; do
     [[ -d "$lproj" ]] && cp -R "$lproj" "$APP/Contents/Resources/"
 done
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+# The Shortcuts actions' metadata, which Xcode would make; never fails the build.
+./scripts/app-intents-metadata.sh "$BIN_DIR" "$APP"
 # Optional version stamping, used by the release workflow: VERSION=1.2.3 BUILD_NUMBER=42 ./scripts/build-app.sh
 if [[ -n "${VERSION:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
