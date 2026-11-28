@@ -2,7 +2,6 @@ import AppIntents
 import AppKit
 import Foundation
 import RoomyCore
-import UniformTypeIdentifiers
 
 // Actions for the Shortcuts app. Each runs inside RoomyDisk without opening its window. Clean Junk only moves what
 // Smart Clean ticks by itself, asks first, and goes through CleanupService and the safety rules like the app does.
@@ -13,14 +12,16 @@ struct ScanFolderIntent: AppIntent {
     static var description = IntentDescription("Measures a folder and lists the items that take the most space.")
     static var openAppWhenRun = false
 
-    @Parameter(title: "Folder", supportedContentTypes: [.folder])
+    @Parameter(title: "Folder")
     var folder: IntentFile
 
     @Parameter(title: "Number of Items", default: 10, inclusiveRange: (1, 100))
     var count: Int
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        guard let url = folder.fileURL else { throw ShortcutError.noFolder }
+        var isFolder: ObjCBool = false
+        guard let url = folder.fileURL, FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder),
+              isFolder.boolValue else { throw ShortcutError.noFolder }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let tree = try await DiskScanner().scan(root: url.path)
