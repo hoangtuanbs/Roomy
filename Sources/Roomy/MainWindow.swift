@@ -7,7 +7,7 @@ import SwiftUI
 @MainActor
 enum MainWindow {
     /// Where a click on a RoomyDisk notification leads.
-    enum Route: Sendable {
+    enum Route: Sendable, Equatable {
         case main, smartClean, diskHealth
         /// The Uninstaller with this app chosen, from the Finder service.
         case uninstall(String)
